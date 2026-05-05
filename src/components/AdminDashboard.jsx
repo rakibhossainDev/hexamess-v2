@@ -50,6 +50,7 @@ export const DashboardHome = () => {
   const [billAmount, setBillAmount] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [newMember, setNewMember] = useState({ name:'', username:'', password:'', deposit:'' });
+  const [isAdding, setIsAdding] = useState(false);
   const { toasts, showToast, removeToast } = useToast();
 
   useEffect(() => {
@@ -95,6 +96,7 @@ export const DashboardHome = () => {
       return;
     }
 
+    setIsAdding(true);
     try {
       const dep = Number(newMember.deposit) || 0;
       const docRef = await addDoc(collection(db, 'users'), {
@@ -125,8 +127,10 @@ export const DashboardHome = () => {
       setShowAddForm(false);
       showToast('সদস্য সফলভাবে যোগ হয়েছে!', 'success');
     } catch (err) { 
-      console.error(err); 
-      showToast('মেম্বার যুক্ত করতে সমস্যা হয়েছে।', 'error'); 
+      console.error("Firebase Add Member Error:", err); 
+      showToast(`মেম্বার যুক্ত করতে সমস্যা হয়েছে: ${err.message || 'Unknown Error'}`, 'error'); 
+    } finally {
+      setIsAdding(false);
     }
   };
 
@@ -204,7 +208,11 @@ export const DashboardHome = () => {
             <div className="form-group"><label>ইউজারনেম</label><input className="form-control" value={newMember.username} onChange={e=>setNewMember({...newMember, username:e.target.value})} required /></div>
             <div className="form-group"><label>পাসওয়ার্ড</label><input className="form-control" type="password" value={newMember.password} onChange={e=>setNewMember({...newMember, password:e.target.value})} required /></div>
             <div className="form-group"><label>প্রাথমিক ডিপোজিট (৳)</label><input className="form-control" type="number" value={newMember.deposit} onChange={e=>setNewMember({...newMember, deposit:e.target.value})} /></div>
-            <div style={{ gridColumn:'1/-1', textAlign:'right' }}><button className="btn btn-primary" type="submit">যোগ করুন</button></div>
+            <div style={{ gridColumn:'1/-1', textAlign:'right' }}>
+              <button className="btn btn-primary" type="submit" disabled={isAdding}>
+                {isAdding ? 'যুক্ত হচ্ছে...' : 'যোগ করুন'}
+              </button>
+            </div>
           </form>
         </div>
       )}
