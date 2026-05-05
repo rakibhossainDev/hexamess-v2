@@ -42,6 +42,7 @@ export const DashboardHome = () => {
   const [members, setMembers] = useState([]);
   const [fixedBills, setFixedBills] = useState([]);
   const [approvedExpenses, setApprovedExpenses] = useState([]);
+  const [pendingExpenses, setPendingExpenses] = useState([]);
   const [config, setConfig] = useState(null);
   const [depositAmount, setDepositAmount] = useState('');
   const [selectedMember, setSelectedMember] = useState('');
@@ -63,7 +64,8 @@ export const DashboardHome = () => {
     const mid = config.current_month_id;
     const u1 = onSnapshot(query(collection(db, 'fixed_costs'), where('month_id', '==', mid)), snap => setFixedBills(snap.docs.map(d => ({ id:d.id, ...d.data() }))));
     const u2 = onSnapshot(query(collection(db, 'expenses'), where('month_id', '==', mid), where('status', '==', 'approved')), snap => setApprovedExpenses(snap.docs.map(d => ({ id:d.id, ...d.data() }))));
-    return () => { u1(); u2(); };
+    const u3 = onSnapshot(query(collection(db, 'expenses'), where('month_id', '==', mid), where('status', '==', 'pending')), snap => setPendingExpenses(snap.docs.map(d => ({ id:d.id, ...d.data() }))));
+    return () => { u1(); u2(); u3(); };
   }, [config]);
 
   const activeMembers = useMemo(() => members.filter(m => m.status === 'active'), [members]);
@@ -172,6 +174,16 @@ export const DashboardHome = () => {
       showToast(`বিল যুক্ত! (৳${amt}/6) জনপ্রতি ৳${perHead.toFixed(0)} কাটা হয়েছে।`, 'success');
     } catch (err) { console.error(err); showToast('বিল যুক্ত ব্যর্থ।', 'error'); }
   };
+  const handleApprove = async (id) => {
+    try {
+      await updateDoc(doc(db, 'expenses', id), { status: 'approved' });
+      showToast('খরচ অনুমোদিত হয়েছে!', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('অনুমোদনে সমস্যা হয়েছে।', 'error');
+    }
+  };
+
 
   return (
     <>
@@ -218,6 +230,30 @@ export const DashboardHome = () => {
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(340px, 1fr))', gap:'1.5rem', marginBottom:'0.5rem' }}>
+        <div className="card">
+          <h3 style={{ marginBottom:'1.5rem', color:'var(--accent-orange)' }}>⚖️ পেন্ডিং বাজার অনুমোদন</h3>
+          {pendingExpenses.length === 0 ? (
+            <p style={{ color:'var(--text-secondary)', textAlign:'center', padding:'1rem' }}>কোনো পেন্ডিং খরচ নেই।</p>
+          ) : (
+            <div style={{ display:'flex', flexDirection:'column', gap:'1rem', maxHeight: '400px', overflowY: 'auto' }}>
+              {pendingExpenses.map(exp => (
+                <div key={exp.id} className="glass-card" style={{ padding:'1rem', border:'1px solid var(--border-color)', borderRadius:'12px' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'0.5rem' }}>
+                    <span style={{ fontWeight:'700' }}>{exp.shopper_name}</span>
+                    <span style={{ color:'var(--accent-orange)', fontWeight:'800' }}>৳{exp.cost}</span>
+                  </div>
+                  <p style={{ fontSize:'0.875rem', color:'var(--text-secondary)', marginBottom:'1rem' }}>{exp.details}</p>
+                  <button 
+                    className="btn btn-primary" style={{ width:'100%', fontSize:'0.8125rem' }}
+                    onClick={() => handleApprove(exp.id)}
+                  >
+                    অনুমোদন করুন
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
         <div className="card">
           <h3 style={{ marginBottom:'1.5rem', color:'var(--accent-blue)' }}>মেম্বার ডিপোজিট</h3>
           <form onSubmit={handleDeposit}>
