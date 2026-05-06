@@ -23,14 +23,14 @@ const LoadingFallback = () => (
 
 /* ─── Admin Route Guard ─── */
 const AdminGuard = ({ children }) => {
-  const isAdmin = sessionStorage.getItem('hexamess-admin') === 'true';
+  const isAdmin = localStorage.getItem('hexamess-admin') === 'true';
   if (!isAdmin) return <Navigate to="/" replace />;
   return children;
 };
 
 /* ─── Member Route Guard ─── */
 const MemberGuard = ({ children }) => {
-  const userId = sessionStorage.getItem('hexamess-user-id');
+  const userId = localStorage.getItem('hexamess-user-id');
   if (!userId) return <Navigate to="/" replace />;
   return children;
 };

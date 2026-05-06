@@ -13,7 +13,7 @@ import { EXPENSE_CATEGORIES } from '../utils/monthUtils';
 
 const AdminDashboard = () => {
   const [currentUser, setCurrentUser] = useState(null);
-  const userId = sessionStorage.getItem('hexamess-user-id');
+  const userId = localStorage.getItem('hexamess-user-id');
 
   useEffect(() => {
     if (!db || !userId) return;
@@ -125,7 +125,7 @@ export const DashboardHome = () => {
       
       setNewMember({ name:'', username:'', password:'', deposit:'' }); 
       setShowAddForm(false);
-      showToast('সদস্য সফলভাবে যোগ হয়েছে!', 'success');
+      showToast('সদস্য সফলভাবে যুক্ত করা হয়েছে!', 'success');
     } catch (err) { 
       console.error("Firebase Add Member Error:", err); 
       showToast(`মেম্বার যুক্ত করতে সমস্যা হয়েছে: ${err.message || 'Unknown Error'}`, 'error'); 
@@ -162,7 +162,7 @@ export const DashboardHome = () => {
     if (activeMembers.length === 0) { showToast('কোনো একটিভ মেম্বার নেই!', 'error'); return; }
     try {
       const amt = Number(billAmount);
-      const managerName = sessionStorage.getItem('hexamess-user-name') || 'অজানা';
+      const managerName = localStorage.getItem('hexamess-user-name') || 'অজানা';
       await addDoc(collection(db, 'fixed_costs'), { 
         month_id: config?.current_month_id || '', 
         category: billCategory, 

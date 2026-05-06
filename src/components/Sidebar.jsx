@@ -25,7 +25,7 @@ const Sidebar = ({ isManager = false }) => {
   const menuItems = isManager ? adminItems : memberItems;
 
   const handleLogout = () => {
-    sessionStorage.clear();
+    localStorage.clear();
     navigate('/');
   };
 

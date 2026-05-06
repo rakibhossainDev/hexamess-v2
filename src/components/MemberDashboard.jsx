@@ -17,7 +17,7 @@ const MemberDashboard = () => {
   const [advance, setAdvance] = useState('');
   const { toasts, showToast, removeToast } = useToast();
 
-  const userId = sessionStorage.getItem('hexamess-user-id');
+  const userId = localStorage.getItem('hexamess-user-id');
   const today = getTodayDateString();
 
   useEffect(() => {

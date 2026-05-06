@@ -10,8 +10,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 const Profile = ({ isAdminView = false }) => {
   const { id: paramId } = useParams();
   const navigate = useNavigate();
-  const loggedInUserId = sessionStorage.getItem('hexamess-user-id');
-  const isAdmin = sessionStorage.getItem('hexamess-admin') === 'true';
+  const loggedInUserId = localStorage.getItem('hexamess-user-id');
+  const isAdmin = localStorage.getItem('hexamess-admin') === 'true';
   
   // Use paramId if in admin view, otherwise use loggedInUserId
   const userId = isAdminView ? paramId : loggedInUserId;
@@ -87,6 +87,7 @@ const Profile = ({ isAdminView = false }) => {
     setUpdating(true);
     try {
       await updateDoc(doc(db, 'users', userId), {
+        photoURL: formData.photoURL,
         bloodGroup: formData.bloodGroup,
         mobileNumber: formData.mobileNumber,
         address: formData.address,
@@ -154,22 +155,32 @@ const Profile = ({ isAdminView = false }) => {
           <h3 style={{ marginBottom: '1.5rem', color: 'var(--accent-blue)' }}>তথ্য আপডেট করুন</h3>
           <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             {!isAdminView && (
-              <div className="form-group">
-                <label>প্রোফাইল ফটো আপলোড</label>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              <>
+                <div className="form-group">
+                  <label>প্রোফাইল ফটো (URL)</label>
                   <input 
-                    type="file" 
-                    accept="image/*"
-                    onChange={handlePhotoUpload}
-                    style={{ display: 'none' }}
-                    id="photo-upload"
+                    className="form-control"
+                    placeholder="ছবির লিঙ্ক দিন..."
+                    value={formData.photoURL}
+                    onChange={(e) => setFormData({ ...formData, photoURL: e.target.value })}
                   />
-                  <label htmlFor="photo-upload" className="btn" style={{ background: 'var(--surface-hover)', cursor: 'pointer', flex: 1 }}>
-                    {uploading ? 'আপলোড হচ্ছে...' : '📁 ছবি নির্বাচন করুন'}
-                  </label>
-                  {formData.photoURL && <span style={{ color: 'var(--accent-green)' }}>✓</span>}
                 </div>
-              </div>
+                <div className="form-group">
+                  <label>বা সরাসরি আপলোড করুন</label>
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
+                      style={{ display: 'none' }}
+                      id="photo-upload"
+                    />
+                    <label htmlFor="photo-upload" className="btn" style={{ background: 'var(--surface-hover)', cursor: 'pointer', flex: 1 }}>
+                      {uploading ? 'আপলোড হচ্ছে...' : '📁 ছবি নির্বাচন করুন'}
+                    </label>
+                  </div>
+                </div>
+              </>
             )}
             
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>

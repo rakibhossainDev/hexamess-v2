@@ -41,10 +41,10 @@ const Login = () => {
       if (activeTab === 'manager') {
         // Manager Login: Hardcoded for now as per plan
         if (username === 'admin' && password === '112233') {
-          sessionStorage.setItem('hexamess-user-id', 'admin-id');
-          sessionStorage.setItem('hexamess-user-name', 'মেস ম্যানেজার');
-          sessionStorage.setItem('hexamess-user-role', 'manager');
-          sessionStorage.setItem('hexamess-admin', 'true');
+          localStorage.setItem('hexamess-user-id', 'admin-id');
+          localStorage.setItem('hexamess-user-name', 'মেস ম্যানেজার');
+          localStorage.setItem('hexamess-user-role', 'manager');
+          localStorage.setItem('hexamess-admin', 'true');
           navigate('/admin');
         } else {
           setError('ম্যানেজার ইউজারনেম বা পাসওয়ার্ড সঠিক নয়।');
@@ -69,15 +69,15 @@ const Login = () => {
           }
 
           // Store Session Info
-          sessionStorage.setItem('hexamess-user-id', userDoc.id);
-          sessionStorage.setItem('hexamess-user-name', userData.name);
-          sessionStorage.setItem('hexamess-user-role', userData.role);
+          localStorage.setItem('hexamess-user-id', userDoc.id);
+          localStorage.setItem('hexamess-user-name', userData.name);
+          localStorage.setItem('hexamess-user-role', userData.role);
           
           if (userData.role === 'manager') {
-            sessionStorage.setItem('hexamess-admin', 'true');
+            localStorage.setItem('hexamess-admin', 'true');
             navigate('/admin');
           } else {
-            sessionStorage.removeItem('hexamess-admin');
+            localStorage.removeItem('hexamess-admin');
             navigate('/member');
           }
         } else {

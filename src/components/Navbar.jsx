@@ -26,7 +26,7 @@ const Navbar = ({ userName = 'ব্যবহারকারী', userRole = '�
   };
 
   const handleLogout = () => {
-    sessionStorage.clear();
+    localStorage.clear();
     navigate('/');
   };
 

@@ -66,6 +66,8 @@ const MemberList = () => {
               <thead>
                 <tr>
                   <th>নাম ও ইউজারনেম</th>
+                  <th style={{ textAlign: 'center' }}>রক্ত</th>
+                  <th style={{ textAlign: 'center' }}>মোবাইল</th>
                   <th style={{ textAlign: 'right' }}>ডিপোজিট</th>
                   <th style={{ textAlign: 'right' }}>ব্যালেন্স</th>
                   <th style={{ textAlign: 'center' }}>মিল</th>
@@ -82,6 +84,8 @@ const MemberList = () => {
                         <div style={{ fontWeight: '600' }}>{m.name}</div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>@{m.username}</div>
                       </td>
+                      <td style={{ textAlign: 'center', color: 'var(--accent-red)', fontWeight: '700' }}>{m.bloodGroup || '—'}</td>
+                      <td style={{ textAlign: 'center', fontSize: '0.8125rem' }}>{m.mobileNumber || '—'}</td>
                       <td style={{ textAlign: 'right' }}>৳{(m.total_deposit || 0).toLocaleString()}</td>
                       <td style={{ textAlign: 'right', fontWeight: '700', color: isNeg ? 'var(--accent-red)' : 'var(--accent-green)' }}>৳{(m.current_balance || 0).toLocaleString()}</td>
                       <td style={{ textAlign: 'center', fontWeight: '600', color: 'var(--accent-blue)' }}>{m.total_meals || 0}</td>
