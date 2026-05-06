@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import BottomNav from './BottomNav';
 import { db, collection, getDocs, doc, getDoc } from '../firebase';
@@ -10,6 +11,8 @@ const HistoryArchive = () => {
   const [historyData, setHistoryData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [userRole] = useState(localStorage.getItem('hexamess-user-role') || 'member');
+  const location = useLocation();
+  const isAdminPath = location.pathname.startsWith('/admin');
 
   const loadMonthData = async (monthId) => {
     setLoading(true);
@@ -43,9 +46,9 @@ const HistoryArchive = () => {
   }, []);
 
   return (
-    <div className="app-layout">
-      <main className="main-content" style={{ padding: '0 0 80px 0' }}>
-        <Navbar userName={localStorage.getItem('hexamess-user-name')} userRole={userRole === 'manager' ? 'ম্যানেজার' : 'সদস্য'} />
+    <div className={isAdminPath ? "" : "app-layout"}>
+      <main className="main-content" style={{ padding: isAdminPath ? 0 : '0 0 80px 0' }}>
+        {!isAdminPath && <Navbar userName={localStorage.getItem('hexamess-user-name')} userRole={userRole === 'manager' ? 'ম্যানেজার' : 'সদস্য'} />}
         
         <div style={{ padding: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
@@ -167,7 +170,7 @@ const HistoryArchive = () => {
           )}
         </div>
       </main>
-      <BottomNav isManager={userRole === 'manager'} />
+      {!isAdminPath && <BottomNav isManager={userRole === 'manager'} />}
     </div>
   );
 };

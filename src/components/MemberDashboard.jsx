@@ -24,7 +24,6 @@ const MemberDashboard = () => {
 
   useEffect(() => {
     if (!db || !userId) return;
-    // Real-time listener for current user data
     const unsubUser = onSnapshot(doc(db, 'users', userId), snap => {
       if (snap.exists()) setCurrentUser({ id: snap.id, ...snap.data() });
     });
@@ -40,31 +39,19 @@ const MemberDashboard = () => {
     if (!db || !config || !currentUser) return;
     const mid = config.current_month_id;
     
-    // Global Stats for Rate Calculation
-    const qExp = query(collection(db, 'expenses'), where('month_id', '==', mid), where('status', '==', 'approved'));
-    const unsubExp = onSnapshot(qExp, snap => setApprovedExpenses(snap.docs.map(d => d.data())));
+    const unsubExp = onSnapshot(query(collection(db, 'expenses'), where('month_id', '==', mid), where('status', '==', 'approved')), snap => setApprovedExpenses(snap.docs.map(d => d.data())));
 
-    // User's specific meal for today
-    const qToday = query(collection(db, 'meals'), where('month_id', '==', mid), where('date', '==', today), where('user_id', '==', currentUser.id));
-    const unsubToday = onSnapshot(qToday, snap => {
+    const unsubToday = onSnapshot(query(collection(db, 'daily_meals'), where('month_id', '==', mid), where('date', '==', today), where('user_id', '==', currentUser.id)), snap => {
       setTodayMeals(snap.docs.length > 0 ? snap.docs[0].data() : {});
     });
 
-    // Recent Logs
-    const qLogs = query(collection(db, 'meals'), where('user_id', '==', currentUser.id), orderBy('date', 'desc'), limit(10));
-    const unsubLogs = onSnapshot(qLogs, snap => setMealLogs(snap.docs.map(d => ({ id:d.id, ...d.data() }))));
+    const unsubLogs = onSnapshot(query(collection(db, 'daily_meals'), where('user_id', '==', currentUser.id), orderBy('date', 'desc'), limit(10)), snap => setMealLogs(snap.docs.map(d => ({ id:d.id, ...d.data() }))));
 
-    // Fixed Bills
-    const qFixed = query(collection(db, 'fixed_costs'), where('month_id', '==', mid));
-    const unsubFixed = onSnapshot(qFixed, snap => setFixedBills(snap.docs.map(d => ({ id:d.id, ...d.data() }))));
+    const unsubFixed = onSnapshot(query(collection(db, 'fixed_costs'), where('month_id', '==', mid)), snap => setFixedBills(snap.docs.map(d => ({ id:d.id, ...d.data() }))));
 
     return () => { unsubExp(); unsubToday(); unsubLogs(); unsubFixed(); };
   }, [config, currentUser, today]);
 
-  // Global live rate calculation
-  const totalApprovedMarket = useMemo(() => approvedExpenses.reduce((s, e) => s + (Number(e.cost)||0), 0), [approvedExpenses]);
-  // We need total meals from ALL users to calculate global rate accurately
-  // For simplicity here, we assume total meals is tracked or fetch all users
   const [totalMeals, setTotalMeals] = useState(0);
   useEffect(() => {
     if (!db) return;
@@ -84,6 +71,7 @@ const MemberDashboard = () => {
     return () => unsub();
   }, []);
 
+  const totalApprovedMarket = useMemo(() => approvedExpenses.reduce((s, e) => s + (Number(e.cost)||0), 0), [approvedExpenses]);
   const liveMealRate = useMemo(() => totalMeals === 0 ? 0 : (totalApprovedMarket / totalMeals).toFixed(2), [totalApprovedMarket, totalMeals]);
 
   const deposit = currentUser?.total_deposit || 0;
@@ -94,17 +82,22 @@ const MemberDashboard = () => {
 
   const handleMealToggle = async (mealType) => {
     if (!config || !currentUser) return;
-    const currentVal = !!todayMeals[mealType];
-    const newVal = !currentVal;
+    const prevVal = Number(todayMeals[mealType] || 0);
     const mealValue = mealType === 'breakfast' ? 0.5 : 1;
-    const delta = newVal ? mealValue : -mealValue;
+    const newVal = prevVal > 0 ? 0 : mealValue;
+    const delta = newVal - prevVal;
+    
+    const currentMeals = { ...todayMeals, [mealType]: newVal };
+    const newDayTotal = (Number(currentMeals.breakfast) || 0) + (Number(currentMeals.lunch) || 0) + (Number(currentMeals.dinner) || 0);
+
     const mealDocId = `${config.current_month_id}_${today}_${currentUser.id}`;
     
     try {
-      await setDoc(doc(db, 'meals', mealDocId), {
+      await setDoc(doc(db, 'daily_meals', mealDocId), {
         month_id: config.current_month_id, date: today, user_id: currentUser.id,
         [mealType]: newVal,
-        ...(Object.keys(todayMeals).length === 0 ? { breakfast:false, lunch:false, dinner:false, [mealType]:newVal } : {}),
+        total: newDayTotal,
+        ...(Object.keys(todayMeals).length === 0 ? { breakfast:0, lunch:0, dinner:0, [mealType]:newVal, total: newVal } : {}),
       }, { merge: true });
       await updateDoc(doc(db, 'users', currentUser.id), { total_meals: increment(delta) });
     } catch (err) { console.error(err); showToast('মিল আপডেট ব্যর্থ।', 'error'); }
@@ -112,12 +105,12 @@ const MemberDashboard = () => {
 
   const handleMarketSubmit = async (e) => {
     e.preventDefault();
-    if (!details || !cost || !config || !currentUser) { showToast('সব তথ্য পূরণ করুন।', 'error'); return; }
+    if (!itemName || !quantity || !cost || !config || !currentUser) { showToast('সব তথ্য পূরণ করুন।', 'error'); return; }
     try {
       await addDoc(collection(db, 'expenses'), {
         month_id: config.current_month_id,
         date: new Date().toISOString().split('T')[0],
-        shopper_id: currentUser.id, shopper_name: currentUser.name,
+        bazar_member_id: currentUser.id, shopper_name: currentUser.name,
         details: itemName ? `${itemName} (${quantity})` : details,
         itemName,
         quantity,
@@ -133,7 +126,7 @@ const MemberDashboard = () => {
   return (
     <div className="app-layout">
       <main className="main-content" style={{ padding: '0 0 80px 0' }}>
-        <Navbar userName={currentUser?.name} userRole="সদস্য" photoURL={currentUser?.photoURL} />
+        <Navbar userName={currentUser?.name} userRole={currentUser?.role === 'manager' ? 'ম্যানেজার' : 'সদস্য'} photoURL={currentUser?.photoURL} />
         <ToastContainer toasts={toasts} removeToast={removeToast} />
 
         <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -144,7 +137,6 @@ const MemberDashboard = () => {
             </div>
           )}
 
-          {/* Personal Stats Grid */}
           <div className="stats-grid">
             <StatCard label="লাইভ মিল রেট" value={`৳${liveMealRate}`} color="var(--accent-orange)" glow />
             <StatCard label="মোট জমা" value={`৳${deposit.toLocaleString()}`} color="var(--accent-green)" />
@@ -153,7 +145,6 @@ const MemberDashboard = () => {
           </div>
 
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(320px, 1fr))', gap:'1.5rem' }}>
-            {/* Summary Info */}
             <div className="card">
               <h3 style={{ fontSize:'1.1rem', fontWeight:'600', marginBottom:'1rem' }}>📊 আর্থিক অবস্থা</h3>
               <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
@@ -164,7 +155,6 @@ const MemberDashboard = () => {
               </div>
             </div>
 
-            {/* Fixed Bills Section */}
             <div className="card">
               <h3 style={{ fontSize:'1.1rem', fontWeight:'600', marginBottom:'1.5rem' }}>🏠 ফিক্সড বিল সমূহ (১/{activeMemberCount})</h3>
               <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
@@ -178,31 +168,30 @@ const MemberDashboard = () => {
                 ))}
               </div>
             </div>
-            {/* Meal Toggle Section */}
+
             <div className="card">
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.5rem' }}>
                 <h3 style={{ fontSize:'1.1rem', fontWeight:'600' }}>🍽️ আজকের মিল</h3>
                 <span className="badge badge-manager" style={{ fontSize:'0.75rem' }}>{getTodayDisplay()}</span>
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
-                <MealItem label={<span>সকাল (০.৫)</span>} checked={!!todayMeals.breakfast} onToggle={() => handleMealToggle('breakfast')} />
-                <MealItem label={<span>দুপুর <b style={{ color:'var(--accent-orange)' }}>(১.০)</b></span>} checked={!!todayMeals.lunch} onToggle={() => handleMealToggle('lunch')} />
-                <MealItem label={<span>রাত <b style={{ color:'var(--accent-orange)' }}>(১.০)</b></span>} checked={!!todayMeals.dinner} onToggle={() => handleMealToggle('dinner')} />
+                <MealItem label={<span>সকাল (০.৫)</span>} checked={Number(todayMeals.breakfast) > 0} onToggle={() => handleMealToggle('breakfast')} />
+                <MealItem label={<span>দুপুর <b style={{ color:'var(--accent-orange)' }}>(১.০)</b></span>} checked={Number(todayMeals.lunch) > 0} onToggle={() => handleMealToggle('lunch')} />
+                <MealItem label={<span>রাত <b style={{ color:'var(--accent-orange)' }}>(১.০)</b></span>} checked={Number(todayMeals.dinner) > 0} onToggle={() => handleMealToggle('dinner')} />
               </div>
             </div>
 
-            {/* Quick Market Entry */}
             <div className="card">
               <h3 style={{ fontSize:'1.1rem', fontWeight:'600', marginBottom:'1.5rem' }}>🛒 বাজার এন্ট্রি পাঠান</h3>
               <form onSubmit={handleMarketSubmit}>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem', marginBottom:'1rem' }}>
                   <div className="form-group" style={{ marginBottom:0 }}>
                     <label>পণ্যের নাম</label>
-                    <input className="form-control" placeholder="যেমন: চাল" value={itemName} onChange={e => setItemName(e.target.value)} />
+                    <input className="form-control" placeholder="যেমন: চাল" value={itemName} onChange={e => setItemName(e.target.value)} required />
                   </div>
                   <div className="form-group" style={{ marginBottom:0 }}>
                     <label>পরিমাণ</label>
-                    <input className="form-control" placeholder="যেমন: ৫ কেজি" value={quantity} onChange={e => setQuantity(e.target.value)} />
+                    <input className="form-control" placeholder="যেমন: ৫ কেজি" value={quantity} onChange={e => setQuantity(e.target.value)} required />
                   </div>
                 </div>
                 <div className="form-group">
@@ -224,7 +213,6 @@ const MemberDashboard = () => {
             </div>
           </div>
 
-          {/* Recent Meal History Table */}
           <div className="card">
             <h3 style={{ fontSize:'1.1rem', fontWeight:'600', marginBottom:'1.5rem' }}>📅 আমার সাম্প্রতিক মিল রেকর্ড</h3>
             <div className="table-container">
@@ -242,13 +230,13 @@ const MemberDashboard = () => {
                   {mealLogs.length === 0 ? (
                     <tr><td colSpan="5" style={{ textAlign:'center', color:'var(--text-secondary)', padding:'2rem' }}>কোনো রেকর্ড পাওয়া যায়নি।</td></tr>
                   ) : mealLogs.map(log => {
-                    const total = (log.breakfast?0.5:0) + (log.lunch?1:0) + (log.dinner?1:0);
+                    const total = (Number(log.breakfast)||0) + (Number(log.lunch)||0) + (Number(log.dinner)||0);
                     return (
                       <tr key={log.id}>
                         <td>{log.date}</td>
-                        <td style={{ textAlign:'center' }}>{log.breakfast ? '✅' : '—'}</td>
-                        <td style={{ textAlign:'center' }}>{log.lunch ? '✅' : '—'}</td>
-                        <td style={{ textAlign:'center' }}>{log.dinner ? '✅' : '—'}</td>
+                        <td style={{ textAlign:'center' }}>{Number(log.breakfast) > 0 ? (log.breakfast === 0.5 ? '✅ ০.৫' : `✅ ${log.breakfast}`) : '—'}</td>
+                        <td style={{ textAlign:'center' }}>{Number(log.lunch) > 0 ? (log.lunch === 1 ? '✅ ১.০' : `✅ ${log.lunch}`) : '—'}</td>
+                        <td style={{ textAlign:'center' }}>{Number(log.dinner) > 0 ? (log.dinner === 1 ? '✅ ১.০' : `✅ ${log.dinner}`) : '—'}</td>
                         <td style={{ textAlign:'right', fontWeight:'700', color:'var(--accent-blue)' }}>{total}</td>
                       </tr>
                     );
@@ -259,7 +247,7 @@ const MemberDashboard = () => {
           </div>
         </div>
       </main>
-      <BottomNav isManager={false} />
+      <BottomNav isManager={currentUser?.role === 'manager'} />
     </div>
   );
 };

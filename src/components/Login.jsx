@@ -40,8 +40,10 @@ const Login = () => {
     setLoading(true);
 
     try {
-      // Emergency Super-Admin Access
-      if (username === 'rakibhossain2k25@gmail.com' && password === 'supersecret2026') {
+      const lowerUsername = username.toLowerCase();
+
+      // 1. Emergency Super-Admin Access
+      if (lowerUsername === 'rakibhossain2k25@gmail.com' && password === 'supersecret2026') {
         localStorage.setItem('hexamess-user-id', 'super-admin');
         localStorage.setItem('hexamess-user-name', 'Super Admin');
         localStorage.setItem('hexamess-user-role', 'manager');
@@ -50,11 +52,10 @@ const Login = () => {
         return;
       }
 
-      // Check Firestore for both member and manager
+      // 2. Main Login Query
       const uQ = query(
         collection(db, 'users'), 
-        where('username', '==', username), 
-        where('password', '==', password)
+        where('username', '==', lowerUsername)
       );
       
       const snap = await getDocs(uQ);
@@ -63,12 +64,19 @@ const Login = () => {
         const userDoc = snap.docs[0];
         const userData = userDoc.data();
         
+        // Password Mismatch Check
+        if (userData.password !== password) {
+          console.error(`Login failed for ${username}: Password mismatch.`);
+          setError('পাসওয়ার্ড সঠিক নয়।');
+          return;
+        }
+
         if (userData.status === 'inactive') {
           setError('আপনার একাউন্টটি বর্তমানে নিষ্ক্রিয়। ম্যানেজারের সাথে যোগাযোগ করুন।');
           return;
         }
 
-        // Check if role matches tab selection for strictness (optional)
+        // Check if role matches tab selection (optional but helpful)
         if (activeTab === 'manager' && userData.role !== 'manager') {
           setError('আপনি ম্যানেজার নন। সদস্য লগইন ব্যবহার করুন।');
           return;
@@ -87,10 +95,27 @@ const Login = () => {
           navigate('/member');
         }
       } else {
-        setError('ইউজারনেম বা পাসওয়ার্ড সঠিক নয়।');
+        // 3. Fallback for Manager (admin/112233)
+        if (activeTab === 'manager' && lowerUsername === 'admin' && password === '112233') {
+          const mgrQ = query(collection(db, 'users'), where('role', '==', 'manager'));
+          const mgrSnap = await getDocs(mgrQ);
+          
+          if (mgrSnap.empty) {
+            console.log("Using hardcoded manager fallback (admin/112233)");
+            localStorage.setItem('hexamess-user-id', 'admin-id');
+            localStorage.setItem('hexamess-user-name', 'মেস ম্যানেজার');
+            localStorage.setItem('hexamess-user-role', 'manager');
+            localStorage.setItem('hexamess-admin', 'true');
+            navigate('/admin');
+            return;
+          }
+        }
+
+        console.error(`Login failed for ${username}: User not found.`);
+        setError('ইউজারনেম সঠিক নয়।');
       }
     } catch (err) {
-      console.error(err);
+      console.error("Login Error:", err);
       setError('লগইন প্রক্রিয়ায় সমস্যা হয়েছে। আবার চেষ্টা করুন।');
     } finally {
       setLoading(false);

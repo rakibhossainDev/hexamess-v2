@@ -6,12 +6,12 @@ const Login = lazy(() => import('./components/Login'));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 const DashboardHome = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.DashboardHome })));
 const MemberDashboard = lazy(() => import('./components/MemberDashboard'));
-const MealTracking = lazy(() => import('./components/MealTracking'));
-const ExpenseTracker = lazy(() => import('./components/ExpenseTracker'));
+const MealManagement = lazy(() => import('./components/MealManagement'));
+const MarketExpense = lazy(() => import('./components/MarketExpense'));
 const MemberList = lazy(() => import('./components/MemberList'));
 const MarketManager = lazy(() => import('./components/MarketManager'));
 const HistoryArchive = lazy(() => import('./components/HistoryArchive'));
-const SettingsScreen = lazy(() => import('./components/SettingsScreen'));
+const Settings = lazy(() => import('./components/Settings'));
 const Profile = lazy(() => import('./components/Profile'));
 
 // Loading Placeholder
@@ -58,13 +58,13 @@ function App() {
             }
           >
             <Route index element={<DashboardHome />} />
-            <Route path="meals" element={<MealTracking />} />
+            <Route path="meals" element={<MealManagement />} />
             <Route path="market" element={<MarketManager />} />
-            <Route path="expenses" element={<ExpenseTracker />} />
+            <Route path="expenses" element={<MarketExpense />} />
             <Route path="members" element={<MemberList />} />
             <Route path="members/:id" element={<Profile isAdminView={true} />} />
             <Route path="history" element={<HistoryArchive />} />
-            <Route path="settings" element={<SettingsScreen />} />
+            <Route path="settings" element={<Settings />} />
             <Route path="profile" element={<Profile />} />
           </Route>
 

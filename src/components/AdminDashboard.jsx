@@ -99,9 +99,11 @@ export const DashboardHome = () => {
     setIsAdding(true);
     try {
       const dep = Number(newMember.deposit) || 0;
+      const lowerUsername = newMember.username.toLowerCase();
+      
       const docRef = await addDoc(collection(db, 'users'), {
         name: newMember.name, 
-        username: newMember.username, 
+        username: lowerUsername, 
         password: newMember.password,
         role: 'member', 
         status: 'active', 
