@@ -40,11 +40,27 @@ export function getTodayDateString() {
 
 /** Today formatted for display in English */
 export function getTodayDisplay() {
-  return new Date().toLocaleDateString('en-GB', {
+  return new Date().toLocaleDateString('bn-BD', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
   });
+}
+
+/** Format YYYY-MM-DD to DD/MM/YYYY */
+export function formatDisplayDate(isoString) {
+  if (!isoString) return '—';
+  const [y, m, d] = isoString.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+/** Get Today as ISO YYYY-MM-DD */
+export function getTodayISO() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 /** Fixed expense categories */

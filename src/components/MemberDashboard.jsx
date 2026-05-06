@@ -73,6 +73,15 @@ const MemberDashboard = () => {
     return () => unsub();
   }, []);
 
+  const [activeMemberCount, setActiveMemberCount] = useState(6);
+  useEffect(() => {
+    if (!db) return;
+    const unsub = onSnapshot(query(collection(db, 'users'), where('status', '==', 'active')), snap => {
+      setActiveMemberCount(snap.docs.length || 6);
+    });
+    return () => unsub();
+  }, []);
+
   const liveMealRate = useMemo(() => totalMeals === 0 ? 0 : (totalApprovedMarket / totalMeals).toFixed(2), [totalApprovedMarket, totalMeals]);
 
   const deposit = currentUser?.total_deposit || 0;
@@ -152,14 +161,14 @@ const MemberDashboard = () => {
 
             {/* Fixed Bills Section */}
             <div className="card">
-              <h3 style={{ fontSize:'1.1rem', fontWeight:'600', marginBottom:'1.5rem' }}>🏠 ফিক্সড বিল সমূহ (১/৬)</h3>
+              <h3 style={{ fontSize:'1.1rem', fontWeight:'600', marginBottom:'1.5rem' }}>🏠 ফিক্সড বিল সমূহ (১/{activeMemberCount})</h3>
               <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
                 {fixedBills.length === 0 ? (
                   <p style={{ color:'var(--text-secondary)', fontSize:'0.9rem' }}>এই মাসে কোনো ফিক্সড বিল নেই।</p>
                 ) : fixedBills.map(bill => (
                   <div key={bill.id} style={{ display:'flex', justifyContent:'space-between', padding:'0.75rem', background:'var(--surface-hover)', borderRadius:'var(--radius-sm)' }}>
                     <span>{bill.category}</span>
-                    <span style={{ fontWeight:'700' }}>৳{(bill.amount / 6).toFixed(0)}</span>
+                    <span style={{ fontWeight:'700' }}>৳{(bill.amount / activeMemberCount).toFixed(0)}</span>
                   </div>
                 ))}
               </div>

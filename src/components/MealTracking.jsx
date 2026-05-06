@@ -9,9 +9,8 @@ const MealTracking = () => {
   const [todayMeals, setTodayMeals] = useState({});
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState(getTodayDateString());
   const { toasts, showToast, removeToast } = useToast();
-
-  const today = getTodayDateString();
 
   useEffect(() => {
     if (!db) {
@@ -28,20 +27,20 @@ const MealTracking = () => {
     return () => { u1(); u2(); };
   }, []);
 
-  // Load today's meal docs
+  // Load meals for selected date
   useEffect(() => {
     if (!db || !config) return;
     const mid = config.current_month_id;
-    const mQ = query(collection(db, 'meals'), where('month_id', '==', mid), where('date', '==', today));
+    const mQ = query(collection(db, 'meals'), where('month_id', '==', mid), where('date', '==', selectedDate));
     const unsub = onSnapshot(mQ, snap => {
       const mealsMap = {};
       snap.docs.forEach(d => { const data = d.data(); mealsMap[data.user_id] = { docId: d.id, ...data }; });
       setTodayMeals(mealsMap);
     });
     return () => unsub();
-  }, [config, today]);
+  }, [config, selectedDate]);
 
-  const getMealDocId = (userId) => `${config?.current_month_id}_${today}_${userId}`;
+  const getMealDocId = (userId) => `${config?.current_month_id}_${selectedDate}_${userId}`;
 
   const toggleMeal = async (userId, mealType) => {
     if (!config) return;
@@ -55,7 +54,7 @@ const MealTracking = () => {
       const mealDocId = getMealDocId(userId);
       await setDoc(doc(db, 'meals', mealDocId), {
         month_id: config.current_month_id,
-        date: today,
+        date: selectedDate,
         user_id: userId,
         [mealType]: newVal,
         ...(existing ? {} : { breakfast: false, lunch: false, dinner: false, [mealType]: newVal }),
@@ -82,14 +81,21 @@ const MealTracking = () => {
   return (
     <div className="card" style={{ flex:1 }}>
       <ToastContainer toasts={toasts} removeToast={removeToast} />
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.5rem' }}>
-        <h2 style={{ fontSize:'1.25rem', fontWeight:'600' }}>🍽️ আজকের মিল স্ট্যাটাস</h2>
-        <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
-          <span style={{ fontSize:'0.875rem', color:'var(--text-secondary)', background:'var(--surface-hover)', padding:'0.25rem 0.75rem', borderRadius:'var(--radius-full)' }}>
-            {getTodayDisplay()}
-          </span>
-          <span style={{ fontSize:'0.875rem', fontWeight:'600', color:'var(--accent-blue)', background:'rgba(0,209,255,0.1)', padding:'0.25rem 0.75rem', borderRadius:'var(--radius-full)' }}>
-            মোট: {grandTotal}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.5rem', flexWrap:'wrap', gap:'1rem' }}>
+        <h2 style={{ fontSize:'1.25rem', fontWeight:'600' }}>🍽️ মিল ম্যানেজমেন্ট</h2>
+        <div style={{ display:'flex', alignItems:'center', gap:'1rem', flexWrap:'wrap' }}>
+          <div className="form-group" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <label style={{ fontSize: '0.875rem', whiteSpace: 'nowrap' }}>তারিখ নির্বাচন:</label>
+            <input 
+              type="date" 
+              className="form-control" 
+              style={{ padding: '0.4rem', fontSize: '0.875rem', width: 'auto' }}
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+            />
+          </div>
+          <span style={{ fontSize:'0.875rem', fontWeight:'600', color:'var(--accent-blue)', background:'rgba(0,209,255,0.1)', padding:'0.4rem 0.75rem', borderRadius:'var(--radius-md)' }}>
+            মোট মিল: {grandTotal}
           </span>
         </div>
       </div>

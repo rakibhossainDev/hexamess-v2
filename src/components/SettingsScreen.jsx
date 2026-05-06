@@ -51,7 +51,10 @@ const SettingsScreen = () => {
       };
       await setDoc(doc(db, 'archives', cur), archive);
       const batch = writeBatch(db);
-      members.forEach(m => { batch.update(doc(db, 'users', m.id), { total_deposit:0, current_balance:0, total_meals:0 }); });
+      members.forEach(m => { 
+        // Reset only total_meals, keep total_deposit and current_balance (carry-over)
+        batch.update(doc(db, 'users', m.id), { total_meals: 0 }); 
+      });
       batch.update(doc(db, 'config', 'settings'), { current_month_id: next });
       await batch.commit();
       setResetConfirm(false);

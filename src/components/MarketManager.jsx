@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { db, collection, doc, onSnapshot, addDoc, updateDoc, query, where } from '../firebase';
 import { ToastContainer } from './Toast';
 import { useToast } from '../hooks/useToast';
-import { getTodayDisplay } from '../utils/monthUtils';
+import { getTodayDisplay, getTodayISO, formatDisplayDate } from '../utils/monthUtils';
 
 const MarketManager = () => {
   const [members, setMembers] = useState([]);
@@ -11,6 +11,7 @@ const MarketManager = () => {
   const [approvedExpenses, setApprovedExpenses] = useState([]);
   const [selectedShopper, setSelectedShopper] = useState('');
   const [advanceAmount, setAdvanceAmount] = useState('');
+  const [expenseDate, setExpenseDate] = useState(getTodayISO());
   const { toasts, showToast, removeToast } = useToast();
 
   useEffect(() => {
@@ -39,7 +40,7 @@ const MarketManager = () => {
     try {
       await addDoc(collection(db, 'expenses'), {
         month_id: config.current_month_id,
-        date: new Date().toISOString().split('T')[0],
+        date: expenseDate,
         shopper_id: selectedShopper,
         shopper_name: shopper.name,
         advance: Number(advanceAmount),
@@ -79,6 +80,10 @@ const MarketManager = () => {
             </select>
           </div>
           <div className="form-group" style={{ marginBottom:0 }}>
+            <label>তারিখ</label>
+            <input type="date" className="form-control" value={expenseDate} onChange={e => setExpenseDate(e.target.value)} required />
+          </div>
+          <div className="form-group" style={{ marginBottom:0 }}>
             <label>এডভান্স পরিমাণ (৳)</label>
             <input type="number" className="form-control" value={advanceAmount} onChange={e => setAdvanceAmount(e.target.value)} min="1" placeholder="পরিমাণ..." required />
           </div>
@@ -98,7 +103,7 @@ const MarketManager = () => {
               <tbody>
                 {pendingExpenses.map(e => (
                   <tr key={e.id}>
-                    <td style={{ color:'var(--text-secondary)' }}>{e.date}</td>
+                    <td style={{ color:'var(--text-secondary)' }}>{formatDisplayDate(e.date)}</td>
                     <td style={{ fontWeight:'500' }}>{e.shopper_name}</td>
                     <td>{e.details || <span style={{ color:'var(--text-secondary)', fontStyle:'italic' }}>অপেক্ষমাণ...</span>}</td>
                     <td>৳{e.advance}</td>
@@ -135,7 +140,7 @@ const MarketManager = () => {
                   const ret = (e.advance||0) - (e.cost||0);
                   return (
                     <tr key={e.id}>
-                      <td style={{ color:'var(--text-secondary)' }}>{e.date}</td>
+                      <td style={{ color:'var(--text-secondary)' }}>{formatDisplayDate(e.date)}</td>
                       <td style={{ fontWeight:'500' }}>{e.shopper_name}</td>
                       <td>{e.details}</td>
                       <td style={{ textAlign:'right' }}>৳{e.advance}</td>

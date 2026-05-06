@@ -170,12 +170,12 @@ export const DashboardHome = () => {
         manager_name: managerName,
         date: serverTimestamp() 
       });
-      const perHead = amt / 6;
+      const perHead = amt / activeMembers.length;
       const batch = writeBatch(db);
       activeMembers.forEach(m => batch.update(doc(db, 'users', m.id), { current_balance: increment(-perHead) }));
       await batch.commit();
       setBillCategory(''); setBillAmount('');
-      showToast(`বিল যুক্ত! (৳${amt}/6) জনপ্রতি ৳${perHead.toFixed(0)} কাটা হয়েছে।`, 'success');
+      showToast(`বিল যুক্ত! (৳${amt}/${activeMembers.length}) জনপ্রতি ৳${perHead.toFixed(0)} কাটা হয়েছে।`, 'success');
     } catch (err) { console.error(err); showToast('বিল যুক্ত ব্যর্থ।', 'error'); }
   };
   const handleApprove = async (id) => {
