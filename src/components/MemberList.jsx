@@ -8,6 +8,7 @@ const MemberList = () => {
   const navigate = useNavigate();
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [visiblePasswords, setVisiblePasswords] = useState({});
   const { toasts, showToast, removeToast } = useToast();
 
   useEffect(() => {
@@ -27,6 +28,10 @@ const MemberList = () => {
       await updateDoc(doc(db, 'users', id), { status: currentStatus === 'active' ? 'inactive' : 'active' });
       showToast('সদস্যের স্ট্যাটাস আপডেট হয়েছে।', 'success');
     } catch (err) { console.error(err); showToast('আপডেট ব্যর্থ।', 'error'); }
+  };
+
+  const togglePassword = (id) => {
+    setVisiblePasswords(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   const handleDelete = async (id, name) => {
@@ -68,6 +73,7 @@ const MemberList = () => {
                   <th>নাম ও ইউজারনেম</th>
                   <th style={{ textAlign: 'center' }}>রক্ত</th>
                   <th style={{ textAlign: 'center' }}>মোবাইল</th>
+                  <th style={{ textAlign: 'center' }}>পাসওয়ার্ড</th>
                   <th style={{ textAlign: 'right' }}>ডিপোজিট</th>
                   <th style={{ textAlign: 'right' }}>ব্যালেন্স</th>
                   <th style={{ textAlign: 'center' }}>মিল</th>
@@ -81,11 +87,27 @@ const MemberList = () => {
                   return (
                     <tr key={m.id} className={m.status === 'inactive' ? 'row-inactive' : isNeg ? 'row-danger' : ''}>
                       <td>
-                        <div style={{ fontWeight: '600' }}>{m.name}</div>
+                        <div style={{ fontWeight: '600', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                          {m.name} {m.role === 'manager' && <span style={{ color:'#FFD700', fontSize:'1rem' }}>👑</span>}
+                        </div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>@{m.username}</div>
                       </td>
                       <td style={{ textAlign: 'center', color: 'var(--accent-red)', fontWeight: '700' }}>{m.bloodGroup || '—'}</td>
                       <td style={{ textAlign: 'center', fontSize: '0.8125rem' }}>{m.mobileNumber || '—'}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                          <span style={{ fontSize: '0.85rem', fontFamily: 'monospace' }}>
+                            {visiblePasswords[m.id] ? m.password : '••••••••'}
+                          </span>
+                          <button 
+                            onClick={() => togglePassword(m.id)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', padding: 0 }}
+                            title={visiblePasswords[m.id] ? "Hide Password" : "Show Password"}
+                          >
+                            {visiblePasswords[m.id] ? '👁️‍🗨️' : '👁️'}
+                          </button>
+                        </div>
+                      </td>
                       <td style={{ textAlign: 'right' }}>৳{(m.total_deposit || 0).toLocaleString()}</td>
                       <td style={{ textAlign: 'right', fontWeight: '700', color: isNeg ? 'var(--accent-red)' : 'var(--accent-green)' }}>৳{(m.current_balance || 0).toLocaleString()}</td>
                       <td style={{ textAlign: 'center', fontWeight: '600', color: 'var(--accent-blue)' }}>{m.total_meals || 0}</td>

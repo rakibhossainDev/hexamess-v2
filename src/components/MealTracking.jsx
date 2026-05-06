@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db, collection, doc, onSnapshot, setDoc, updateDoc, increment, query, where } from '../firebase';
-import { getTodayDateString, getTodayDisplay } from '../utils/monthUtils';
+import { getTodayDateString } from '../utils/monthUtils';
 import { ToastContainer } from './Toast';
 import { useToast } from '../hooks/useToast';
 
@@ -111,8 +111,8 @@ const MealTracking = () => {
               <tr>
                 <th>মেম্বার নাম</th>
                 <th style={{ textAlign:'center' }}>সকাল (০.৫)</th>
-                <th style={{ textAlign:'center' }}>দুপুর (১)</th>
-                <th style={{ textAlign:'center' }}>রাত (১)</th>
+                <th style={{ textAlign:'center' }}>দুপুর <b style={{ color:'var(--accent-orange)' }}>(১)</b></th>
+                <th style={{ textAlign:'center' }}>রাত <b style={{ color:'var(--accent-orange)' }}>(১)</b></th>
                 <th style={{ textAlign:'center' }}>আজকের মোট</th>
                 <th style={{ textAlign:'center' }}>মাসিক মোট</th>
               </tr>

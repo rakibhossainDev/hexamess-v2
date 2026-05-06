@@ -86,7 +86,9 @@ const Navbar = ({ userName = 'ব্যবহারকারী', userRole = '�
           style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}
         >
           <div style={{ textAlign: 'right', display: 'block' }} className="nav-user-text">
-            <p style={{ fontWeight: '600', fontSize: '0.95rem', lineHeight: '1.2' }}>{userName}</p>
+            <p style={{ fontWeight: '600', fontSize: '0.95rem', lineHeight: '1.2', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.4rem' }}>
+              {userName} {userRole === 'ম্যানেজার' && <span style={{ color:'#FFD700', textShadow:'0 0 5px rgba(255,215,0,0.5)', fontSize:'1rem' }}>👑</span>}
+            </p>
             <p style={{ color: 'var(--accent-blue)', fontSize: '0.75rem', fontWeight: '500', textTransform: 'uppercase' }}>{userRole}</p>
           </div>
           <div style={{

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  db, collection, doc, onSnapshot, setDoc, writeBatch,
+  db, collection, doc, onSnapshot, setDoc, writeBatch, getDocs, query, where, updateDoc
 } from '../firebase';
 import { ToastContainer } from './Toast';
 import { useToast } from '../hooks/useToast';
@@ -11,6 +11,8 @@ const SettingsScreen = () => {
   const [config, setConfig] = useState(null);
   const [selectedNewManager, setSelectedNewManager] = useState('');
   const [resetConfirm, setResetConfirm] = useState(false);
+  const [newManagerPassword, setNewManagerPassword] = useState('');
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
   const { toasts, showToast, removeToast } = useToast();
 
   useEffect(() => {
@@ -44,22 +46,80 @@ const SettingsScreen = () => {
     try {
       const cur = config.current_month_id;
       const next = getNextMonthId(cur);
-      const archive = { month_id: cur, archived_at: new Date().toISOString(),
-        members: members.map(m => ({ id:m.id, name:m.name, total_deposit:m.total_deposit||0, current_balance:m.current_balance||0, total_meals:m.total_meals||0, role:m.role })),
-        total_deposits: members.reduce((s,m) => s+(m.total_deposit||0), 0),
-        total_meals: members.reduce((s,m) => s+(m.total_meals||0), 0),
+      
+      // 1. Fetch current month's data to archive
+      const [mealSnap, expSnap, fixedSnap] = await Promise.all([
+        getDocs(query(collection(db, 'meals'), where('month_id', '==', cur))),
+        getDocs(query(collection(db, 'expenses'), where('month_id', '==', cur))),
+        getDocs(query(collection(db, 'fixed_costs'), where('month_id', '==', cur)))
+      ]);
+
+      const meals = mealSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const expenses = expSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const fixedCosts = fixedSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      const totalMarket = expenses.reduce((s, e) => s + (Number(e.cost) || 0), 0);
+      const totalFixed = fixedCosts.reduce((s, f) => s + (Number(f.amount) || 0), 0);
+      const totalMealsCount = meals.reduce((s, m) => s + (m.breakfast ? 0.5 : 0) + (m.lunch ? 1 : 0) + (m.dinner ? 1 : 0), 0);
+      const mealRate = totalMealsCount === 0 ? 0 : (totalMarket / totalMealsCount).toFixed(2);
+
+      // 2. Create Archive Document
+      const archive = {
+        month_id: cur,
+        archived_at: new Date().toISOString(),
+        summary: {
+          total_market: totalMarket,
+          total_fixed: totalFixed,
+          total_meals: totalMealsCount,
+          meal_rate: mealRate,
+          member_count: members.length
+        },
+        members: members.map(m => ({
+          id: m.id,
+          name: m.name,
+          username: m.username,
+          total_deposit: m.total_deposit || 0,
+          current_balance: m.current_balance || 0,
+          total_meals: m.total_meals || 0,
+          role: m.role
+        })),
+        meals: meals,
+        expenses: expenses,
+        fixed_costs: fixedCosts
       };
-      await setDoc(doc(db, 'archives', cur), archive);
+
+      await setDoc(doc(db, 'history_archive', cur), archive);
+
+      // 3. Batch Reset
       const batch = writeBatch(db);
-      members.forEach(m => { 
-        // Reset only total_meals, keep total_deposit and current_balance (carry-over)
-        batch.update(doc(db, 'users', m.id), { total_meals: 0 }); 
+      
+      // Reset meals for all users (keep deposits and balances as carry-over)
+      members.forEach(m => {
+        batch.update(doc(db, 'users', m.id), { total_meals: 0 });
       });
+
+      // Update current month in config
       batch.update(doc(db, 'config', 'settings'), { current_month_id: next });
+      
       await batch.commit();
+      
       setResetConfirm(false);
-      showToast(`${getMonthLabel(cur)} আর্কাইভ হয়েছে! ${getMonthLabel(next)} শুরু হয়েছে।`, 'success');
-    } catch (err) { console.error(err); showToast('মাসিক রিসেট ব্যর্থ।', 'error'); }
+      showToast(`${getMonthLabel(cur)} আর্কাইভ সফল হয়েছে! নতুন মাস ${getMonthLabel(next)} শুরু হয়েছে।`, 'success');
+    } catch (err) { 
+      console.error('Reset error:', err); 
+      showToast('মাসিক রিসেট ব্যর্থ হয়েছে।', 'error'); 
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    if (!newManagerPassword) { showToast('নতুন পাসওয়ার্ড দিন।', 'error'); return; }
+    if (!config?.manager_id) return;
+    try {
+      await updateDoc(doc(db, 'users', config.manager_id), { password: newManagerPassword });
+      setNewManagerPassword('');
+      setShowPasswordChange(false);
+      showToast('ম্যানেজার পাসওয়ার্ড সফলভাবে পরিবর্তন হয়েছে!', 'success');
+    } catch (err) { console.error(err); showToast('পাসওয়ার্ড পরিবর্তন ব্যর্থ।', 'error'); }
   };
 
   const currentManager = members.find(m => m.id === config?.manager_id);
@@ -91,6 +151,32 @@ const SettingsScreen = () => {
           <button className="btn btn-primary" style={{ width:'100%', marginTop:'0.5rem' }} onClick={handleChangeManager} disabled={!selectedNewManager}>
             ম্যানেজার পরিবর্তন করুন
           </button>
+
+          <hr style={{ margin:'1.5rem 0', border:'0', borderTop:'1px dashed var(--border-color)' }} />
+          
+          <h4 style={{ marginBottom:'1rem', fontSize:'0.9rem', color:'var(--text-secondary)' }}>নিরাপত্তা</h4>
+          {!showPasswordChange ? (
+            <button className="btn" style={{ width:'100%', background:'rgba(0,209,255,0.1)', color:'var(--accent-blue)', border:'1px solid rgba(0,209,255,0.2)' }} onClick={() => setShowPasswordChange(true)}>
+              🔐 ম্যানেজারের পাসওয়ার্ড পরিবর্তন
+            </button>
+          ) : (
+            <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
+              <input 
+                type="text" 
+                className="form-control" 
+                placeholder="নতুন পাসওয়ার্ড..." 
+                value={newManagerPassword}
+                onChange={e => setNewManagerPassword(e.target.value)}
+              />
+              <div style={{ display:'flex', gap:'0.5rem' }}>
+                <button className="btn btn-primary" style={{ flex:1 }} onClick={handlePasswordChange}>সেভ করুন</button>
+                <button className="btn" style={{ flex:1 }} onClick={() => setShowPasswordChange(false)}>বাতিল</button>
+              </div>
+            </div>
+          )}
+          <p style={{ fontSize:'0.75rem', color:'var(--text-secondary)', marginTop:'1rem', textAlign:'center' }}>
+            পাসওয়ার্ড ভুলে গেলে রিকভারি কোড যাবে: <br/> <b>rakibhossain2k25@gmail.com</b>
+          </p>
         </div>
 
         {/* Monthly Reset */}

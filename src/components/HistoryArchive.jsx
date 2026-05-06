@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Navbar from './Navbar';
 import BottomNav from './BottomNav';
-import { db, collection, getDocs, query, where } from '../firebase';
+import { db, collection, getDocs, doc, getDoc } from '../firebase';
 import { getMonthLabel } from '../utils/monthUtils';
 
 const HistoryArchive = () => {
@@ -14,56 +14,32 @@ const HistoryArchive = () => {
   const loadMonthData = async (monthId) => {
     setLoading(true);
     try {
-      const qExp = query(collection(db, 'expenses'), where('month_id', '==', monthId), where('status', '==', 'approved'));
-      const qBills = query(collection(db, 'fixed_costs'), where('month_id', '==', monthId));
-      const qMeals = query(collection(db, 'meals'), where('month_id', '==', monthId));
-      const qUsers = collection(db, 'users'); 
-
-      const [expSnap, billSnap, mealSnap, userSnap] = await Promise.all([
-        getDocs(qExp), getDocs(qBills), getDocs(qMeals), getDocs(qUsers)
-      ]);
-
-      const expenses = expSnap.docs.map(d => d.data());
-      const bills = billSnap.docs.map(d => d.data());
-      const meals = mealSnap.docs.map(d => d.data());
-      const users = userSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-      const totalMarket = expenses.reduce((s, e) => s + (Number(e.cost)||0), 0);
-      const totalFixed = bills.reduce((s, b) => s + (Number(b.amount)||0), 0);
-      const totalMeals = meals.reduce((s, m) => {
-        return s + (m.breakfast?0.5:0) + (m.lunch?1:0) + (m.dinner?1:0);
-      }, 0);
-
-      const mealRate = totalMeals === 0 ? 0 : (totalMarket / totalMeals).toFixed(2);
-
-      setHistoryData({
-        totalMarket, totalFixed, totalMeals, mealRate,
-        expenses, bills, users,
-        monthLabel: getMonthLabel(monthId)
-      });
-    } catch (err) { console.error(err); }
+      const snap = await getDoc(doc(db, 'history_archive', monthId));
+      if (snap.exists()) {
+        setHistoryData({ id: snap.id, ...snap.data() });
+      } else {
+        setHistoryData(null);
+      }
+    } catch (err) { 
+      console.error(err); 
+      setHistoryData(null);
+    }
     setLoading(false);
   };
 
-  const fetchAvailableMonths = async () => {
-    try {
-      await getDocs(collection(db, 'config'));
-      const expSnap = await getDocs(collection(db, 'expenses'));
-      const uniqueMonths = [...new Set(expSnap.docs.map(d => d.data().month_id))].sort().reverse();
-      setMonths(uniqueMonths);
-      if (uniqueMonths.length > 0) {
-        setSelectedMonth(uniqueMonths[0]);
-        loadMonthData(uniqueMonths[0]);
-      }
-    } catch (err) { console.error(err); }
-  };
-
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchAvailableMonths();
-    }, 0);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const fetchAvailableMonths = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'history_archive'));
+        const uniqueMonths = snap.docs.map(d => d.id).sort().reverse();
+        setMonths(uniqueMonths);
+        if (uniqueMonths.length > 0) {
+          setSelectedMonth(uniqueMonths[0]);
+          loadMonthData(uniqueMonths[0]);
+        }
+      } catch (err) { console.error(err); }
+    };
+    fetchAvailableMonths();
   }, []);
 
   return (
@@ -73,15 +49,16 @@ const HistoryArchive = () => {
         
         <div style={{ padding: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>📅 মাসিক আর্কাইভ</h2>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>📅 হিস্টরি আর্কাইভ</h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>মাস নির্বাচন করুন:</label>
+              <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>মাস:</label>
               <select 
                 className="form-control" 
                 style={{ width: 'auto' }}
                 value={selectedMonth}
                 onChange={(e) => { setSelectedMonth(e.target.value); loadMonthData(e.target.value); }}
               >
+                {months.length === 0 && <option value="">কোনো রেকর্ড নেই</option>}
                 {months.map(m => <option key={m} value={m}>{getMonthLabel(m)}</option>)}
               </select>
             </div>
@@ -93,46 +70,58 @@ const HistoryArchive = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               {/* Summary Cards */}
               <div className="stats-grid">
-                <div className="card">
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>মোট বাজার খরচ</p>
-                  <p style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--accent-orange)' }}>৳{historyData.totalMarket.toLocaleString()}</p>
+                <div className="card glass-card" style={{ 
+                  background: 'linear-gradient(135deg, rgba(245,158,11,0.1), rgba(245,158,11,0.02))',
+                  borderTop:'4px solid var(--accent-orange)' 
+                }}>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>💰 মোট বাজার খরচ</p>
+                  <p style={{ fontSize: '1.75rem', fontWeight: '800', color: 'var(--accent-orange)' }}>৳{historyData.summary.total_market.toLocaleString()}</p>
                 </div>
-                <div className="card">
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>মোট ফিক্সড বিল</p>
-                  <p style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--accent-red)' }}>৳{historyData.totalFixed.toLocaleString()}</p>
+                <div className="card glass-card" style={{ 
+                  background: 'linear-gradient(135deg, rgba(239,68,68,0.1), rgba(239,68,68,0.02))',
+                  borderTop:'4px solid var(--accent-red)' 
+                }}>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>🏠 মোট ফিক্সড বিল</p>
+                  <p style={{ fontSize: '1.75rem', fontWeight: '800', color: 'var(--accent-red)' }}>৳{historyData.summary.total_fixed.toLocaleString()}</p>
                 </div>
-                <div className="card">
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>মোট মিল</p>
-                  <p style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--accent-blue)' }}>{historyData.totalMeals}</p>
+                <div className="card glass-card" style={{ 
+                  background: 'linear-gradient(135deg, rgba(0,209,255,0.1), rgba(0,209,255,0.02))',
+                  borderTop:'4px solid var(--accent-blue)' 
+                }}>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>🍽️ মোট মিল</p>
+                  <p style={{ fontSize: '1.75rem', fontWeight: '800', color: 'var(--accent-blue)' }}>{historyData.summary.total_meals}</p>
                 </div>
-                <div className="card">
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>ফাইনাল মিল রেট</p>
-                  <p style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--accent-green)' }}>৳{historyData.mealRate}</p>
+                <div className="card glass-card" style={{ 
+                  background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(16,185,129,0.02))',
+                  borderTop:'4px solid var(--accent-green)' 
+                }}>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>📉 ফাইনাল মিল রেট</p>
+                  <p style={{ fontSize: '1.75rem', fontWeight: '800', color: 'var(--accent-green)' }}>৳{historyData.summary.meal_rate}</p>
                 </div>
               </div>
 
-              {/* Detailed Breakdown */}
+              {/* Member Report */}
               <div className="card">
-                <h3 style={{ marginBottom: '1.25rem' }}>📊 মেম্বার রিপোর্ট</h3>
+                <h3 style={{ marginBottom: '1.25rem', display:'flex', alignItems:'center', gap:'0.5rem' }}>📊 মেম্বার ক্লোজিং ব্যালেন্স</h3>
                 <div className="table-container">
                   <table>
                     <thead>
                       <tr>
                         <th>নাম</th>
-                        <th style={{ textAlign: 'right' }}>ডিপোজিট</th>
+                        <th style={{ textAlign: 'right' }}>জমা</th>
                         <th style={{ textAlign: 'center' }}>মিল</th>
-                        <th style={{ textAlign: 'right' }}>বাজার খরচ</th>
                         <th style={{ textAlign: 'right' }}>ব্যালেন্স</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {historyData.users.map(user => (
+                      {historyData.members.map(user => (
                         <tr key={user.id}>
-                          <td>{user.name}</td>
+                          <td style={{ fontWeight:'500' }}>{user.name}</td>
                           <td style={{ textAlign: 'right' }}>৳{user.total_deposit || 0}</td>
                           <td style={{ textAlign: 'center' }}>{user.total_meals || 0}</td>
-                          <td style={{ textAlign: 'right' }}>৳{(user.total_meals * historyData.mealRate).toFixed(0)}</td>
-                          <td style={{ textAlign: 'right', fontWeight: '600' }}>৳{user.current_balance || 0}</td>
+                          <td style={{ textAlign: 'right', fontWeight: '700', color: user.current_balance < 0 ? 'var(--accent-red)' : 'var(--accent-green)' }}>
+                            ৳{user.current_balance || 0}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -142,13 +131,13 @@ const HistoryArchive = () => {
 
               {/* Expense List */}
               <div className="card">
-                <h3 style={{ marginBottom: '1.25rem' }}>🛒 বাজার লিস্ট (অনুমোদিত)</h3>
+                <h3 style={{ marginBottom: '1.25rem' }}>🛒 বাজার বিবরণ</h3>
                 <div className="table-container">
                   <table>
                     <thead>
                       <tr>
                         <th>তারিখ</th>
-                        <th>বিবরণ</th>
+                        <th>আইটেম</th>
                         <th>বাজারকারী</th>
                         <th style={{ textAlign: 'right' }}>খরচ</th>
                       </tr>
@@ -156,10 +145,13 @@ const HistoryArchive = () => {
                     <tbody>
                       {historyData.expenses.map((exp, idx) => (
                         <tr key={idx}>
-                          <td>{exp.date}</td>
-                          <td>{exp.details}</td>
+                          <td style={{ color: 'var(--text-secondary)', fontSize:'0.875rem' }}>{exp.date}</td>
+                          <td>
+                            <div style={{ fontWeight:'600' }}>{exp.itemName || exp.details}</div>
+                            {exp.quantity && <div style={{ fontSize:'0.75rem', color:'var(--text-secondary)' }}>{exp.quantity}</div>}
+                          </td>
                           <td>{exp.shopper_name}</td>
-                          <td style={{ textAlign: 'right' }}>৳{exp.cost}</td>
+                          <td style={{ textAlign: 'right', fontWeight:'600' }}>৳{exp.cost}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -169,7 +161,8 @@ const HistoryArchive = () => {
             </div>
           ) : (
             <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-              কোনো ডাটা পাওয়া যায়নি।
+              <p style={{ color:'var(--text-secondary)', marginBottom:'1rem' }}>কোনো আর্কাইভ ডাটা পাওয়া যায়নি।</p>
+              <p style={{ fontSize:'0.875rem' }}>ম্যানেজার যখন নতুন মাস শুরু করবেন, তখন চলতি মাসের ডাটা এখানে সংরক্ষিত হবে।</p>
             </div>
           )}
         </div>

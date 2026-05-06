@@ -250,7 +250,10 @@ export const DashboardHome = () => {
                     <span style={{ fontWeight:'700' }}>{exp.shopper_name}</span>
                     <span style={{ color:'var(--accent-orange)', fontWeight:'800' }}>৳{exp.cost}</span>
                   </div>
-                  <p style={{ fontSize:'0.875rem', color:'var(--text-secondary)', marginBottom:'1rem' }}>{exp.details}</p>
+                  <p style={{ fontSize:'0.875rem', fontWeight:'600', color:'var(--accent-blue)', marginBottom:'0.25rem' }}>
+                    {exp.itemName ? `${exp.itemName} (${exp.quantity || 'N/A'})` : exp.details}
+                  </p>
+                  <p style={{ fontSize:'0.8125rem', color:'var(--text-secondary)', marginBottom:'1rem' }}>{exp.details && exp.itemName ? exp.details : ''}</p>
                   <button 
                     className="btn btn-primary" style={{ width:'100%', fontSize:'0.8125rem' }}
                     onClick={() => handleApprove(exp.id)}

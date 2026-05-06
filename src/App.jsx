@@ -24,7 +24,12 @@ const LoadingFallback = () => (
 /* ─── Admin Route Guard ─── */
 const AdminGuard = ({ children }) => {
   const isAdmin = localStorage.getItem('hexamess-admin') === 'true';
-  if (!isAdmin) return <Navigate to="/" replace />;
+  const role = localStorage.getItem('hexamess-user-role');
+  
+  // Super-admin check or manager role check
+  if (!isAdmin || role !== 'manager') {
+    return <Navigate to="/" replace />;
+  }
   return children;
 };
 

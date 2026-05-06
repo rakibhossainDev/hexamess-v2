@@ -8,7 +8,7 @@ const ExpenseTracker = () => {
   const [expenses, setExpenses] = useState([]);
   const [members, setMembers] = useState([]);
   const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({ shopper:'', details:'', cost:'', advance:'' });
+  const [formData, setFormData] = useState({ shopper:'', details:'', itemName:'', quantity:'', cost:'', advance:'' });
   const { toasts, showToast, removeToast } = useToast();
 
   useEffect(() => {
@@ -39,12 +39,14 @@ const ExpenseTracker = () => {
         date: new Date().toISOString().split('T')[0],
         shopper_id: formData.shopper,
         shopper_name: shopper?.name || '',
-        details: formData.details,
+        itemName: formData.itemName,
+        quantity: formData.quantity,
+        details: formData.itemName ? `${formData.itemName} (${formData.quantity})` : formData.details,
         cost: Number(formData.cost),
         advance: Number(formData.advance) || 0,
         status: 'pending',
       });
-      setFormData({ shopper:'', details:'', cost:'', advance:'' });
+      setFormData({ shopper:'', details:'', itemName:'', quantity:'', cost:'', advance:'' });
       setShowForm(false);
       showToast('বাজার এন্ট্রি সাবমিট হয়েছে!', 'success');
     } catch (err) { console.error(err); showToast('সাবমিট ব্যর্থ।', 'error'); }
@@ -76,7 +78,7 @@ const ExpenseTracker = () => {
 
         {showForm && (
           <form onSubmit={handleSubmit} style={{ marginBottom:'1.5rem', padding:'1.25rem', background:'rgba(0,209,255,0.04)', borderRadius:'var(--radius-md)', border:'1px solid rgba(0,209,255,0.1)' }}>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem', marginBottom:'1rem' }}>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:'1rem', marginBottom:'1rem' }}>
               <div className="form-group" style={{ marginBottom:0 }}>
                 <label>বাজারকারী</label>
                 <select className="form-control" value={formData.shopper} onChange={e => setFormData({...formData, shopper:e.target.value})} required>
@@ -85,8 +87,16 @@ const ExpenseTracker = () => {
                 </select>
               </div>
               <div className="form-group" style={{ marginBottom:0 }}>
-                <label>বিবরণ</label>
-                <input className="form-control" value={formData.details} onChange={e => setFormData({...formData, details:e.target.value})} placeholder="চাল, ডাল, তেল..." required />
+                <label>পণ্যের নাম</label>
+                <input className="form-control" value={formData.itemName} onChange={e => setFormData({...formData, itemName:e.target.value})} placeholder="যেমন: চাল" />
+              </div>
+              <div className="form-group" style={{ marginBottom:0 }}>
+                <label>পরিমাণ</label>
+                <input className="form-control" value={formData.quantity} onChange={e => setFormData({...formData, quantity:e.target.value})} placeholder="যেমন: ৫ কেজি" />
+              </div>
+              <div className="form-group" style={{ marginBottom:0 }}>
+                <label>বিবরণ (ঐচ্ছিক)</label>
+                <input className="form-control" value={formData.details} onChange={e => setFormData({...formData, details:e.target.value})} placeholder="অন্যান্য..." />
               </div>
             </div>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr auto', gap:'1rem', alignItems:'end' }}>

@@ -13,6 +13,8 @@ const MemberDashboard = () => {
   const [todayMeals, setTodayMeals] = useState({});
   const [mealLogs, setMealLogs] = useState([]);
   const [details, setDetails] = useState('');
+  const [itemName, setItemName] = useState('');
+  const [quantity, setQuantity] = useState('');
   const [cost, setCost] = useState('');
   const [advance, setAdvance] = useState('');
   const { toasts, showToast, removeToast } = useToast();
@@ -116,10 +118,13 @@ const MemberDashboard = () => {
         month_id: config.current_month_id,
         date: new Date().toISOString().split('T')[0],
         shopper_id: currentUser.id, shopper_name: currentUser.name,
-        details, cost: Number(cost), advance: Number(advance)||0, status: 'pending',
+        details: itemName ? `${itemName} (${quantity})` : details,
+        itemName,
+        quantity,
+        cost: Number(cost), advance: Number(advance)||0, status: 'pending',
       });
       showToast('বাজারের হিসাব সাবমিট হয়েছে, অনুমোদনের অপেক্ষায়!', 'success');
-      setDetails(''); setCost(''); setAdvance('');
+      setDetails(''); setItemName(''); setQuantity(''); setCost(''); setAdvance('');
     } catch (err) { console.error(err); showToast('সাবমিট ব্যর্থ।', 'error'); }
   };
 
@@ -180,9 +185,9 @@ const MemberDashboard = () => {
                 <span className="badge badge-manager" style={{ fontSize:'0.75rem' }}>{getTodayDisplay()}</span>
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
-                <MealItem label="সকাল (০.৫)" checked={!!todayMeals.breakfast} onToggle={() => handleMealToggle('breakfast')} />
-                <MealItem label="দুপুর (১.০)" checked={!!todayMeals.lunch} onToggle={() => handleMealToggle('lunch')} />
-                <MealItem label="রাত (১.০)" checked={!!todayMeals.dinner} onToggle={() => handleMealToggle('dinner')} />
+                <MealItem label={<span>সকাল (০.৫)</span>} checked={!!todayMeals.breakfast} onToggle={() => handleMealToggle('breakfast')} />
+                <MealItem label={<span>দুপুর <b style={{ color:'var(--accent-orange)' }}>(১.০)</b></span>} checked={!!todayMeals.lunch} onToggle={() => handleMealToggle('lunch')} />
+                <MealItem label={<span>রাত <b style={{ color:'var(--accent-orange)' }}>(১.০)</b></span>} checked={!!todayMeals.dinner} onToggle={() => handleMealToggle('dinner')} />
               </div>
             </div>
 
@@ -190,9 +195,19 @@ const MemberDashboard = () => {
             <div className="card">
               <h3 style={{ fontSize:'1.1rem', fontWeight:'600', marginBottom:'1.5rem' }}>🛒 বাজার এন্ট্রি পাঠান</h3>
               <form onSubmit={handleMarketSubmit}>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem', marginBottom:'1rem' }}>
+                  <div className="form-group" style={{ marginBottom:0 }}>
+                    <label>পণ্যের নাম</label>
+                    <input className="form-control" placeholder="যেমন: চাল" value={itemName} onChange={e => setItemName(e.target.value)} />
+                  </div>
+                  <div className="form-group" style={{ marginBottom:0 }}>
+                    <label>পরিমাণ</label>
+                    <input className="form-control" placeholder="যেমন: ৫ কেজি" value={quantity} onChange={e => setQuantity(e.target.value)} />
+                  </div>
+                </div>
                 <div className="form-group">
-                  <label>বাজারের বিবরণ</label>
-                  <input className="form-control" placeholder="যেমন: চাল, ডাল, তেল..." value={details} onChange={e => setDetails(e.target.value)} required />
+                  <label>বাজারের বিবরণ (ঐচ্ছিক)</label>
+                  <input className="form-control" placeholder="অন্যান্য তথ্য..." value={details} onChange={e => setDetails(e.target.value)} />
                 </div>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem', marginBottom:'1.25rem' }}>
                   <div className="form-group" style={{ marginBottom:0 }}>

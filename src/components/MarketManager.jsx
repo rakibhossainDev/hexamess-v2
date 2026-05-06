@@ -11,6 +11,8 @@ const MarketManager = () => {
   const [approvedExpenses, setApprovedExpenses] = useState([]);
   const [selectedShopper, setSelectedShopper] = useState('');
   const [advanceAmount, setAdvanceAmount] = useState('');
+  const [itemName, setItemName] = useState('');
+  const [quantity, setQuantity] = useState('');
   const [expenseDate, setExpenseDate] = useState(getTodayISO());
   const { toasts, showToast, removeToast } = useToast();
 
@@ -33,7 +35,7 @@ const MarketManager = () => {
 
   const handleIssueAdvance = async (e) => {
     e.preventDefault();
-    if (!selectedShopper || !advanceAmount || Number(advanceAmount) <= 0) {
+    if (!selectedShopper || !advanceAmount || Number(advanceAmount) <= 0 || !config) {
       showToast('সদস্য এবং পরিমাণ সঠিকভাবে দিন।', 'error'); return;
     }
     const shopper = members.find(m => m.id === selectedShopper);
@@ -44,9 +46,13 @@ const MarketManager = () => {
         shopper_id: selectedShopper,
         shopper_name: shopper.name,
         advance: Number(advanceAmount),
-        cost: 0, details: '', status: 'pending',
+        itemName: itemName,
+        quantity: quantity,
+        cost: 0, 
+        details: itemName ? `${itemName} (${quantity})` : '', 
+        status: 'pending',
       });
-      setSelectedShopper(''); setAdvanceAmount('');
+      setSelectedShopper(''); setAdvanceAmount(''); setItemName(''); setQuantity('');
       showToast(`${shopper.name} কে ৳${advanceAmount} এডভান্স ইস্যু করা হয়েছে!`, 'success');
     } catch (err) { console.error(err); showToast('এডভান্স ইস্যু ব্যর্থ।', 'error'); }
   };
@@ -71,7 +77,7 @@ const MarketManager = () => {
       {/* Issue Advance */}
       <div className="card">
         <h3 style={{ marginBottom:'1.5rem', color:'var(--accent-blue)' }}>এডভান্স ইস্যু করুন</h3>
-        <form onSubmit={handleIssueAdvance} style={{ display:'grid', gridTemplateColumns:'1fr 1fr auto', gap:'1rem', alignItems:'end' }}>
+        <form onSubmit={handleIssueAdvance} style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:'1rem', alignItems:'end' }}>
           <div className="form-group" style={{ marginBottom:0 }}>
             <label>বাজারকারী সদস্য</label>
             <select className="form-control" value={selectedShopper} onChange={e => setSelectedShopper(e.target.value)} required>
@@ -82,6 +88,14 @@ const MarketManager = () => {
           <div className="form-group" style={{ marginBottom:0 }}>
             <label>তারিখ</label>
             <input type="date" className="form-control" value={expenseDate} onChange={e => setExpenseDate(e.target.value)} required />
+          </div>
+          <div className="form-group" style={{ marginBottom:0 }}>
+            <label>পণ্যের নাম</label>
+            <input type="text" className="form-control" value={itemName} onChange={e => setItemName(e.target.value)} placeholder="যেমন: চাল" />
+          </div>
+          <div className="form-group" style={{ marginBottom:0 }}>
+            <label>পরিমাণ (কেজি/লিটার)</label>
+            <input type="text" className="form-control" value={quantity} onChange={e => setQuantity(e.target.value)} placeholder="যেমন: ৫ কেজি" />
           </div>
           <div className="form-group" style={{ marginBottom:0 }}>
             <label>এডভান্স পরিমাণ (৳)</label>
