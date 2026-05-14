@@ -1,24 +1,24 @@
 import { useState, useEffect } from 'react';
-import { db, collection, doc, onSnapshot, setDoc, updateDoc, increment, query, where } from '../firebase';
+import { db, collection, doc, onSnapshot, setDoc, updateDoc, increment, query, where } from '../utils/firebase';
 import { getTodayDateString } from '../utils/monthUtils';
 import { ToastContainer } from './Toast';
 import { useToast } from '../hooks/useToast';
-import { saveMealEntry } from '../utils/firebase';
 
 const MealManagement = () => {
   const [members, setMembers] = useState([]);
   const [todayMeals, setTodayMeals] = useState({});
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [mealsLoading, setMealsLoading] = useState(false);
   const [savingId, setSavingId] = useState(null);
+  const [successId, setSuccessId] = useState(null);
   const [selectedDate, setSelectedDate] = useState(getTodayDateString());
   const [monthTotalMeals, setMonthTotalMeals] = useState(0);
-  const [successId, setSuccessId] = useState(null);
-  const [mealsLoading, setMealsLoading] = useState(false);
   const { toasts, showToast, removeToast } = useToast();
 
   const MEAL_OPTIONS = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
 
+  // 1. Initial Data Fetching (Members & Config)
   useEffect(() => {
     if (!db) return;
     const unsub1 = onSnapshot(collection(db, 'users'), snap => {
@@ -31,25 +31,32 @@ const MealManagement = () => {
     return () => { unsub1(); unsub2(); };
   }, []);
 
+  // 2. Data Persistence (The Fix): Fetch whenever 'Selected Date' changes
   useEffect(() => {
     if (!db || !config) return;
     const mid = config.current_month_id;
     setMealsLoading(true);
     
-    const unsubDaily = onSnapshot(query(collection(db, 'daily_meals'), where('month_id', '==', mid), where('date', '==', selectedDate)), snap => {
+    const unsubDaily = onSnapshot(query(
+      collection(db, 'daily_meals'), 
+      where('date', '==', selectedDate)
+    ), snap => {
       const mealsMap = {};
       snap.docs.forEach(d => { 
         const data = d.data(); 
-        mealsMap[data.user_id] = { docId: d.id, ...data }; 
+        mealsMap[data.user_id] = { ...data }; 
       });
       setTodayMeals(mealsMap);
       setMealsLoading(false);
     }, (err) => {
-      console.error("Daily meals fetch error:", err);
+      console.error("Meal fetch error:", err);
       setMealsLoading(false);
     });
 
-    const unsubMonth = onSnapshot(query(collection(db, 'daily_meals'), where('month_id', '==', mid)), snap => {
+    const unsubMonth = onSnapshot(query(
+      collection(db, 'daily_meals'), 
+      where('month_id', '==', mid)
+    ), snap => {
       const total = snap.docs.reduce((s, d) => s + (Number(d.data().total) || 0), 0);
       setMonthTotalMeals(total);
     });
@@ -57,24 +64,55 @@ const MealManagement = () => {
     return () => { unsubDaily(); unsubMonth(); };
   }, [config, selectedDate]);
 
+  const handleInputChange = (userId, type, val) => {
+    const numVal = parseFloat(val) || 0;
+    setTodayMeals(prev => {
+      const current = prev[userId] || { breakfast: 0, lunch: 0, dinner: 0 };
+      const updated = { ...current, [type]: numVal };
+      updated.total = (Number(updated.breakfast) || 0) + (Number(updated.lunch) || 0) + (Number(updated.dinner) || 0);
+      return { ...prev, [userId]: updated };
+    });
+  };
+
+  // 3. Save Logic (Force Save)
   const handleSaveMeal = async (userId) => {
     if (!config) return;
     setSavingId(userId);
-    
+
     const meal = todayMeals[userId] || { breakfast: 0, lunch: 0, dinner: 0 };
-    const prevTotal = Number(meal.total) || 0;
+    const b = Number(meal.breakfast) || 0;
+    const l = Number(meal.lunch) || 0;
+    const d = Number(meal.dinner) || 0;
+    const total = Number(b + l + d);
+
+    // Calculate delta for user's aggregate total_meals
+    const existing = todayMeals[userId];
+    const prevTotal = Number(existing?.total) || 0;
+    const delta = total - prevTotal;
+
+    const data = {
+      month_id: config.current_month_id,
+      date: selectedDate,
+      user_id: userId,
+      breakfast: b,
+      lunch: l,
+      dinner: d,
+      total: total
+    };
+
+    // Document ID format: "${selectedDate}_${userId}"
+    const mealDocId = `${selectedDate}_${userId}`;
 
     try {
-      await saveMealEntry(
-        config,
-        selectedDate,
-        userId,
-        meal.breakfast,
-        meal.lunch,
-        meal.dinner,
-        prevTotal
-      );
+      // Force Save with merge: true
+      await setDoc(doc(db, 'daily_meals', mealDocId), data, { merge: true });
       
+      // Update member's total meals count
+      await updateDoc(doc(db, 'users', userId), { 
+        total_meals: increment(delta) 
+      });
+
+      console.log("Data Saved:", data);
       setSuccessId(userId);
       setTimeout(() => setSuccessId(null), 2000);
       showToast('সফলভাবে সেভ হয়েছে!', 'success');
@@ -86,36 +124,12 @@ const MealManagement = () => {
     }
   };
 
-  const handleInputChange = (userId, type, val) => {
-    const numVal = parseFloat(val) || 0;
-    setTodayMeals(prev => {
-      const updatedUserMeals = {
-        ...(prev[userId] || { breakfast: 0, lunch: 0, dinner: 0 }),
-        [type]: numVal
-      };
-      
-      // Real-time total calculation for the row
-      updatedUserMeals.total = updatedUserMeals.breakfast + updatedUserMeals.lunch + updatedUserMeals.dinner;
-
-      return {
-        ...prev,
-        [userId]: updatedUserMeals
-      };
-    });
-  };
-
   const grandTotalToday = Object.values(todayMeals).reduce((s, m) => s + (Number(m.total) || 0), 0);
-  
-  // Calculate column totals
-  const breakfastTotal = Object.values(todayMeals).reduce((s, m) => s + (Number(m.breakfast) || 0), 0);
-  const lunchTotal = Object.values(todayMeals).reduce((s, m) => s + (Number(m.lunch) || 0), 0);
-  const dinnerTotal = Object.values(todayMeals).reduce((s, m) => s + (Number(m.dinner) || 0), 0);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       
-      {/* Summaries Header */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
         <div className="card" style={{ textAlign: 'center', background: 'rgba(0, 209, 255, 0.05)', border: '1px solid rgba(0, 209, 255, 0.1)', padding: '1.5rem' }}>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.5rem' }}>আজকের মোট মিল</p>
@@ -155,29 +169,29 @@ const MealManagement = () => {
             <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px' }}>
               <thead>
                 <tr>
-                  <th style={{ padding: '1rem', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: '600', fontSize: '0.85rem', width: '25%' }}>মেম্বার নাম</th>
-                  <th style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)', fontWeight: '600', fontSize: '0.85rem', width: '15%' }}>সকাল</th>
-                  <th style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)', fontWeight: '600', fontSize: '0.85rem', width: '15%' }}>দুপুর</th>
-                  <th style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)', fontWeight: '600', fontSize: '0.85rem', width: '15%' }}>রাত</th>
-                  <th style={{ padding: '1rem', textAlign: 'right', color: 'var(--text-secondary)', fontWeight: '600', fontSize: '0.85rem', width: '30%' }}>অ্যাকশন / মোট</th>
+                  <th style={{ padding: '1rem', textAlign: 'left', color: 'var(--text-secondary)', width: '30%' }}>মেম্বার নাম</th>
+                  <th style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>সকাল</th>
+                  <th style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>দুপুর</th>
+                  <th style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>রাত</th>
+                  <th style={{ padding: '1rem', textAlign: 'right', color: 'var(--text-secondary)' }}>অ্যাকশন / মোট</th>
                 </tr>
               </thead>
               <tbody>
                 {members.map((m) => {
                   const meal = todayMeals[m.id] || { breakfast: 0, lunch: 0, dinner: 0 };
-                  const rowTotal = (Number(meal.breakfast) || 0) + (Number(meal.lunch) || 0) + (Number(meal.dinner) || 0);
+                  const rowTotal = Number(meal.total) || 0;
                   const isSaving = savingId === m.id;
 
                   return (
                     <tr key={m.id} className="member-row">
                       <td style={{ padding: '1rem', borderRadius: '12px 0 0 12px', border: '1px solid var(--border-color)', borderRight: 'none' }}>
-                        <div style={{ fontWeight: '700', fontSize: '1rem' }}>{m.name}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>@{m.username}</div>
+                        <div style={{ fontWeight: '700' }}>{m.name}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>@{m.username}</div>
                       </td>
                       <td style={{ padding: '1rem', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', textAlign: 'center' }}>
                         <select 
                           className="meal-select"
-                          value={meal.breakfast} 
+                          value={meal.breakfast || 0} 
                           onChange={(e) => handleInputChange(m.id, 'breakfast', e.target.value)}
                         >
                           {MEAL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
@@ -186,7 +200,7 @@ const MealManagement = () => {
                       <td style={{ padding: '1rem', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', textAlign: 'center' }}>
                         <select 
                           className="meal-select"
-                          value={meal.lunch} 
+                          value={meal.lunch || 0} 
                           onChange={(e) => handleInputChange(m.id, 'lunch', e.target.value)}
                         >
                           {MEAL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
@@ -195,7 +209,7 @@ const MealManagement = () => {
                       <td style={{ padding: '1rem', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', textAlign: 'center' }}>
                         <select 
                           className="meal-select"
-                          value={meal.dinner} 
+                          value={meal.dinner || 0} 
                           onChange={(e) => handleInputChange(m.id, 'dinner', e.target.value)}
                         >
                           {MEAL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
@@ -203,42 +217,31 @@ const MealManagement = () => {
                       </td>
                       <td style={{ padding: '1rem', borderRadius: '0 12px 12px 0', border: '1px solid var(--border-color)', borderLeft: 'none', textAlign: 'right' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '1rem' }}>
-                          <span style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--accent-blue)' }}>{rowTotal}</span>
+                          <span style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--accent-blue)' }}>{rowTotal}</span>
                           <button 
                             className="btn" 
                             disabled={isSaving}
                             style={{ 
-                              padding: '0.6rem 1.2rem', 
-                              fontSize: '0.9rem', 
-                              fontWeight: '700',
+                              padding: '0.5rem 1rem', 
                               background: successId === m.id 
-                                ? 'linear-gradient(135deg, #00ff88, #00cc66)' 
+                                ? 'var(--accent-green)' 
                                 : 'linear-gradient(135deg, #00d1ff, #0088ff)',
                               color: successId === m.id ? '#fff' : '#000',
                               border: 'none',
-                              borderRadius: '10px',
+                              borderRadius: '8px',
                               cursor: 'pointer',
+                              minWidth: '85px',
+                              fontWeight: '700',
                               display: 'flex',
                               alignItems: 'center',
-                              gap: '0.5rem',
-                              transition: 'all 0.3s ease',
-                              boxShadow: successId === m.id 
-                                ? '0 4px 15px rgba(0, 255, 136, 0.3)' 
-                                : '0 4px 15px rgba(0, 209, 255, 0.3)',
-                              minWidth: '95px',
-                              justifyContent: 'center'
+                              justifyContent: 'center',
+                              gap: '0.5rem'
                             }} 
-                            onMouseOver={(e) => !isSaving && (e.currentTarget.style.transform = 'translateY(-2px)')}
-                            onMouseOut={(e) => !isSaving && (e.currentTarget.style.transform = 'translateY(0)')}
                             onClick={() => handleSaveMeal(m.id)}
                           >
                             {isSaving ? (
-                              <div className="spinner" style={{ width: '16px', height: '16px', border: '2px solid #000', borderTopColor: 'transparent' }}></div>
-                            ) : successId === m.id ? (
-                              <><span>✓</span> সফল</>
-                            ) : (
-                              <><span>💾</span> সেভ</>
-                            )}
+                              <div className="spinner" style={{ width: '14px', height: '14px', border: '2px solid #000', borderTopColor: 'transparent' }}></div>
+                            ) : successId === m.id ? 'সফল' : 'সেভ'}
                           </button>
                         </div>
                       </td>
@@ -246,15 +249,6 @@ const MealManagement = () => {
                   );
                 })}
               </tbody>
-              <tfoot>
-                <tr style={{ background: 'rgba(0, 209, 255, 0.05)' }}>
-                  <td style={{ padding: '1.25rem', borderRadius: '12px 0 0 12px', border: '1px solid var(--border-color)', borderRight: 'none', fontWeight: '800' }}>আজকের মোট হিসেব:</td>
-                  <td style={{ padding: '1.25rem', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', textAlign: 'center', fontWeight: '800', fontSize: '1.2rem', color: 'var(--accent-blue)' }}>{breakfastTotal}</td>
-                  <td style={{ padding: '1.25rem', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', textAlign: 'center', fontWeight: '800', fontSize: '1.2rem', color: 'var(--accent-blue)' }}>{lunchTotal}</td>
-                  <td style={{ padding: '1.25rem', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', textAlign: 'center', fontWeight: '800', fontSize: '1.2rem', color: 'var(--accent-blue)' }}>{dinnerTotal}</td>
-                  <td style={{ padding: '1.25rem', borderRadius: '0 12px 12px 0', border: '1px solid var(--border-color)', borderLeft: 'none', textAlign: 'right', fontWeight: '900', fontSize: '1.5rem', color: 'var(--accent-blue)' }}>{grandTotalToday}</td>
-                </tr>
-              </tfoot>
             </table>
           </div>
         )}
@@ -266,26 +260,18 @@ const MealManagement = () => {
           transition: all 0.2s ease;
         }
         .member-row:hover {
-          background: var(--surface-hover) !important;
-          transform: scale(1.002);
+          background: var(--surface-hover);
         }
         .meal-select {
-          width: 70px;
-          padding: 0.5rem;
+          width: 65px;
+          padding: 0.4rem;
           border-radius: 8px;
           border: 1px solid var(--border-color);
           background: var(--bg-color);
           color: var(--text-primary);
           font-weight: 700;
-          font-size: 1rem;
-          text-align: center;
           cursor: pointer;
-          outline: none;
-          transition: all 0.2s;
-        }
-        .meal-select:focus {
-          border-color: var(--accent-blue);
-          box-shadow: 0 0 0 2px rgba(0, 209, 255, 0.2);
+          text-align: center;
         }
         .spinner {
           width: 24px;
@@ -297,21 +283,6 @@ const MealManagement = () => {
         }
         @keyframes spin {
           to { transform: rotate(360deg); }
-        }
-        .table-container::-webkit-scrollbar {
-          height: 8px;
-        }
-        .table-container::-webkit-scrollbar-track {
-          background: var(--bg-color);
-        }
-        .table-container::-webkit-scrollbar-thumb {
-          background: var(--border-color);
-          border-radius: 4px;
-        }
-        .form-control:focus {
-          border-color: var(--accent-blue);
-          box-shadow: 0 0 0 2px rgba(0, 209, 255, 0.2);
-          outline: none;
         }
       `}} />
     </div>
