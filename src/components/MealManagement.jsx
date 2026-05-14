@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { db, collection, doc, onSnapshot, setDoc, updateDoc, increment, query, where } from '../utils/firebase';
-import { getTodayDateString } from '../utils/monthUtils';
+import { getTodayDateString, formatDisplayDate } from '../utils/monthUtils';
 import { ToastContainer } from './Toast';
 import { useToast } from '../hooks/useToast';
 
@@ -12,13 +12,24 @@ const MealManagement = () => {
   const [mealsLoading, setMealsLoading] = useState(false);
   const [savingId, setSavingId] = useState(null);
   const [successId, setSuccessId] = useState(null);
-  const [selectedDate, setSelectedDate] = useState(getTodayDateString());
+  const [selectedDateISO, setSelectedDateISO] = useState(getTodayDateString());
   const [monthTotalMeals, setMonthTotalMeals] = useState(0);
   const { toasts, showToast, removeToast } = useToast();
 
   const MEAL_OPTIONS = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
 
-  // 1. Initial Data Fetching (Members & Config)
+  // Convert ISO (YYYY-MM-DD) to Slash format (DD/MM/YYYY)
+  const slashDate = useMemo(() => {
+    const [y, m, d] = selectedDateISO.split('-');
+    return `${d}/${m}/${y}`;
+  }, [selectedDateISO]);
+
+  // Convert Slash format to ID format (DD_MM_YYYY)
+  const dateIdSuffix = useMemo(() => {
+    return slashDate.replace(/\//g, '_');
+  }, [slashDate]);
+
+  // 1. Fetch Members & Config
   useEffect(() => {
     if (!db) return;
     const unsub1 = onSnapshot(collection(db, 'users'), snap => {
@@ -31,30 +42,30 @@ const MealManagement = () => {
     return () => { unsub1(); unsub2(); };
   }, []);
 
-  // 2. Data Persistence (The Fix): Fetch whenever 'Selected Date' changes
+  // 2. Fetch Daily Meals on Date Change
   useEffect(() => {
     if (!db || !config) return;
     const mid = config.current_month_id;
     setMealsLoading(true);
-    
+
     const unsubDaily = onSnapshot(query(
-      collection(db, 'daily_meals'), 
-      where('date', '==', selectedDate)
+      collection(db, 'daily_meals'),
+      where('date', '==', slashDate)
     ), snap => {
       const mealsMap = {};
-      snap.docs.forEach(d => { 
-        const data = d.data(); 
-        mealsMap[data.user_id] = { ...data }; 
+      snap.docs.forEach(d => {
+        const data = d.data();
+        mealsMap[data.user_id] = data;
       });
       setTodayMeals(mealsMap);
       setMealsLoading(false);
     }, (err) => {
-      console.error("Meal fetch error:", err);
+      console.error("Fetch error:", err);
       setMealsLoading(false);
     });
 
     const unsubMonth = onSnapshot(query(
-      collection(db, 'daily_meals'), 
+      collection(db, 'daily_meals'),
       where('month_id', '==', mid)
     ), snap => {
       const total = snap.docs.reduce((s, d) => s + (Number(d.data().total) || 0), 0);
@@ -62,63 +73,44 @@ const MealManagement = () => {
     });
 
     return () => { unsubDaily(); unsubMonth(); };
-  }, [config, selectedDate]);
+  }, [config, slashDate]);
 
-  const handleInputChange = (userId, type, val) => {
-    const numVal = parseFloat(val) || 0;
-    setTodayMeals(prev => {
-      const current = prev[userId] || { breakfast: 0, lunch: 0, dinner: 0 };
-      const updated = { ...current, [type]: numVal };
-      updated.total = (Number(updated.breakfast) || 0) + (Number(updated.lunch) || 0) + (Number(updated.dinner) || 0);
-      return { ...prev, [userId]: updated };
-    });
-  };
-
-  // 3. Save Logic (Force Save)
-  const handleSaveMeal = async (userId) => {
+  // 3. Save Logic
+  const handleSaveMeal = async (userId, val) => {
     if (!config) return;
     setSavingId(userId);
+    const numVal = Number(val) || 0;
 
-    const meal = todayMeals[userId] || { breakfast: 0, lunch: 0, dinner: 0 };
-    const b = Number(meal.breakfast) || 0;
-    const l = Number(meal.lunch) || 0;
-    const d = Number(meal.dinner) || 0;
-    const total = Number(b + l + d);
-
-    // Calculate delta for user's aggregate total_meals
     const existing = todayMeals[userId];
     const prevTotal = Number(existing?.total) || 0;
-    const delta = total - prevTotal;
+    const delta = numVal - prevTotal;
+
+    // Document ID: memberId_DD_MM_YYYY
+    const mealDocId = `${userId}_${dateIdSuffix}`;
 
     const data = {
       month_id: config.current_month_id,
-      date: selectedDate,
+      date: slashDate,
       user_id: userId,
-      breakfast: b,
-      lunch: l,
-      dinner: d,
-      total: total
+      total: numVal,
+      // Keep legacy fields for compatibility if needed
+      breakfast: 0,
+      lunch: numVal, 
+      dinner: 0
     };
 
-    // Document ID format: "${selectedDate}_${userId}"
-    const mealDocId = `${selectedDate}_${userId}`;
-
     try {
-      // Force Save with merge: true
       await setDoc(doc(db, 'daily_meals', mealDocId), data, { merge: true });
-      
-      // Update member's total meals count
-      await updateDoc(doc(db, 'users', userId), { 
-        total_meals: increment(delta) 
+      await updateDoc(doc(db, 'users', userId), {
+        total_meals: increment(delta)
       });
 
-      console.log("Data Saved:", data);
       setSuccessId(userId);
       setTimeout(() => setSuccessId(null), 2000);
-      showToast('সফলভাবে সেভ হয়েছে!', 'success');
+      showToast('মিল সফলভাবে সেভ হয়েছে!', 'success');
     } catch (err) {
-      console.error('Meal save error:', err);
-      showToast('সেভ ব্যর্থ।', 'error');
+      console.error("Save error:", err);
+      showToast('সেভ ব্যর্থ হয়েছে।', 'error');
     } finally {
       setSavingId(null);
     }
@@ -127,160 +119,252 @@ const MealManagement = () => {
   const grandTotalToday = Object.values(todayMeals).reduce((s, m) => s + (Number(m.total) || 0), 0);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
+    <div className="meal-flow-container" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
-        <div className="card" style={{ textAlign: 'center', background: 'rgba(0, 209, 255, 0.05)', border: '1px solid rgba(0, 209, 255, 0.1)', padding: '1.5rem' }}>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.5rem' }}>আজকের মোট মিল</p>
-          <p style={{ fontSize: '2.5rem', fontWeight: '800', color: 'var(--accent-blue)', margin: 0 }}>{grandTotalToday}</p>
-        </div>
-        <div className="card" style={{ textAlign: 'center', background: 'rgba(255, 150, 0, 0.05)', border: '1px solid rgba(255, 150, 0, 0.1)', padding: '1.5rem' }}>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.5rem' }}>এই মাসের মোট মিল</p>
-          <p style={{ fontSize: '2.5rem', fontWeight: '800', color: 'var(--accent-orange)', margin: 0 }}>{monthTotalMeals}</p>
-        </div>
-      </div>
-
-      <div className="card" style={{ padding: '1.5rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+      {/* Header Section */}
+      <div className="card" style={{ marginBottom: '1.5rem', padding: '1.5rem', background: 'linear-gradient(145deg, var(--surface-color), #1a1a1a)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: '700', margin: 0 }}>🍽️ মিল ম্যানেজমেন্ট</h2>
-            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>সদস্যদের প্রতিদিনের মিল ইনপুট দিন</p>
+            <h2 style={{ fontSize: '1.6rem', fontWeight: '700', margin: 0, color: 'var(--accent-blue)' }}>🍽️ মিল ম্যানেজমেন্ট</h2>
+            <p style={{ color: 'var(--text-secondary)', margin: '0.25rem 0 0 0' }}>এক ক্লিকে প্রতিদিনের মিল আপডেট করুন</p>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--surface-hover)', padding: '0.5rem 1rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-            <label style={{ fontSize: '0.9rem', fontWeight: '600' }}>তারিখ:</label>
+          <div className="date-picker-wrapper">
+            <label style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>তারিখ নির্বাচন করুন</label>
             <input 
               type="date" 
               className="form-control" 
-              style={{ width: 'auto', background: 'transparent', border: 'none', padding: 0, color: 'var(--text-primary)', fontWeight: '600', cursor: 'pointer' }} 
-              value={selectedDate} 
-              onChange={(e) => setSelectedDate(e.target.value)} 
+              style={{ width: '180px', fontWeight: '700' }}
+              value={selectedDateISO}
+              onChange={(e) => setSelectedDateISO(e.target.value)}
             />
           </div>
         </div>
+      </div>
 
-        {(loading || mealsLoading) ? (
-          <div style={{ textAlign: 'center', padding: '4rem' }}>
-            <div className="spinner" style={{ margin: '0 auto 1rem' }}></div>
-            <p style={{ color: 'var(--text-secondary)' }}>লোড হচ্ছে...</p>
+      {/* Main Content */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem' }}>
+        
+        {/* Input List */}
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '1.25rem', borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.02)' }}>
+            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>মেম্বার তালিকা ({members.length})</h3>
           </div>
-        ) : (
-          <div className="table-container" style={{ overflow: 'visible' }}>
-            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px' }}>
-              <thead>
-                <tr>
-                  <th style={{ padding: '1rem', textAlign: 'left', color: 'var(--text-secondary)', width: '30%' }}>মেম্বার নাম</th>
-                  <th style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>সকাল</th>
-                  <th style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>দুপুর</th>
-                  <th style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>রাত</th>
-                  <th style={{ padding: '1rem', textAlign: 'right', color: 'var(--text-secondary)' }}>অ্যাকশন / মোট</th>
-                </tr>
-              </thead>
-              <tbody>
-                {members.map((m) => {
-                  const meal = todayMeals[m.id] || { breakfast: 0, lunch: 0, dinner: 0 };
-                  const rowTotal = Number(meal.total) || 0;
-                  const isSaving = savingId === m.id;
+          
+          {(loading || mealsLoading) ? (
+            <div style={{ padding: '4rem', textAlign: 'center' }}>
+              <div className="spinner"></div>
+              <p style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>ডেটা লোড হচ্ছে...</p>
+            </div>
+          ) : (
+            <div className="member-list-scroll" style={{ maxHeight: '600px', overflowY: 'auto', padding: '0.5rem' }}>
+              {members.map(m => {
+                const meal = todayMeals[m.id] || { total: 0 };
+                const isSaving = savingId === m.id;
+                const isSuccess = successId === m.id;
 
-                  return (
-                    <tr key={m.id} className="member-row">
-                      <td style={{ padding: '1rem', borderRadius: '12px 0 0 12px', border: '1px solid var(--border-color)', borderRight: 'none' }}>
-                        <div style={{ fontWeight: '700' }}>{m.name}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>@{m.username}</div>
-                      </td>
-                      <td style={{ padding: '1rem', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', textAlign: 'center' }}>
-                        <select 
-                          className="meal-select"
-                          value={meal.breakfast || 0} 
-                          onChange={(e) => handleInputChange(m.id, 'breakfast', e.target.value)}
-                        >
-                          {MEAL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                        </select>
-                      </td>
-                      <td style={{ padding: '1rem', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', textAlign: 'center' }}>
-                        <select 
-                          className="meal-select"
-                          value={meal.lunch || 0} 
-                          onChange={(e) => handleInputChange(m.id, 'lunch', e.target.value)}
-                        >
-                          {MEAL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                        </select>
-                      </td>
-                      <td style={{ padding: '1rem', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', textAlign: 'center' }}>
-                        <select 
-                          className="meal-select"
-                          value={meal.dinner || 0} 
-                          onChange={(e) => handleInputChange(m.id, 'dinner', e.target.value)}
-                        >
-                          {MEAL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                        </select>
-                      </td>
-                      <td style={{ padding: '1rem', borderRadius: '0 12px 12px 0', border: '1px solid var(--border-color)', borderLeft: 'none', textAlign: 'right' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '1rem' }}>
-                          <span style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--accent-blue)' }}>{rowTotal}</span>
-                          <button 
-                            className="btn" 
-                            disabled={isSaving}
-                            style={{ 
-                              padding: '0.5rem 1rem', 
-                              background: successId === m.id 
-                                ? 'var(--accent-green)' 
-                                : 'linear-gradient(135deg, #00d1ff, #0088ff)',
-                              color: successId === m.id ? '#fff' : '#000',
-                              border: 'none',
-                              borderRadius: '8px',
-                              cursor: 'pointer',
-                              minWidth: '85px',
-                              fontWeight: '700',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              gap: '0.5rem'
-                            }} 
-                            onClick={() => handleSaveMeal(m.id)}
-                          >
-                            {isSaving ? (
-                              <div className="spinner" style={{ width: '14px', height: '14px', border: '2px solid #000', borderTopColor: 'transparent' }}></div>
-                            ) : successId === m.id ? 'সফল' : 'সেভ'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                return (
+                  <div key={m.id} className="member-meal-row">
+                    <div className="member-info">
+                      <div className="name">{m.name}</div>
+                      <div className="username">@{m.username}</div>
+                    </div>
+                    
+                    <div className="meal-input-group">
+                      <select 
+                        className="meal-dropdown"
+                        value={meal.total}
+                        onChange={(e) => handleSaveMeal(m.id, e.target.value)}
+                        disabled={isSaving}
+                        style={{
+                          background: meal.total > 0 ? 'rgba(0, 209, 255, 0.1)' : 'var(--bg-color)',
+                          borderColor: meal.total > 0 ? 'var(--accent-blue)' : 'var(--border-color)'
+                        }}
+                      >
+                        {MEAL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                      </select>
+                      
+                      <button 
+                        className={`action-btn ${isSuccess ? 'success' : ''}`}
+                        onClick={() => handleSaveMeal(m.id, meal.total)}
+                        disabled={isSaving}
+                      >
+                        {isSaving ? <div className="spinner-sm"></div> : isSuccess ? 'সফল' : 'সেভ'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Real-time Summary & Preview Section */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div className="card preview-card">
+            <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '1.1rem', color: 'var(--accent-blue)' }}>📊 আজকের সারসংক্ষেপ</h3>
+            
+            <div className="summary-item">
+              <span>নির্বাচিত তারিখ:</span>
+              <span className="value">{slashDate}</span>
+            </div>
+            <div className="summary-item main">
+              <span>আজকের মোট মিল:</span>
+              <span className="value big">{grandTotalToday}</span>
+            </div>
+            
+            <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem' }}>
+              <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.9rem', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>মেম্বার ব্রেকডাউন</h4>
+              <div className="breakdown-list">
+                {members.slice(0, 5).map(m => (
+                  <div key={m.id} className="breakdown-row">
+                    <span>{m.name}</span>
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                      <span style={{ color: 'var(--accent-blue)' }}>আজ: {todayMeals[m.id]?.total || 0}</span>
+                      <span style={{ color: 'var(--text-secondary)' }}>|</span>
+                      <span style={{ color: 'var(--accent-orange)' }}>মাস: {m.total_meals || 0}</span>
+                    </div>
+                  </div>
+                ))}
+                {members.length > 5 && <div style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>...আরও {members.length - 5} জন মেম্বার</div>}
+              </div>
+            </div>
           </div>
-        )}
+
+          <div className="card" style={{ background: 'rgba(255, 150, 0, 0.05)', border: '1px solid rgba(255, 150, 0, 0.1)' }}>
+            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem' }}>📈 লাইভ স্ট্যাটাস</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: 'var(--text-secondary)' }}>এই মাসের মোট মিল:</span>
+              <span style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--accent-orange)' }}>{monthTotalMeals}</span>
+            </div>
+          </div>
+        </div>
+
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
-        .member-row {
+        @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
+        
+        .meal-flow-container {
+          max-width: 1200px;
+          margin: 0 auto;
+          width: 100%;
+        }
+
+        .member-meal-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 0.75rem 1rem;
+          border-radius: 12px;
+          margin-bottom: 0.5rem;
           background: var(--surface-color);
+          border: 1px solid var(--border-color);
           transition: all 0.2s ease;
         }
-        .member-row:hover {
+
+        .member-meal-row:hover {
           background: var(--surface-hover);
+          border-color: var(--accent-blue);
+          transform: translateX(4px);
         }
-        .meal-select {
-          width: 65px;
-          padding: 0.4rem;
-          border-radius: 8px;
+
+        .member-info .name {
+          font-weight: 700;
+          font-size: 1rem;
+        }
+
+        .member-info .username {
+          font-size: 0.75rem;
+          color: var(--text-secondary);
+        }
+
+        .meal-input-group {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+
+        .meal-dropdown {
+          width: 80px;
+          padding: 0.5rem;
+          border-radius: 10px;
           border: 1px solid var(--border-color);
-          background: var(--bg-color);
-          color: var(--text-primary);
+          font-weight: 700;
+          font-size: 1.1rem;
+          text-align: center;
+          cursor: pointer;
+          outline: none;
+        }
+
+        .action-btn {
+          padding: 0.5rem 1rem;
+          border-radius: 10px;
+          border: none;
+          background: linear-gradient(135deg, var(--accent-blue), #0088ff);
+          color: #000;
           font-weight: 700;
           cursor: pointer;
-          text-align: center;
+          transition: all 0.3s;
+          min-width: 70px;
         }
+
+        .action-btn.success {
+          background: var(--accent-green);
+          color: #fff;
+        }
+
+        .preview-card .summary-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 0.5rem 0;
+        }
+
+        .summary-item.main {
+          margin-top: 1rem;
+          padding: 1rem;
+          background: rgba(0, 209, 255, 0.05);
+          border-radius: 12px;
+        }
+
+        .summary-item .value {
+          font-weight: 700;
+          color: var(--text-primary);
+        }
+
+        .summary-item .value.big {
+          font-size: 2.5rem;
+          color: var(--accent-blue);
+        }
+
+        .breakdown-row {
+          display: flex;
+          justify-content: space-between;
+          padding: 0.4rem 0;
+          font-size: 0.9rem;
+          border-bottom: 1px dashed rgba(255,255,255,0.05);
+        }
+
         .spinner {
-          width: 24px;
-          height: 24px;
-          border: 3px solid rgba(0, 209, 255, 0.3);
+          width: 30px;
+          height: 30px;
+          border: 3px solid rgba(0, 209, 255, 0.2);
           border-top-color: var(--accent-blue);
           border-radius: 50%;
           animation: spin 1s linear infinite;
+          display: inline-block;
         }
+
+        .spinner-sm {
+          width: 16px;
+          height: 16px;
+          border: 2px solid #000;
+          border-top-color: transparent;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+
         @keyframes spin {
           to { transform: rotate(360deg); }
         }
