@@ -18,11 +18,14 @@ const MealManagement = () => {
   const [refreshKey, setRefreshKey] = useState(0); // Trigger for manual re-sync
   const { toasts, showToast, removeToast } = useToast();
 
-  // Format date to DD/MM/YYYY for Firestore Document IDs
-  const docIdDate = useMemo(() => {
-    if (!selectedDate) return '';
+  // Format date to DD-MM-YYYY for Firestore Document IDs and fields
+  const { docIdDate, monthYear } = useMemo(() => {
+    if (!selectedDate) return { docIdDate: '', monthYear: '' };
     const [y, m, d] = selectedDate.split('-');
-    return `${d}/${m}/${y}`;
+    return {
+      docIdDate: `${d}-${m}-${y}`,
+      monthYear: `${m}-${y}`
+    };
   }, [selectedDate]);
 
   // 3. Real-time Persistence: Listen to saved meals for selected date
@@ -149,15 +152,15 @@ const MealManagement = () => {
         const count = Number(countValue); // Ensure 'count' is saved as a Number
         totalSum += count;
 
-        // Doc ID Format: meal_${memberId}_${docIdDate} (DD/MM/YYYY)
-        const mealDocId = `meal_${member.id}_${docIdDate}`;
+        // NEW Document ID Format: ${memberId}_${date} (e.g. user123_15-05-2026)
+        const mealDocId = `${member.id}_${docIdDate}`;
         const mealRef = doc(db, 'daily_meals', mealDocId);
 
         batch.set(mealRef, {
           memberId: member.id,
-          date: docIdDate,
+          date: docIdDate, // DD-MM-YYYY
+          monthYear: monthYear, // MM-YYYY for dashboard aggregation
           count: count,
-          month_id: currentMonthId,
           updatedAt: serverTimestamp()
         }, { merge: true });
       });

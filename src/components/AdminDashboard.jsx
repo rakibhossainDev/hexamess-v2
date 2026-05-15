@@ -64,11 +64,14 @@ export const DashboardHome = () => {
   const [newMember, setNewMember] = useState({ name: '', username: '', password: '', deposit: '' });
   const [isAdding, setIsAdding] = useState(false);
 
-  // Helper: DD/MM/YYYY format for Document ID
-  const docIdKey = useMemo(() => {
-    if (!selectedDateIso) return '';
+  // Helper: DD-MM-YYYY format for Document ID
+  const { docIdKey, monthId } = useMemo(() => {
+    if (!selectedDateIso) return { docIdKey: '', monthId: '' };
     const [y, m, d] = selectedDateIso.split('-');
-    return `${d}/${m}/${y}`;
+    return {
+      docIdKey: `${d}-${m}-${y}`,
+      monthId: `${m}-${y}`
+    };
   }, [selectedDateIso]);
 
   const { toasts, showToast, removeToast } = useToast();
@@ -85,8 +88,6 @@ export const DashboardHome = () => {
     if (!db || !docIdKey) return;
     
     setFetching(true);
-    const [targetY, targetM] = selectedDateIso.split('-');
-    const monthId = `${targetY}-${targetM}`;
 
     // A. Today's Total Listener
     const unsubToday = onSnapshot(
@@ -109,9 +110,9 @@ export const DashboardHome = () => {
       }
     );
 
-    // B. Monthly Summation Listener
+    // B. Monthly Summation Listener (using monthYear field)
     const unsubMonth = onSnapshot(
-      query(collection(db, 'daily_meals'), where('month_id', '==', monthId)),
+      query(collection(db, 'daily_meals'), where('monthYear', '==', monthId)),
       (snap) => {
         try {
           const total = snap.docs.reduce((sum, d) => sum + Number(d.data().count || 0), 0);
