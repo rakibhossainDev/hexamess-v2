@@ -42,6 +42,7 @@ export const DashboardHome = () => {
   const [config, setConfig] = useState(null);
   const [todaySavedMeals, setTodaySavedMeals] = useState(0);
   const [monthTotalMeals, setMonthTotalMeals] = useState(0);
+  const [totalBazarAmount, setTotalBazarAmount] = useState(0);
   const [fetching, setFetching] = useState(false);
   const [selectedDateIso, setSelectedDateIso] = useState(getTodayDateString());
 
@@ -89,11 +90,26 @@ export const DashboardHome = () => {
       }
     );
 
+    // C. Monthly Bazar Listener (MM-YYYY)
+    const unsubBazar = onSnapshot(
+      query(collection(db, 'bazar_records'), where('monthYear', '==', monthId)),
+      (snap) => {
+        const total = snap.docs.reduce((sum, d) => sum + Number(d.data().amount || 0), 0);
+        setTotalBazarAmount(total);
+      }
+    );
+
     return () => {
       unsubToday();
       unsubMonth();
+      unsubBazar();
     };
   }, [docIdKey, monthId]);
+
+  const liveMealRate = useMemo(() => {
+    if (monthTotalMeals === 0) return 0;
+    return (totalBazarAmount / monthTotalMeals).toFixed(2);
+  }, [totalBazarAmount, monthTotalMeals]);
 
   return (
     <div className="fade-in">
@@ -125,9 +141,9 @@ export const DashboardHome = () => {
           </span>
         </div>
         <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-green)' }}>
-          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>সিস্টেম স্ট্যাটাস</p>
+          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>লাইভ মিল রেট</p>
           <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-green)' }}>
-            {config?.maintenance_mode ? 'মেইনটেনেন্স' : 'এক্টিভ'}
+            ৳{liveMealRate}
           </span>
         </div>
       </div>

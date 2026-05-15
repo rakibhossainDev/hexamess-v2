@@ -9,7 +9,7 @@ const MemberDashboard = lazy(() => import('./components/MemberDashboard'));
 const MealManagement = lazy(() => import('./components/MealManagement'));
 const MarketExpense = lazy(() => import('./components/MarketExpense'));
 const MemberList = lazy(() => import('./components/MemberList'));
-const MarketManager = lazy(() => import('./components/MarketManager'));
+const BazarManager = lazy(() => import('./components/BazarManager'));
 const HistoryArchive = lazy(() => import('./components/HistoryArchive'));
 const Settings = lazy(() => import('./components/Settings'));
 const Profile = lazy(() => import('./components/Profile'));
@@ -59,7 +59,7 @@ function App() {
           >
             <Route index element={<DashboardHome />} />
             <Route path="meals" element={<MealManagement />} />
-            <Route path="market" element={<MarketManager />} />
+            <Route path="market" element={<BazarManager />} />
             <Route path="expenses" element={<MarketExpense />} />
             <Route path="members" element={<MemberList />} />
             <Route path="members/:id" element={<Profile isAdminView={true} />} />

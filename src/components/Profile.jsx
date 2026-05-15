@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { db, doc, onSnapshot, updateDoc, storage, ref, uploadBytes, getDownloadURL } from '../firebase';
+import { db, doc, onSnapshot, updateDoc } from '../firebase';
 import { ToastContainer } from './Toast';
 import { useToast } from '../hooks/useToast';
 import Sidebar from './Sidebar';
@@ -28,7 +28,6 @@ const Profile = ({ isAdminView = false }) => {
   });
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const { toasts, showToast, removeToast } = useToast();
 
   useEffect(() => {
@@ -60,25 +59,6 @@ const Profile = ({ isAdminView = false }) => {
     return () => unsub();
   }, [userId]);
 
-  const handlePhotoUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    setUploading(true);
-    try {
-      const storageRef = ref(storage, `profiles/${userId}`);
-      await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
-      await updateDoc(doc(db, 'users', userId), { photoURL: url });
-      setFormData({ ...formData, photoURL: url });
-      showToast('ছবি আপলোড সফল হয়েছে!', 'success');
-    } catch (err) {
-      console.error(err);
-      showToast('ছবি আপলোড ব্যর্থ হয়েছে।', 'error');
-    } finally {
-      setUploading(false);
-    }
-  };
 
   const handleUpdate = async (e) => {
     e.preventDefault();
@@ -160,25 +140,10 @@ const Profile = ({ isAdminView = false }) => {
                   <label>প্রোফাইল ফটো (URL)</label>
                   <input 
                     className="form-control"
-                    placeholder="ছবির লিঙ্ক দিন..."
+                    placeholder="ছবির লিঙ্ক দিন (যেমন: https://example.com/photo.jpg)"
                     value={formData.photoURL}
                     onChange={(e) => setFormData({ ...formData, photoURL: e.target.value })}
                   />
-                </div>
-                <div className="form-group">
-                  <label>বা সরাসরি আপলোড করুন</label>
-                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                    <input 
-                      type="file" 
-                      accept="image/*"
-                      onChange={handlePhotoUpload}
-                      style={{ display: 'none' }}
-                      id="photo-upload"
-                    />
-                    <label htmlFor="photo-upload" className="btn" style={{ background: 'var(--surface-hover)', cursor: 'pointer', flex: 1 }}>
-                      {uploading ? 'আপলোড হচ্ছে...' : '📁 ছবি নির্বাচন করুন'}
-                    </label>
-                  </div>
                 </div>
               </>
             )}
