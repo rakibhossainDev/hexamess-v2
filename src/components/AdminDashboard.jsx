@@ -85,6 +85,8 @@ export const DashboardHome = () => {
     if (!db || !docIdKey) return;
     
     setFetching(true);
+    const fetchTimeout = setTimeout(() => setFetching(false), 5000);
+
     try {
       // A. Fetch Today's Total
       const todayRef = doc(db, 'meal_summaries', docIdKey);
@@ -92,17 +94,16 @@ export const DashboardHome = () => {
       
       if (todaySnap.exists()) {
         const data = todaySnap.data();
-        console.log("Fetched Today Data:", data); // 5. Debugging Log
+        console.log("Fetched Today Data:", data);
         const val = Number(data.totalMeals) || 0;
         setTodaySavedMeals(val);
         setManualMealInput(val.toString());
       } else {
-        console.log("No Data found for today:", docIdKey);
         setTodaySavedMeals(0);
         setManualMealInput('');
       }
 
-      // B. Fetch Monthly Summation (Query-based loop)
+      // B. Fetch Monthly Summation
       const querySnapshot = await getDocs(collection(db, 'meal_summaries'));
       let total = 0;
       const [, targetM, targetY] = docIdKey.split('-');
@@ -115,7 +116,7 @@ export const DashboardHome = () => {
       });
       
       setMonthTotalMeals(total);
-      console.log("Fetched Monthly Total:", total);
+      clearTimeout(fetchTimeout);
 
     } catch (error) {
       console.error("Dashboard Fetch Error:", error);
@@ -128,7 +129,7 @@ export const DashboardHome = () => {
     fetchDashboardData();
   }, [fetchDashboardData, refresh]);
 
-  // Market Expense Sync (Keep as Snapshot for live feel)
+  // Market Expense Sync
   useEffect(() => {
     if (!db || !config) return;
     const unsubExp = onSnapshot(query(
@@ -145,32 +146,27 @@ export const DashboardHome = () => {
   const totalMarketCost = useMemo(() => approvedExpenses.reduce((s, e) => s + (Number(e.cost)||0), 0), [approvedExpenses]);
   const liveMealRate = useMemo(() => monthTotalMeals === 0 ? 0 : (totalMarketCost / monthTotalMeals).toFixed(2), [totalMarketCost, monthTotalMeals]);
 
-  // 4. Trigger Refresh on Save
   const handleSaveManualMeals = async (e) => {
     e.preventDefault();
     if (!db || !manualMealInput || isNaN(manualMealInput)) {
-      alert("সঠিক সংখ্যা দিন!");
+      showToast("সঠিক সংখ্যা দিন!", "error");
       return;
     }
 
     setSaving(true);
     try {
-      // 1. Data Type Enforcement & Structure
       const mealRef = doc(db, 'meal_summaries', docIdKey);
       await setDoc(mealRef, {
         date: docIdKey,
-        totalMeals: Number(manualMealInput), // Enforce Number
+        totalMeals: Number(manualMealInput),
         updatedAt: serverTimestamp()
       }, { merge: true });
 
-      alert("তথ্য সেভ হয়েছে, বস!");
-      
-      // 4. Call fetching again IMMEDIATELY
+      showToast("তথ্য সেভ হয়েছে, বস!", "success");
       setRefresh(prev => prev + 1);
-
     } catch (error) {
       console.error("Save Error:", error);
-      alert("বস, তথ্য সেভ হয়নি! Error: " + error.message);
+      showToast("বস, তথ্য সেভ হয়নি!", "error");
     } finally {
       setSaving(false);
     }

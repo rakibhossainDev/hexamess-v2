@@ -25,8 +25,8 @@ const MealManagement = () => {
     const unsubMembers = onSnapshot(collection(db, 'users'), snap => {
       const users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       setMembers(users);
-      // If we only have members to show, we can technically stop the "stuck" loading
-      if (users.length > 0) setLoading(false);
+      clearTimeout(loadTimeout);
+      setLoading(false);
     }, (error) => {
       console.error("Fetch Members Error:", error);
       setLoading(false);
@@ -35,18 +35,19 @@ const MealManagement = () => {
     const unsubConfig = onSnapshot(doc(db, 'config', 'settings'), snap => {
       if (snap.exists()) {
         setConfig(snap.data());
-      } else {
-        console.warn("Config document 'settings' not found!");
       }
     });
 
-    return () => { unsubMembers(); unsubConfig(); };
+    return () => { unsubMembers(); unsubConfig(); clearTimeout(loadTimeout); };
   }, []);
 
   // 2. Meal Fetching & Persistence
   useEffect(() => {
     if (!db) return;
-    setLoading(true);
+    
+    const loadTimeout = setTimeout(() => {
+      setLoading(false);
+    }, 5000);
 
     const unsubMeals = onSnapshot(query(
       collection(db, 'daily_meals'),
@@ -61,13 +62,14 @@ const MealManagement = () => {
       });
       setDbMeals(mealsMap);
       setInputMeals(mealsMap);
+      clearTimeout(loadTimeout);
       setLoading(false);
     }, (error) => {
       console.error("Fetch Meals Error:", error);
       setLoading(false);
     });
 
-    return () => unsubMeals();
+    return () => { unsubMeals(); clearTimeout(loadTimeout); };
   }, [docIdDate]);
 
   const activeMembers = useMemo(() => members.filter(m => m.status === 'active'), [members]);
@@ -80,10 +82,12 @@ const MealManagement = () => {
     setInputMeals(prev => ({ ...prev, [memberId]: Number(value) }));
   };
 
-  // 3 & 4. Firestore Sync & Dashboard Update
   const handleSaveAll = async () => {
-    if (!db || !config || saving) {
-      if (!config) alert("সিস্টেম কনফিগ লোড হচ্ছে, দয়া করে একটু অপেক্ষা করুন।");
+    if (!db || saving) return;
+    
+    // Non-blocking check for config
+    if (!config) {
+      showToast('সিস্টেম কনফিগ পাওয়া যায়নি। পরে আবার চেষ্টা করুন।', 'error');
       return;
     }
     
