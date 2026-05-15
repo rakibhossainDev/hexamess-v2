@@ -157,18 +157,10 @@ const MealManagement = () => {
         }, { merge: true });
       });
 
-      // Automated Dashboard Sync: Update 'meal_summaries' for the 'docIdDate'
-      const summaryRef = doc(db, 'meal_summaries', docIdDate);
-      batch.set(summaryRef, {
-        date: docIdDate,
-        totalMeals: Number(totalSum),
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-
       await batch.commit();
       
       showToast("তথ্য সেভ হয়েছে, বস!", "success");
-      // Local state is already updated via listeners, but we can re-fetch if needed
+      // All totals (Lifetime, Today, Monthly) are automated via Firestore listeners!
     } catch (error) {
       console.error("Batch Save Error:", error);
       alert("সেভ হয়নি! এরর: " + error.message);
