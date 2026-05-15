@@ -80,42 +80,42 @@ export const DashboardHome = () => {
     return () => { u1(); u2(); };
   }, []);
 
-  // 2 & 3. Robust Data Fetching & Monthly Summation
-  const fetchDashboardData = useCallback(async () => {
+  // 2 & 3. Real-time Dashboard Aggregation
+  useEffect(() => {
     if (!db || !docIdKey) return;
     
     setFetching(true);
-    const fetchTimeout = setTimeout(() => setFetching(false), 5000);
+    const [targetY, targetM] = selectedDateIso.split('-');
+    const monthId = `${targetY}-${targetM}`;
 
-    try {
-      // A. Fetch Today's Total from daily_meals
-      const qToday = query(collection(db, 'daily_meals'), where('date', '==', docIdKey));
-      const snapToday = await getDocs(qToday);
-      let todayTotal = 0;
-      snapToday.forEach(d => todayTotal += (Number(d.data().count) || 0));
-      setTodaySavedMeals(todayTotal);
+    // A. Today's Total Listener
+    const unsubToday = onSnapshot(
+      query(collection(db, 'daily_meals'), where('date', '==', docIdKey)),
+      (snap) => {
+        let total = 0;
+        snap.forEach(d => total += (Number(d.data().count) || 0));
+        setTodaySavedMeals(total);
+        setFetching(false);
+      },
+      (err) => { console.error("Today Meals Listener Error:", err); setFetching(false); }
+    );
 
-      // B. Fetch Monthly Summation from daily_meals
-      const [targetY, targetM] = selectedDateIso.split('-');
-      const monthId = `${targetY}-${targetM}`;
-      const qMonth = query(collection(db, 'daily_meals'), where('month_id', '==', monthId));
-      const snapMonth = await getDocs(qMonth);
-      let monthTotal = 0;
-      snapMonth.forEach(d => monthTotal += (Number(d.data().count) || 0));
-      
-      setMonthTotalMeals(monthTotal);
-      clearTimeout(fetchTimeout);
+    // B. Monthly Summation Listener
+    const unsubMonth = onSnapshot(
+      query(collection(db, 'daily_meals'), where('month_id', '==', monthId)),
+      (snap) => {
+        let total = 0;
+        snap.forEach(d => total += (Number(d.data().count) || 0));
+        setMonthTotalMeals(total);
+      },
+      (err) => { console.error("Month Meals Listener Error:", err); }
+    );
 
-    } catch (error) {
-      console.error("Dashboard Fetch Error:", error);
-    } finally {
-      setTimeout(() => setFetching(false), 200);
-    }
-  }, [docIdKey]);
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData, refresh]);
+    return () => {
+      unsubToday();
+      unsubMonth();
+    };
+  }, [docIdKey, selectedDateIso]);
 
   // Market Expense Sync
   useEffect(() => {

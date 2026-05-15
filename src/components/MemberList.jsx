@@ -8,6 +8,7 @@ const MemberList = () => {
   const navigate = useNavigate();
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [lifetimeMeals, setLifetimeMeals] = useState({}); // Aggregated totals from daily_meals
   const [visiblePasswords, setVisiblePasswords] = useState({});
   const { toasts, showToast, removeToast } = useToast();
 
@@ -20,7 +21,20 @@ const MemberList = () => {
       setMembers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoading(false);
     }, (err) => { console.error(err); setLoading(false); });
-    return () => unsubscribe();
+
+    // Lifetime Meal Aggregation
+    const unsubMeals = onSnapshot(collection(db, 'daily_meals'), (snap) => {
+      const totals = {};
+      snap.docs.forEach(d => {
+        const data = d.data();
+        if (data.memberId) {
+          totals[data.memberId] = (totals[data.memberId] || 0) + (Number(data.count) || 0);
+        }
+      });
+      setLifetimeMeals(totals);
+    }, (err) => { console.error("Meals Aggregation Error:", err); });
+
+    return () => { unsubscribe(); unsubMeals(); };
   }, []);
 
   const handleDeactivate = async (id, currentStatus) => {
@@ -110,7 +124,15 @@ const MemberList = () => {
                       </td>
                       <td style={{ textAlign: 'right' }}>৳{(m.total_deposit || 0).toLocaleString()}</td>
                       <td style={{ textAlign: 'right', fontWeight: '700', color: isNeg ? 'var(--accent-red)' : 'var(--accent-green)' }}>৳{(m.current_balance || 0).toLocaleString()}</td>
-                      <td style={{ textAlign: 'center', fontWeight: '600', color: 'var(--accent-blue)' }}>{m.total_meals || 0}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        <div style={{ 
+                          padding: '0.25rem 0.5rem', background: 'rgba(30, 58, 138, 0.1)', 
+                          color: 'var(--accent-blue)', borderRadius: '6px', fontSize: '0.9rem', 
+                          fontWeight: '700', minWidth: '60px'
+                        }}>
+                          {lifetimeMeals[m.id] || 0} টি
+                        </div>
+                      </td>
                       <td style={{ textAlign: 'center' }}>
                         <span className={`badge ${m.status === 'active' ? 'badge-success' : 'badge-warning'}`}>
                           {m.status === 'active' ? 'সক্রিয়' : 'নিষ্ক্রিয়'}
