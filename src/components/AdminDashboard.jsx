@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import {
   db, collection, doc, onSnapshot, addDoc, updateDoc, writeBatch,
-  increment, serverTimestamp, query, where, getDocs, setDoc
+  increment, serverTimestamp, query, where, setDoc, getDoc, getDocs
 } from '../firebase';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
@@ -43,18 +43,29 @@ export const DashboardHome = () => {
   const [approvedExpenses, setApprovedExpenses] = useState([]);
   const [config, setConfig] = useState(null);
   
-  // 3. Refresh Logic: Explicit dependency for updates
+  // Refresh Trigger
   const [refresh, setRefresh] = useState(0);
   const [fetching, setFetching] = useState(false);
 
   // Meal Summary States
-  const [selectedDateIso, setSelectedDateIso] = useState(getTodayDateString()); // YYYY-MM-DD
+  const [selectedDateIso, setSelectedDateIso] = useState(getTodayDateString());
   const [manualMealInput, setManualMealInput] = useState('');
   const [todaySavedMeals, setTodaySavedMeals] = useState(0);
   const [monthTotalMeals, setMonthTotalMeals] = useState(0);
   const [saving, setSaving] = useState(false);
 
-  // Helper: Format ISO to DD-MM-YYYY for Doc ID
+  // Deposit and Bills States
+  const [depositAmount, setDepositAmount] = useState('');
+  const [selectedMember, setSelectedMember] = useState('');
+  const [billCategory, setBillCategory] = useState('');
+  const [billAmount, setBillAmount] = useState('');
+
+  // Form States
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newMember, setNewMember] = useState({ name: '', username: '', password: '', deposit: '' });
+  const [isAdding, setIsAdding] = useState(false);
+
+  // Helper: DD-MM-YYYY format for Document ID
   const docIdKey = useMemo(() => {
     const [y, m, d] = selectedDateIso.split('-');
     return `${d}-${m}-${y}`;
@@ -69,60 +80,72 @@ export const DashboardHome = () => {
     return () => { u1(); u2(); };
   }, []);
 
-  // 4. Persistence Check & Monthly Aggregation
-  useEffect(() => {
-    if (!db || !config) return;
-    const mid = config.current_month_id;
+  // 2 & 3. Robust Data Fetching & Monthly Summation
+  const fetchDashboardData = useCallback(async () => {
+    if (!db || !docIdKey) return;
+    
     setFetching(true);
-
-    // Fetch Today's Total for the selected date
-    const unsubToday = onSnapshot(doc(db, 'meal_summaries', docIdKey), snap => {
-      if (snap.exists()) {
-        const val = Number(snap.data().totalMeals) || 0;
+    try {
+      // A. Fetch Today's Total
+      const todayRef = doc(db, 'meal_summaries', docIdKey);
+      const todaySnap = await getDoc(todayRef);
+      
+      if (todaySnap.exists()) {
+        const data = todaySnap.data();
+        console.log("Fetched Today Data:", data); // 5. Debugging Log
+        const val = Number(data.totalMeals) || 0;
         setTodaySavedMeals(val);
         setManualMealInput(val.toString());
       } else {
+        console.log("No Data found for today:", docIdKey);
         setTodaySavedMeals(0);
         setManualMealInput('');
       }
-      setTimeout(() => setFetching(false), 300);
-    }, (error) => {
-      console.error("Snapshot Today Error:", error);
-      setFetching(false);
-    });
 
-    // Monthly aggregation across all meal_summaries
-    const unsubMonth = onSnapshot(collection(db, 'meal_summaries'), snap => {
+      // B. Fetch Monthly Summation (Query-based loop)
+      const querySnapshot = await getDocs(collection(db, 'meal_summaries'));
       let total = 0;
-      const [targetD, targetM, targetY] = docIdKey.split('-'); // Selected month/year
-      snap.docs.forEach(d => {
-        const docId = d.id; // DD-MM-YYYY
-        const parts = docId.split('-');
+      const [, targetM, targetY] = docIdKey.split('-');
+      
+      querySnapshot.forEach((d) => {
+        const parts = d.id.split('-');
         if (parts.length === 3 && parts[1] === targetM && parts[2] === targetY) {
-          total += (Number(d.data().totalMeals) || 0);
+          total += Number(d.data().totalMeals) || 0;
         }
       });
+      
       setMonthTotalMeals(total);
-    }, (error) => {
-      console.error("Snapshot Month Error:", error);
-    });
+      console.log("Fetched Monthly Total:", total);
 
+    } catch (error) {
+      console.error("Dashboard Fetch Error:", error);
+    } finally {
+      setTimeout(() => setFetching(false), 200);
+    }
+  }, [docIdKey]);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData, refresh]);
+
+  // Market Expense Sync (Keep as Snapshot for live feel)
+  useEffect(() => {
+    if (!db || !config) return;
     const unsubExp = onSnapshot(query(
       collection(db, 'expenses'), 
-      where('month_id', '==', mid), 
+      where('month_id', '==', config.current_month_id), 
       where('status', '==', 'approved')
     ), snap => {
       setApprovedExpenses(snap.docs.map(d => ({ id:d.id, ...d.data() })));
     });
-
-    return () => { unsubToday(); unsubMonth(); unsubExp(); };
-  }, [config, docIdKey, refresh]);
+    return () => unsubExp();
+  }, [config]);
 
   const activeMembers = useMemo(() => members.filter(m => m.status === 'active'), [members]);
   const totalMarketCost = useMemo(() => approvedExpenses.reduce((s, e) => s + (Number(e.cost)||0), 0), [approvedExpenses]);
   const liveMealRate = useMemo(() => monthTotalMeals === 0 ? 0 : (totalMarketCost / monthTotalMeals).toFixed(2), [totalMarketCost, monthTotalMeals]);
 
-  // 2. Fixing the handleSave Function
+  // 4. Trigger Refresh on Save
   const handleSaveManualMeals = async (e) => {
     e.preventDefault();
     if (!db || !manualMealInput || isNaN(manualMealInput)) {
@@ -132,30 +155,27 @@ export const DashboardHome = () => {
 
     setSaving(true);
     try {
-      // 1. Firebase Collection & Structure
+      // 1. Data Type Enforcement & Structure
       const mealRef = doc(db, 'meal_summaries', docIdKey);
       await setDoc(mealRef, {
         date: docIdKey,
-        totalMeals: Number(manualMealInput),
+        totalMeals: Number(manualMealInput), // Enforce Number
         updatedAt: serverTimestamp()
       }, { merge: true });
 
-      // 5. Feedback: Success
       alert("তথ্য সেভ হয়েছে, বস!");
       
-      // 3. Update Trigger
+      // 4. Call fetching again IMMEDIATELY
       setRefresh(prev => prev + 1);
 
     } catch (error) {
-      // 5. Feedback: Failure
-      console.error("Firebase Save Error:", error);
+      console.error("Save Error:", error);
       alert("বস, তথ্য সেভ হয়নি! Error: " + error.message);
     } finally {
       setSaving(false);
     }
   };
 
-  // Other UI handlers...
   const handleAddMember = async (e) => {
     e.preventDefault();
     if (!newMember.name || !newMember.username || !newMember.password) { showToast('সবগুলো ঘর পূরণ করুন।', 'error'); return; }
@@ -171,6 +191,17 @@ export const DashboardHome = () => {
       setNewMember({ name:'', username:'', password:'', deposit:'' }); setShowAddForm(false);
       showToast('সদস্য সফলভাবে যুক্ত করা হয়েছে!', 'success');
     } catch (err) { showToast(`মেম্বার যুক্ত করতে সমস্যা হয়েছে: ${err.message}`, 'error'); } finally { setIsAdding(false); }
+  };
+
+  const toggleUserStatus = async (id, currentStatus) => {
+    try {
+      await updateDoc(doc(db, 'users', id), {
+        status: currentStatus === 'active' ? 'inactive' : 'active'
+      });
+      showToast('স্ট্যাটাস আপডেট হয়েছে।', 'success');
+    } catch {
+      showToast('স্ট্যাটাস আপডেটে সমস্যা হয়েছে।', 'error');
+    }
   };
 
   const handleDeposit = async (e) => {
@@ -198,7 +229,7 @@ export const DashboardHome = () => {
       await batch.commit();
       setBillCategory(''); setBillAmount('');
       showToast(`বিল যুক্ত! জনপ্রতি ৳${perHead.toFixed(0)} কাটা হয়েছে।`, 'success');
-    } catch (err) { showToast('বিল যুক্ত ব্যর্থ।', 'error'); }
+    } catch { showToast('বিল যুক্ত ব্যর্থ।', 'error'); }
   };
 
   return (
@@ -225,7 +256,7 @@ export const DashboardHome = () => {
         </div>
       )}
 
-      {/* Top Cards (Live Refresh Logic) */}
+      {/* Top Cards */}
       <div className="stats-grid" style={{ marginBottom:'1.5rem' }}>
         <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-blue)', opacity: fetching ? 0.6 : 1, transition: 'opacity 0.2s' }}>
           <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>আজকের মোট মিল <span className="live-icon" /></p>

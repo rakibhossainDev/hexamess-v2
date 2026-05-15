@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { db, collection, doc, onSnapshot, addDoc, updateDoc, query, where } from '../firebase';
 import { ToastContainer } from './Toast';
 import { useToast } from '../hooks/useToast';
-import { getTodayDisplay, getTodayISO, formatDisplayDate } from '../utils/monthUtils';
+import { getTodayISO, formatDisplayDate } from '../utils/monthUtils';
 
 const MarketManager = () => {
   const [members, setMembers] = useState([]);

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { db, collection, doc, onSnapshot, updateDoc, writeBatch, query, where, getDocs, addDoc, getDoc } from '../firebase';
+import { db, collection, doc, onSnapshot, writeBatch, query, where, getDocs, addDoc } from '../firebase';
 import { ToastContainer } from './Toast';
 import { useToast } from '../hooks/useToast';
 import { getMonthLabel } from '../utils/monthUtils';
