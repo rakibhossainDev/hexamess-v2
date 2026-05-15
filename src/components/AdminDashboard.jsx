@@ -92,23 +92,40 @@ export const DashboardHome = () => {
     const unsubToday = onSnapshot(
       query(collection(db, 'daily_meals'), where('date', '==', docIdKey)),
       (snap) => {
-        let total = 0;
-        snap.forEach(d => total += (Number(d.data().count) || 0));
-        setTodaySavedMeals(total);
-        setFetching(false);
+        try {
+          const total = snap.docs.reduce((sum, d) => sum + Number(d.data().count || 0), 0);
+          setTodaySavedMeals(total);
+          setFetching(false);
+        } catch (err) {
+          console.error("Today Meals Summation Error:", err);
+        }
       },
-      (err) => { console.error("Today Meals Listener Error:", err); setFetching(false); }
+      (err) => { 
+        console.error("Today Meals Listener Error:", err); 
+        if (err.message.includes("requires an index")) {
+          console.warn("Firestore Index Required: " + err.message);
+        }
+        setFetching(false); 
+      }
     );
 
     // B. Monthly Summation Listener
     const unsubMonth = onSnapshot(
       query(collection(db, 'daily_meals'), where('month_id', '==', monthId)),
       (snap) => {
-        let total = 0;
-        snap.forEach(d => total += (Number(d.data().count) || 0));
-        setMonthTotalMeals(total);
+        try {
+          const total = snap.docs.reduce((sum, d) => sum + Number(d.data().count || 0), 0);
+          setMonthTotalMeals(total);
+        } catch (err) {
+          console.error("Month Meals Summation Error:", err);
+        }
       },
-      (err) => { console.error("Month Meals Listener Error:", err); }
+      (err) => { 
+        console.error("Month Meals Listener Error:", err); 
+        if (err.message.includes("requires an index")) {
+          console.warn("Firestore Index Required: " + err.message);
+        }
+      }
     );
 
     return () => {

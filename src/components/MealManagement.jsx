@@ -15,6 +15,7 @@ const MealManagement = () => {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [lifetimeMeals, setLifetimeMeals] = useState({}); // Stores lifetime total per member
+  const [refreshKey, setRefreshKey] = useState(0); // Trigger for manual re-sync
   const { toasts, showToast, removeToast } = useToast();
 
   // Format date to DD/MM/YYYY for Firestore Document IDs
@@ -93,7 +94,8 @@ const MealManagement = () => {
         snap.docs.forEach(d => {
           const data = d.data();
           if (data.memberId) {
-            totals[data.memberId] = (totals[data.memberId] || 0) + (Number(data.count) || 0);
+            const count = Number(data.count || 0);
+            totals[data.memberId] = (totals[data.memberId] || 0) + count;
           }
         });
         setLifetimeMeals(totals);
@@ -160,6 +162,7 @@ const MealManagement = () => {
       await batch.commit();
       
       showToast("তথ্য সেভ হয়েছে, বস!", "success");
+      setRefreshKey(prev => prev + 1); // Trigger immediate re-sync
       // All totals (Lifetime, Today, Monthly) are automated via Firestore listeners!
     } catch (error) {
       console.error("Batch Save Error:", error);

@@ -9,6 +9,7 @@ const MemberList = () => {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [lifetimeMeals, setLifetimeMeals] = useState({}); // Aggregated totals from daily_meals
+  const [refreshKey, setRefreshKey] = useState(0); 
   const [visiblePasswords, setVisiblePasswords] = useState({});
   const { toasts, showToast, removeToast } = useToast();
 
@@ -24,18 +25,25 @@ const MemberList = () => {
 
     // Lifetime Meal Aggregation
     const unsubMeals = onSnapshot(collection(db, 'daily_meals'), (snap) => {
-      const totals = {};
-      snap.docs.forEach(d => {
-        const data = d.data();
-        if (data.memberId) {
-          totals[data.memberId] = (totals[data.memberId] || 0) + (Number(data.count) || 0);
-        }
-      });
-      setLifetimeMeals(totals);
-    }, (err) => { console.error("Meals Aggregation Error:", err); });
+      try {
+        const totals = snap.docs.reduce((acc, d) => {
+          const data = d.data();
+          if (data.memberId) {
+            const count = Number(data.count || 0);
+            acc[data.memberId] = (acc[data.memberId] || 0) + count;
+          }
+          return acc;
+        }, {});
+        setLifetimeMeals(totals);
+      } catch (err) {
+        console.error("Meals Aggregation Error:", err);
+      }
+    }, (err) => { 
+      console.error("Meals Listener Error:", err); 
+    });
 
     return () => { unsubscribe(); unsubMeals(); };
-  }, []);
+  }, [refreshKey]);
 
   const handleDeactivate = async (id, currentStatus) => {
     try {
