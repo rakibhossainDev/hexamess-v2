@@ -43,6 +43,10 @@ export const DashboardHome = () => {
   const [approvedExpenses, setApprovedExpenses] = useState([]);
   const [config, setConfig] = useState(null);
   
+  // 1. Dependency Fix: refreshKey to force-trigger updates
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [fetching, setFetching] = useState(false);
+
   // Meal Summary States
   const [selectedDate, setSelectedDate] = useState(getTodayDateString());
   const [manualMealInput, setManualMealInput] = useState('');
@@ -72,11 +76,12 @@ export const DashboardHome = () => {
     return () => { u1(); u2(); };
   }, []);
 
+  // 2. Fetching logic with refreshKey dependency
   useEffect(() => {
     if (!db || !config) return;
     const mid = config.current_month_id;
+    setFetching(true);
 
-    // 1. Fetch Today's Manual Summary
     const unsubToday = onSnapshot(doc(db, 'meal_summaries', selectedDate), snap => {
       if (snap.exists()) {
         const val = snap.data().totalMeals || 0;
@@ -86,15 +91,15 @@ export const DashboardHome = () => {
         setTodaySavedMeals(0);
         setManualMealInput('');
       }
+      // Brief timeout to show the "fetching" state
+      setTimeout(() => setFetching(false), 500);
     });
 
-    // 2. Fetch Month's Cumulative Total from Summaries
     const unsubMonth = onSnapshot(collection(db, 'meal_summaries'), snap => {
       let total = 0;
-      const [curY, curM] = selectedDate.split('-');
+      const [curY, curM] = selectedDate.split('-'); // Filter based on selected month
       snap.docs.forEach(d => {
-        const docId = d.id; // YYYY-MM-DD
-        const [dY, dM] = docId.split('-');
+        const [dY, dM] = d.id.split('-');
         if (dY === curY && dM === curM) {
           total += (Number(d.data().totalMeals) || 0);
         }
@@ -102,7 +107,6 @@ export const DashboardHome = () => {
       setMonthTotalMeals(total);
     });
 
-    // 3. Fetch Approved Market Expenses for Rate
     const unsubExp = onSnapshot(query(
       collection(db, 'expenses'), 
       where('month_id', '==', mid), 
@@ -112,7 +116,7 @@ export const DashboardHome = () => {
     });
 
     return () => { unsubToday(); unsubMonth(); unsubExp(); };
-  }, [config, selectedDate]);
+  }, [config, selectedDate, refreshKey]); // refreshKey ensures explicit trigger
 
   const activeMembers = useMemo(() => members.filter(m => m.status === 'active'), [members]);
   const totalMarketCost = useMemo(() => approvedExpenses.reduce((s, e) => s + (Number(e.cost)||0), 0), [approvedExpenses]);
@@ -131,7 +135,12 @@ export const DashboardHome = () => {
         totalMeals: Number(manualMealInput),
         updatedAt: serverTimestamp()
       }, { merge: true });
+      
       window.alert("তথ্য সেভ হয়েছে, বস!");
+      
+      // 3. Update Trigger: Force-refresh dependencies
+      setRefreshKey(prev => prev + 1);
+      
     } catch (err) {
       console.error(err);
       window.alert("বস, তথ্য সেভ হয়নি!");
@@ -140,6 +149,7 @@ export const DashboardHome = () => {
     }
   };
 
+  // Other handlers...
   const handleAddMember = async (e) => {
     e.preventDefault();
     if (!newMember.name || !newMember.username || !newMember.password) { showToast('সবগুলো ঘর পূরণ করুন।', 'error'); return; }
@@ -209,54 +219,42 @@ export const DashboardHome = () => {
         </div>
       )}
 
-      {/* Top Cards (Live Fetch) */}
+      {/* Top Cards (Live Fetch with UI feedback) */}
       <div className="stats-grid" style={{ marginBottom:'1.5rem' }}>
-        <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-blue)' }}>
-          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>আজকের মোট মিল <span className="live-icon" /></p>
-          <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-blue)' }}>{todaySavedMeals} টি</span>
+        <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-blue)', opacity: fetching ? 0.6 : 1, transition: 'opacity 0.3s' }}>
+          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>오늘 আজকের মোট মিল <span className="live-icon" /></p>
+          <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-blue)' }}>
+            {fetching ? '...' : todaySavedMeals} টি
+          </span>
         </div>
-        <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-orange)' }}>
+        <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-orange)', opacity: fetching ? 0.6 : 1, transition: 'opacity 0.3s' }}>
           <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>এই মাসের চলতি মোট মিল</p>
-          <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-orange)' }}>{monthTotalMeals} টি</span>
+          <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-orange)' }}>
+            {fetching ? '...' : monthTotalMeals} টি
+          </span>
         </div>
-        <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-green)' }}>
+        <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-green)', opacity: fetching ? 0.6 : 1, transition: 'opacity 0.3s' }}>
           <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>লাইভ মিল রেট</p>
-          <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-green)' }}>৳ {liveMealRate}</span>
+          <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-green)' }}>
+            ৳ {fetching ? '...' : liveMealRate}
+          </span>
         </div>
       </div>
 
-      {/* Simplified Manual Meal Entry Section */}
+      {/* Manual Meal Entry Section */}
       <div className="card glass-card" style={{ marginBottom: '1.5rem' }}>
         <h3 style={{ marginBottom: '1.5rem', color: 'var(--accent-blue)' }}>🍽️ আজকের মিল ইনপুট (ম্যানুয়াল)</h3>
         <form onSubmit={handleSaveManualMeals} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', alignItems: 'end' }}>
           <div className="form-group">
             <label>তারিখ নির্বাচন করুন</label>
-            <input 
-              type="date" 
-              className="form-control" 
-              value={selectedDate} 
-              onChange={e => setSelectedDate(e.target.value)} 
-              required 
-            />
+            <input type="date" className="form-control" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} required />
           </div>
           <div className="form-group">
             <label>আজকের মোট মিল সংখ্যা লিখুন</label>
-            <input 
-              type="number" 
-              className="form-control" 
-              value={manualMealInput} 
-              onChange={e => setManualMealInput(e.target.value)} 
-              placeholder="উদাঃ ১৫"
-              required 
-            />
+            <input type="number" className="form-control" value={manualMealInput} onChange={e => setManualMealInput(e.target.value)} placeholder="উদাঃ ১৫" required />
           </div>
           <div className="form-group">
-            <button 
-              type="submit" 
-              className="btn btn-primary manual-save-btn" 
-              disabled={saving}
-              style={{ width: '100%', height: '48px', fontWeight: '800' }}
-            >
+            <button type="submit" className="btn btn-primary manual-save-btn" disabled={saving} style={{ width: '100%', height: '48px', fontWeight: '800' }}>
               {saving ? 'সেভ হচ্ছে...' : '💾 তথ্য সেভ করুন'}
             </button>
           </div>
@@ -308,6 +306,8 @@ export const DashboardHome = () => {
       <style dangerouslySetInnerHTML={{ __html: `
         .manual-save-btn:active { transform: scale(0.95); }
         .manual-save-btn:hover:not(:disabled) { background: #1d4ed8; }
+        .live-icon { display: inline-block; width: 8px; height: 8px; background: #ff3b3b; border-radius: 50%; margin-left: 5px; animation: blink 1.5s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
       `}} />
     </>
   );
