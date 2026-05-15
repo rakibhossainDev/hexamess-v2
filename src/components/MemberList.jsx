@@ -76,7 +76,7 @@ const MemberList = () => {
                   <th style={{ textAlign: 'center' }}>পাসওয়ার্ড</th>
                   <th style={{ textAlign: 'right' }}>ডিপোজিট</th>
                   <th style={{ textAlign: 'right' }}>ব্যালেন্স</th>
-                  <th style={{ textAlign: 'center' }}>মিল</th>
+                  <th style={{ textAlign: 'center' }}>মোট মিল</th>
                   <th style={{ textAlign: 'center' }}>স্ট্যাটাস</th>
                   <th style={{ textAlign: 'right' }}>অ্যাকশন</th>
                 </tr>
