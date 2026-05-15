@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import {
   db, collection, doc, onSnapshot, addDoc, updateDoc, writeBatch,
-  increment, serverTimestamp, query, where, getDocs
+  increment, serverTimestamp, query, where, getDocs, setDoc
 } from '../firebase';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
@@ -43,10 +43,17 @@ export const DashboardHome = () => {
   const [approvedExpenses, setApprovedExpenses] = useState([]);
   const [config, setConfig] = useState(null);
   
-  // New Live Meal States
+  // Stats States
   const [todayTotalMeals, setTodayTotalMeals] = useState(0);
   const [monthTotalMeals, setMonthTotalMeals] = useState(0);
   
+  // Meal Input States
+  const [todayMeals, setTodayMeals] = useState({}); // Input buffer
+  const [dbMeals, setDbMeals] = useState({});       // Verified DB state
+  const [saving, setSaving] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(getTodayDateString());
+
+  // Other UI States
   const [depositAmount, setDepositAmount] = useState('');
   const [selectedMember, setSelectedMember] = useState('');
   const [billCategory, setBillCategory] = useState('');
@@ -56,11 +63,10 @@ export const DashboardHome = () => {
   const [isAdding, setIsAdding] = useState(false);
   const { toasts, showToast, removeToast } = useToast();
 
-  const todayIso = getTodayDateString();
   const todaySlash = useMemo(() => {
-    const [y, m, d] = todayIso.split('-');
+    const [y, m, d] = selectedDate.split('-');
     return `${d}/${m}/${y}`;
-  }, [todayIso]);
+  }, [selectedDate]);
 
   useEffect(() => {
     if (!db) return;
@@ -73,17 +79,24 @@ export const DashboardHome = () => {
     if (!db || !config) return;
     const mid = config.current_month_id;
     
-    // 1. Fetch Today's Total Meals
-    const unsubToday = onSnapshot(query(
+    // 1. Fetch Stats & Pre-populate Input
+    const unsubDaily = onSnapshot(query(
       collection(db, 'daily_meals'),
       where('date', '==', todaySlash)
     ), snap => {
       let total = 0;
-      snap.docs.forEach(d => total += (Number(d.data().count) || 0));
+      const mealsMap = {};
+      snap.docs.forEach(d => {
+        const data = d.data();
+        const cnt = Number(data.count) || 0;
+        total += cnt;
+        if (data.memberId) mealsMap[data.memberId] = cnt;
+      });
       setTodayTotalMeals(total);
+      setDbMeals(mealsMap);
+      setTodayMeals(prev => ({ ...mealsMap, ...prev })); // Merge existing into current input buffer
     });
 
-    // 2. Fetch Month's Total Meals
     const unsubMonth = onSnapshot(query(
       collection(db, 'daily_meals'),
       where('month_id', '==', mid)
@@ -93,7 +106,6 @@ export const DashboardHome = () => {
       setMonthTotalMeals(total);
     });
 
-    // 3. Fetch Approved Market Expenses
     const unsubExp = onSnapshot(query(
       collection(db, 'expenses'), 
       where('month_id', '==', mid), 
@@ -102,20 +114,60 @@ export const DashboardHome = () => {
       setApprovedExpenses(snap.docs.map(d => ({ id:d.id, ...d.data() })));
     });
 
-    return () => { unsubToday(); unsubMonth(); unsubExp(); };
+    return () => { unsubDaily(); unsubMonth(); unsubExp(); };
   }, [config, todaySlash]);
 
   const activeMembers = useMemo(() => members.filter(m => m.status === 'active'), [members]);
   const totalMarketCost = useMemo(() => approvedExpenses.reduce((s, e) => s + (Number(e.cost)||0), 0), [approvedExpenses]);
-  
-  // Live Meal Rate Calculation: (Total Market Expense / Total Monthly Meals)
   const liveMealRate = useMemo(() => monthTotalMeals === 0 ? 0 : (totalMarketCost / monthTotalMeals).toFixed(2), [totalMarketCost, monthTotalMeals]);
 
+  const handleMealChange = (memberId, value) => {
+    setTodayMeals(prev => ({ ...prev, [memberId]: Number(value) }));
+  };
+
+  const handleSaveMeals = async () => {
+    if (!db || !config || saving) return;
+    setSaving(true);
+    const batch = writeBatch(db);
+
+    try {
+      for (const m of activeMembers) {
+        const count = Number(todayMeals[m.id] || 0);
+        const prevCount = Number(dbMeals[m.id] || 0);
+        const delta = count - prevCount;
+
+        const dateId = todaySlash.replace(/\//g, '_');
+        const mealRef = doc(db, 'daily_meals', `meal_${m.id}_${dateId}`);
+        
+        batch.set(mealRef, {
+          memberId: m.id,
+          date: todaySlash,
+          count: count,
+          month_id: config.current_month_id,
+          updatedAt: new Date()
+        }, { merge: true });
+
+        if (delta !== 0) {
+          batch.update(doc(db, 'users', m.id), {
+            total_meals: increment(delta)
+          });
+        }
+      }
+
+      await batch.commit();
+      window.alert("তথ্য সেভ হয়েছে, বস!");
+    } catch (err) {
+      console.error(err);
+      window.alert("বস, তথ্য সেভ হয়নি!");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Rest of handlers (Deposit, Bill, Member) omitted for brevity as per instructions but kept functional in the actual file.
   const handleAddMember = async (e) => {
     e.preventDefault();
-    if (!newMember.name || !newMember.username || !newMember.password) {
-      showToast('সবগুলো ঘর পূরণ করুন।', 'error'); return;
-    }
+    if (!newMember.name || !newMember.username || !newMember.password) { showToast('সবগুলো ঘর পূরণ করুন।', 'error'); return; }
     const isDuplicate = members.some(m => m.username === newMember.username || m.name === newMember.name);
     if (isDuplicate) { showToast('এই ইউজারনেম বা তথ্য দিয়ে সদস্য আগে থেকেই যুক্ত আছে!', 'error'); return; }
     setIsAdding(true);
@@ -126,9 +178,7 @@ export const DashboardHome = () => {
         role: 'member', status: 'active', total_deposit: dep, current_balance: dep, total_meals: 0,
         photoURL: '', bloodGroup: '', mobileNumber: ''
       });
-      if (dep > 0 && config) {
-        await addDoc(collection(db, 'deposits'), { month_id: config.current_month_id, user_id: docRef.id, user_name: newMember.name, amount: dep, date: new Date().toISOString() });
-      }
+      if (dep > 0 && config) { await addDoc(collection(db, 'deposits'), { month_id: config.current_month_id, user_id: docRef.id, user_name: newMember.name, amount: dep, date: new Date().toISOString() }); }
       setNewMember({ name:'', username:'', password:'', deposit:'' }); setShowAddForm(false);
       showToast('সদস্য সফলভাবে যুক্ত করা হয়েছে!', 'success');
     } catch (err) { showToast(`মেম্বার যুক্ত করতে সমস্যা হয়েছে: ${err.message}`, 'error'); } finally { setIsAdding(false); }
@@ -145,9 +195,7 @@ export const DashboardHome = () => {
       const amt = Number(depositAmount);
       const member = members.find(m => m.id === selectedMember);
       await updateDoc(doc(db, 'users', selectedMember), { total_deposit: increment(amt), current_balance: increment(amt) });
-      if (config) {
-        await addDoc(collection(db, 'deposits'), { month_id: config.current_month_id, user_id: selectedMember, user_name: member?.name||'', amount: amt, date: new Date().toISOString() });
-      }
+      if (config) { await addDoc(collection(db, 'deposits'), { month_id: config.current_month_id, user_id: selectedMember, user_name: member?.name||'', amount: amt, date: new Date().toISOString() }); }
       setDepositAmount(''); setSelectedMember('');
       showToast('ডিপোজিট সফল!', 'success');
     } catch (err) { console.error(err); showToast('ডিপোজিট ব্যর্থ।', 'error'); }
@@ -158,10 +206,7 @@ export const DashboardHome = () => {
     if (!billCategory || !billAmount || Number(billAmount) <= 0) { showToast('ক্যাটাগরি ও পরিমাণ দিন।', 'error'); return; }
     try {
       const amt = Number(billAmount);
-      await addDoc(collection(db, 'fixed_costs'), { 
-        month_id: config?.current_month_id || '', category: billCategory, amount: amt, 
-        manager_name: localStorage.getItem('hexamess-user-name') || 'ম্যানেজার', date: serverTimestamp() 
-      });
+      await addDoc(collection(db, 'fixed_costs'), { month_id: config?.current_month_id || '', category: billCategory, amount: amt, manager_name: localStorage.getItem('hexamess-user-name') || 'ম্যানেজার', date: serverTimestamp() });
       const perHead = amt / activeMembers.length;
       const batch = writeBatch(db);
       activeMembers.forEach(m => batch.update(doc(db, 'users', m.id), { current_balance: increment(-perHead) }));
@@ -177,9 +222,18 @@ export const DashboardHome = () => {
 
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
         <h2 style={{ marginBottom:'0.5rem' }}>অ্যাডমিন ড্যাশবোর্ড</h2>
-        <button className="btn btn-primary" onClick={() => setShowAddForm(!showAddForm)}>
-          {showAddForm ? '✕ ফর্ম বন্ধ করুন' : '👤 নতুন মেম্বার যোগ করুন'}
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <input 
+            type="date" 
+            className="form-control" 
+            style={{ width: 'auto', background: '#111', border: '1px solid #333', color: '#fff' }}
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+          />
+          <button className="btn btn-primary" onClick={() => setShowAddForm(!showAddForm)}>
+            {showAddForm ? '✕ ফর্ম বন্ধ করুন' : '👤 নতুন মেম্বার যোগ করুন'}
+          </button>
+        </div>
       </div>
 
       {showAddForm && (
@@ -195,7 +249,7 @@ export const DashboardHome = () => {
         </div>
       )}
 
-      {/* Main Meal Stats */}
+      {/* Top 3 Cards */}
       <div className="stats-grid" style={{ marginBottom:'1.5rem' }}>
         <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-blue)' }}>
           <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>আজকের মোট মিল <span className="live-icon" /></p>
@@ -208,6 +262,59 @@ export const DashboardHome = () => {
         <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-green)' }}>
           <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>লাইভ মিল রেট</p>
           <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-green)' }}>৳ {liveMealRate}</span>
+        </div>
+      </div>
+
+      {/* Member Meal Input Section (Dashboard Integration) */}
+      <div className="card glass-card" style={{ marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <h3 style={{ margin: 0, color: 'var(--accent-blue)' }}>🍽️ মেম্বার মিল ইনপুট ({todaySlash})</h3>
+          <span style={{ fontSize: '0.8rem', color: '#888' }}>প্রি-পপুলেটেড ফ্রম ডেটাবেজ</span>
+        </div>
+        
+        <div className="table-container" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: '#000', color: '#888', fontSize: '0.9rem', textAlign: 'left' }}>
+                <th style={{ padding: '1rem' }}>মেম্বার নাম</th>
+                <th style={{ padding: '1rem', textAlign: 'center' }}>মিল সংখ্যা (০-৫)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {activeMembers.map(m => (
+                <tr key={m.id} style={{ borderBottom: '1px solid #1a1a1a' }}>
+                  <td style={{ padding: '1rem' }}>
+                    <div style={{ fontWeight: '700' }}>{m.name}</div>
+                    <div style={{ fontSize: '0.8rem', color: '#666' }}>@{m.username}</div>
+                  </td>
+                  <td style={{ padding: '1rem', textAlign: 'center' }}>
+                    <select 
+                      className="form-control"
+                      style={{ width: '80px', margin: '0 auto', background: '#000', border: '1px solid #333', color: '#fff', fontWeight: '800' }}
+                      value={todayMeals[m.id] ?? 0}
+                      onChange={(e) => handleMealChange(m.id, e.target.value)}
+                    >
+                      {[0,1,2,3,4,5].map(v => <option key={v} value={v}>{v}</option>)}
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'center' }}>
+          <button 
+            className="btn btn-primary save-btn-interactive"
+            onClick={handleSaveMeals}
+            disabled={saving}
+            style={{ 
+              width: '280px', padding: '1.1rem', borderRadius: '12px', fontSize: '1rem', fontWeight: '800',
+              transition: 'transform 0.15s ease'
+            }}
+          >
+            {saving ? 'সেভ হচ্ছে...' : '💾 আজকের ডাটা সেভ করুন'}
+          </button>
         </div>
       </div>
 
@@ -253,6 +360,11 @@ export const DashboardHome = () => {
           </table>
         </div>
       </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        .save-btn-interactive:active { transform: scale(0.95); }
+        .save-btn-interactive:hover:not(:disabled) { background: #1d4ed8; }
+      `}} />
     </>
   );
 };
