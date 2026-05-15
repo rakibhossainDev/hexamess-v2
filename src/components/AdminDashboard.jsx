@@ -43,31 +43,24 @@ export const DashboardHome = () => {
   const [approvedExpenses, setApprovedExpenses] = useState([]);
   const [config, setConfig] = useState(null);
   
-  // 1. Dependency Fix: refreshKey to force-trigger updates
-  const [refreshKey, setRefreshKey] = useState(0);
+  // 3. Refresh Logic: Explicit dependency for updates
+  const [refresh, setRefresh] = useState(0);
   const [fetching, setFetching] = useState(false);
 
   // Meal Summary States
-  const [selectedDate, setSelectedDate] = useState(getTodayDateString());
+  const [selectedDateIso, setSelectedDateIso] = useState(getTodayDateString()); // YYYY-MM-DD
   const [manualMealInput, setManualMealInput] = useState('');
   const [todaySavedMeals, setTodaySavedMeals] = useState(0);
   const [monthTotalMeals, setMonthTotalMeals] = useState(0);
   const [saving, setSaving] = useState(false);
 
-  // Other UI States
-  const [depositAmount, setDepositAmount] = useState('');
-  const [selectedMember, setSelectedMember] = useState('');
-  const [billCategory, setBillCategory] = useState('');
-  const [billAmount, setBillAmount] = useState('');
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newMember, setNewMember] = useState({ name:'', username:'', password:'', deposit:'' });
-  const [isAdding, setIsAdding] = useState(false);
-  const { toasts, showToast, removeToast } = useToast();
-
-  const formattedDate = useMemo(() => {
-    const [y, m, d] = selectedDate.split('-');
+  // Helper: Format ISO to DD-MM-YYYY for Doc ID
+  const docIdKey = useMemo(() => {
+    const [y, m, d] = selectedDateIso.split('-');
     return `${d}-${m}-${y}`;
-  }, [selectedDate]);
+  }, [selectedDateIso]);
+
+  const { toasts, showToast, removeToast } = useToast();
 
   useEffect(() => {
     if (!db) return;
@@ -76,35 +69,42 @@ export const DashboardHome = () => {
     return () => { u1(); u2(); };
   }, []);
 
-  // 2. Fetching logic with refreshKey dependency
+  // 4. Persistence Check & Monthly Aggregation
   useEffect(() => {
     if (!db || !config) return;
     const mid = config.current_month_id;
     setFetching(true);
 
-    const unsubToday = onSnapshot(doc(db, 'meal_summaries', selectedDate), snap => {
+    // Fetch Today's Total for the selected date
+    const unsubToday = onSnapshot(doc(db, 'meal_summaries', docIdKey), snap => {
       if (snap.exists()) {
-        const val = snap.data().totalMeals || 0;
+        const val = Number(snap.data().totalMeals) || 0;
         setTodaySavedMeals(val);
         setManualMealInput(val.toString());
       } else {
         setTodaySavedMeals(0);
         setManualMealInput('');
       }
-      // Brief timeout to show the "fetching" state
-      setTimeout(() => setFetching(false), 500);
+      setTimeout(() => setFetching(false), 300);
+    }, (error) => {
+      console.error("Snapshot Today Error:", error);
+      setFetching(false);
     });
 
+    // Monthly aggregation across all meal_summaries
     const unsubMonth = onSnapshot(collection(db, 'meal_summaries'), snap => {
       let total = 0;
-      const [curY, curM] = selectedDate.split('-'); // Filter based on selected month
+      const [targetD, targetM, targetY] = docIdKey.split('-'); // Selected month/year
       snap.docs.forEach(d => {
-        const [dY, dM] = d.id.split('-');
-        if (dY === curY && dM === curM) {
+        const docId = d.id; // DD-MM-YYYY
+        const parts = docId.split('-');
+        if (parts.length === 3 && parts[1] === targetM && parts[2] === targetY) {
           total += (Number(d.data().totalMeals) || 0);
         }
       });
       setMonthTotalMeals(total);
+    }, (error) => {
+      console.error("Snapshot Month Error:", error);
     });
 
     const unsubExp = onSnapshot(query(
@@ -116,40 +116,46 @@ export const DashboardHome = () => {
     });
 
     return () => { unsubToday(); unsubMonth(); unsubExp(); };
-  }, [config, selectedDate, refreshKey]); // refreshKey ensures explicit trigger
+  }, [config, docIdKey, refresh]);
 
   const activeMembers = useMemo(() => members.filter(m => m.status === 'active'), [members]);
   const totalMarketCost = useMemo(() => approvedExpenses.reduce((s, e) => s + (Number(e.cost)||0), 0), [approvedExpenses]);
   const liveMealRate = useMemo(() => monthTotalMeals === 0 ? 0 : (totalMarketCost / monthTotalMeals).toFixed(2), [totalMarketCost, monthTotalMeals]);
 
+  // 2. Fixing the handleSave Function
   const handleSaveManualMeals = async (e) => {
     e.preventDefault();
     if (!db || !manualMealInput || isNaN(manualMealInput)) {
-      window.alert("সঠিক সংখ্যা দিন!");
+      alert("সঠিক সংখ্যা দিন!");
       return;
     }
+
     setSaving(true);
     try {
-      await setDoc(doc(db, 'meal_summaries', selectedDate), {
-        date: formattedDate,
+      // 1. Firebase Collection & Structure
+      const mealRef = doc(db, 'meal_summaries', docIdKey);
+      await setDoc(mealRef, {
+        date: docIdKey,
         totalMeals: Number(manualMealInput),
         updatedAt: serverTimestamp()
       }, { merge: true });
+
+      // 5. Feedback: Success
+      alert("তথ্য সেভ হয়েছে, বস!");
       
-      window.alert("তথ্য সেভ হয়েছে, বস!");
-      
-      // 3. Update Trigger: Force-refresh dependencies
-      setRefreshKey(prev => prev + 1);
-      
-    } catch (err) {
-      console.error(err);
-      window.alert("বস, তথ্য সেভ হয়নি!");
+      // 3. Update Trigger
+      setRefresh(prev => prev + 1);
+
+    } catch (error) {
+      // 5. Feedback: Failure
+      console.error("Firebase Save Error:", error);
+      alert("বস, তথ্য সেভ হয়নি! Error: " + error.message);
     } finally {
       setSaving(false);
     }
   };
 
-  // Other handlers...
+  // Other UI handlers...
   const handleAddMember = async (e) => {
     e.preventDefault();
     if (!newMember.name || !newMember.username || !newMember.password) { showToast('সবগুলো ঘর পূরণ করুন।', 'error'); return; }
@@ -219,25 +225,19 @@ export const DashboardHome = () => {
         </div>
       )}
 
-      {/* Top Cards (Live Fetch with UI feedback) */}
+      {/* Top Cards (Live Refresh Logic) */}
       <div className="stats-grid" style={{ marginBottom:'1.5rem' }}>
-        <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-blue)', opacity: fetching ? 0.6 : 1, transition: 'opacity 0.3s' }}>
-          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>오늘 আজকের মোট মিল <span className="live-icon" /></p>
-          <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-blue)' }}>
-            {fetching ? '...' : todaySavedMeals} টি
-          </span>
+        <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-blue)', opacity: fetching ? 0.6 : 1, transition: 'opacity 0.2s' }}>
+          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>আজকের মোট মিল <span className="live-icon" /></p>
+          <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-blue)' }}>{fetching ? '...' : todaySavedMeals} টি</span>
         </div>
-        <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-orange)', opacity: fetching ? 0.6 : 1, transition: 'opacity 0.3s' }}>
+        <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-orange)', opacity: fetching ? 0.6 : 1, transition: 'opacity 0.2s' }}>
           <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>এই মাসের চলতি মোট মিল</p>
-          <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-orange)' }}>
-            {fetching ? '...' : monthTotalMeals} টি
-          </span>
+          <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-orange)' }}>{fetching ? '...' : monthTotalMeals} টি</span>
         </div>
-        <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-green)', opacity: fetching ? 0.6 : 1, transition: 'opacity 0.3s' }}>
+        <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-green)', opacity: fetching ? 0.6 : 1, transition: 'opacity 0.2s' }}>
           <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>লাইভ মিল রেট</p>
-          <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-green)' }}>
-            ৳ {fetching ? '...' : liveMealRate}
-          </span>
+          <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-green)' }}>৳ {fetching ? '...' : liveMealRate}</span>
         </div>
       </div>
 
@@ -247,14 +247,32 @@ export const DashboardHome = () => {
         <form onSubmit={handleSaveManualMeals} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', alignItems: 'end' }}>
           <div className="form-group">
             <label>তারিখ নির্বাচন করুন</label>
-            <input type="date" className="form-control" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} required />
+            <input 
+              type="date" 
+              className="form-control" 
+              value={selectedDateIso} 
+              onChange={e => setSelectedDateIso(e.target.value)} 
+              required 
+            />
           </div>
           <div className="form-group">
             <label>আজকের মোট মিল সংখ্যা লিখুন</label>
-            <input type="number" className="form-control" value={manualMealInput} onChange={e => setManualMealInput(e.target.value)} placeholder="উদাঃ ১৫" required />
+            <input 
+              type="number" 
+              className="form-control" 
+              value={manualMealInput} 
+              onChange={e => setManualMealInput(e.target.value)} 
+              placeholder="উদাঃ ১৫"
+              required 
+            />
           </div>
           <div className="form-group">
-            <button type="submit" className="btn btn-primary manual-save-btn" disabled={saving} style={{ width: '100%', height: '48px', fontWeight: '800' }}>
+            <button 
+              type="submit" 
+              className="btn btn-primary manual-save-btn" 
+              disabled={saving}
+              style={{ width: '100%', height: '48px', fontWeight: '800' }}
+            >
               {saving ? 'সেভ হচ্ছে...' : '💾 তথ্য সেভ করুন'}
             </button>
           </div>
@@ -284,7 +302,7 @@ export const DashboardHome = () => {
         <h3 style={{ marginBottom:'1.5rem', color:'var(--accent-blue)' }}>মেম্বার সামারি</h3>
         <div className="table-container">
           <table>
-            <thead><tr><th>নাম (ইউজারনেম)</th><th>ডিপোজিট</th><th>ব্যালেন্স</th><th>স্ট্যাটাস</th><th>অ্যাকশন</th></tr></thead>
+            <thead><tr><th>নাম (ইউজারনেম)</th><th>ডিপোজিট</th><th>ব্যব্যালেন্স</th><th>স্ট্যাটাস</th><th>অ্যাকশন</th></tr></thead>
             <tbody>
               {members.map(m => (
                 <tr key={m.id} className={m.status === 'inactive' ? 'row-danger' : ''}>
