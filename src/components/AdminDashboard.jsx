@@ -2,14 +2,14 @@ import { useState, useEffect, useMemo } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import {
   db, collection, doc, onSnapshot, addDoc, updateDoc, writeBatch,
-  increment, serverTimestamp, query, where,
+  increment, serverTimestamp, query, where, getDocs
 } from '../firebase';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 import BottomNav from './BottomNav';
 import { ToastContainer } from './Toast';
 import { useToast } from '../hooks/useToast';
-import { EXPENSE_CATEGORIES } from '../utils/monthUtils';
+import { EXPENSE_CATEGORIES, getTodayDateString } from '../utils/monthUtils';
 
 const AdminDashboard = () => {
   const [currentUser, setCurrentUser] = useState(null);
@@ -24,7 +24,7 @@ const AdminDashboard = () => {
   }, [userId]);
 
   return (
-    <div className="app-layout">
+    <div className="app-layout" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
       <Sidebar isManager={true} />
       <main className="main-content" style={{ padding: 0 }}>
         <Navbar userName={currentUser?.name || "ম্যানেজার"} userRole="ম্যানেজার" photoURL={currentUser?.photoURL} />
@@ -40,10 +40,13 @@ const AdminDashboard = () => {
 export const DashboardHome = () => {
   const navigate = useNavigate();
   const [members, setMembers] = useState([]);
-  const [fixedBills, setFixedBills] = useState([]);
   const [approvedExpenses, setApprovedExpenses] = useState([]);
-  const [pendingExpenses, setPendingExpenses] = useState([]);
   const [config, setConfig] = useState(null);
+  
+  // New Live Meal States
+  const [todayTotalMeals, setTodayTotalMeals] = useState(0);
+  const [monthTotalMeals, setMonthTotalMeals] = useState(0);
+  
   const [depositAmount, setDepositAmount] = useState('');
   const [selectedMember, setSelectedMember] = useState('');
   const [billCategory, setBillCategory] = useState('');
@@ -52,6 +55,12 @@ export const DashboardHome = () => {
   const [newMember, setNewMember] = useState({ name:'', username:'', password:'', deposit:'' });
   const [isAdding, setIsAdding] = useState(false);
   const { toasts, showToast, removeToast } = useToast();
+
+  const todayIso = getTodayDateString();
+  const todaySlash = useMemo(() => {
+    const [y, m, d] = todayIso.split('-');
+    return `${d}/${m}/${y}`;
+  }, [todayIso]);
 
   useEffect(() => {
     if (!db) return;
@@ -63,84 +72,70 @@ export const DashboardHome = () => {
   useEffect(() => {
     if (!db || !config) return;
     const mid = config.current_month_id;
-    const u1 = onSnapshot(query(collection(db, 'fixed_costs'), where('month_id', '==', mid)), snap => setFixedBills(snap.docs.map(d => ({ id:d.id, ...d.data() }))));
-    const u2 = onSnapshot(query(collection(db, 'expenses'), where('month_id', '==', mid), where('status', '==', 'approved')), snap => setApprovedExpenses(snap.docs.map(d => ({ id:d.id, ...d.data() }))));
-    const u3 = onSnapshot(query(collection(db, 'expenses'), where('month_id', '==', mid), where('status', '==', 'pending')), snap => setPendingExpenses(snap.docs.map(d => ({ id:d.id, ...d.data() }))));
-    return () => { u1(); u2(); u3(); };
-  }, [config]);
+    
+    // 1. Fetch Today's Total Meals
+    const unsubToday = onSnapshot(query(
+      collection(db, 'daily_meals'),
+      where('date', '==', todaySlash)
+    ), snap => {
+      let total = 0;
+      snap.docs.forEach(d => total += (Number(d.data().count) || 0));
+      setTodayTotalMeals(total);
+    });
+
+    // 2. Fetch Month's Total Meals
+    const unsubMonth = onSnapshot(query(
+      collection(db, 'daily_meals'),
+      where('month_id', '==', mid)
+    ), snap => {
+      let total = 0;
+      snap.docs.forEach(d => total += (Number(d.data().count) || 0));
+      setMonthTotalMeals(total);
+    });
+
+    // 3. Fetch Approved Market Expenses
+    const unsubExp = onSnapshot(query(
+      collection(db, 'expenses'), 
+      where('month_id', '==', mid), 
+      where('status', '==', 'approved')
+    ), snap => {
+      setApprovedExpenses(snap.docs.map(d => ({ id:d.id, ...d.data() })));
+    });
+
+    return () => { unsubToday(); unsubMonth(); unsubExp(); };
+  }, [config, todaySlash]);
 
   const activeMembers = useMemo(() => members.filter(m => m.status === 'active'), [members]);
-  const totalApprovedMarket = useMemo(() => approvedExpenses.reduce((s, e) => s + (Number(e.cost)||0), 0), [approvedExpenses]);
-  const totalFixedBills = useMemo(() => fixedBills.reduce((s, b) => s + (Number(b.amount)||0), 0), [fixedBills]);
-  const totalMeals = useMemo(() => members.reduce((s, m) => s + (Number(m.total_meals)||0), 0), [members]);
-  const totalDeposits = useMemo(() => members.reduce((s, m) => s + (Number(m.total_deposit)||0), 0), [members]);
-
-  const liveMealRate = useMemo(() => totalMeals === 0 ? 0 : (totalApprovedMarket / totalMeals).toFixed(2), [totalApprovedMarket, totalMeals]);
-  const managerFund = useMemo(() => totalDeposits - totalApprovedMarket, [totalDeposits, totalApprovedMarket]);
+  const totalMarketCost = useMemo(() => approvedExpenses.reduce((s, e) => s + (Number(e.cost)||0), 0), [approvedExpenses]);
+  
+  // Live Meal Rate Calculation: (Total Market Expense / Total Monthly Meals)
+  const liveMealRate = useMemo(() => monthTotalMeals === 0 ? 0 : (totalMarketCost / monthTotalMeals).toFixed(2), [totalMarketCost, monthTotalMeals]);
 
   const handleAddMember = async (e) => {
     e.preventDefault();
     if (!newMember.name || !newMember.username || !newMember.password) {
       showToast('সবগুলো ঘর পূরণ করুন।', 'error'); return;
     }
-
-    // Duplicate Prevention
-    const isDuplicate = members.some(m => 
-      m.username === newMember.username || 
-      m.name === newMember.name || 
-      m.password === newMember.password
-    );
-
-    if (isDuplicate) {
-      showToast('এই ইউজারনেম বা তথ্য দিয়ে সদস্য আগে থেকেই যুক্ত আছে!', 'error');
-      return;
-    }
-
+    const isDuplicate = members.some(m => m.username === newMember.username || m.name === newMember.name);
+    if (isDuplicate) { showToast('এই ইউজারনেম বা তথ্য দিয়ে সদস্য আগে থেকেই যুক্ত আছে!', 'error'); return; }
     setIsAdding(true);
     try {
       const dep = Number(newMember.deposit) || 0;
-      const lowerUsername = newMember.username.toLowerCase();
-      
       const docRef = await addDoc(collection(db, 'users'), {
-        name: newMember.name, 
-        username: lowerUsername, 
-        password: newMember.password,
-        role: 'member', 
-        status: 'active', 
-        total_deposit: dep, 
-        current_balance: dep, 
-        total_meals: 0,
-        photoURL: '',
-        bloodGroup: '',
-        mobileNumber: ''
+        name: newMember.name, username: newMember.username.toLowerCase(), password: newMember.password,
+        role: 'member', status: 'active', total_deposit: dep, current_balance: dep, total_meals: 0,
+        photoURL: '', bloodGroup: '', mobileNumber: ''
       });
-      
       if (dep > 0 && config) {
-        await addDoc(collection(db, 'deposits'), { 
-          month_id: config.current_month_id, 
-          user_id: docRef.id, 
-          user_name: newMember.name, 
-          amount: dep, 
-          date: new Date().toISOString() 
-        });
+        await addDoc(collection(db, 'deposits'), { month_id: config.current_month_id, user_id: docRef.id, user_name: newMember.name, amount: dep, date: new Date().toISOString() });
       }
-      
-      setNewMember({ name:'', username:'', password:'', deposit:'' }); 
-      setShowAddForm(false);
+      setNewMember({ name:'', username:'', password:'', deposit:'' }); setShowAddForm(false);
       showToast('সদস্য সফলভাবে যুক্ত করা হয়েছে!', 'success');
-    } catch (err) { 
-      console.error("Firebase Add Member Error:", err); 
-      showToast(`মেম্বার যুক্ত করতে সমস্যা হয়েছে: ${err.message || 'Unknown Error'}`, 'error'); 
-    } finally {
-      setIsAdding(false);
-    }
+    } catch (err) { showToast(`মেম্বার যুক্ত করতে সমস্যা হয়েছে: ${err.message}`, 'error'); } finally { setIsAdding(false); }
   };
 
   const toggleUserStatus = async (id, currentStatus) => {
-    try {
-      await updateDoc(doc(db, 'users', id), { status: currentStatus === 'active' ? 'inactive' : 'active' });
-      showToast('স্ট্যাটাস আপডেট হয়েছে।', 'success');
-    } catch (err) { console.error(err); }
+    try { await updateDoc(doc(db, 'users', id), { status: currentStatus === 'active' ? 'inactive' : 'active' }); showToast('স্ট্যাটাস আপডেট হয়েছে।', 'success'); } catch (err) { console.error(err); }
   };
 
   const handleDeposit = async (e) => {
@@ -161,35 +156,20 @@ export const DashboardHome = () => {
   const handleAddBill = async (e) => {
     e.preventDefault();
     if (!billCategory || !billAmount || Number(billAmount) <= 0) { showToast('ক্যাটাগরি ও পরিমাণ দিন।', 'error'); return; }
-    if (activeMembers.length === 0) { showToast('কোনো একটিভ মেম্বার নেই!', 'error'); return; }
     try {
       const amt = Number(billAmount);
-      const managerName = localStorage.getItem('hexamess-user-name') || 'অজানা';
       await addDoc(collection(db, 'fixed_costs'), { 
-        month_id: config?.current_month_id || '', 
-        category: billCategory, 
-        amount: amt, 
-        manager_name: managerName,
-        date: serverTimestamp() 
+        month_id: config?.current_month_id || '', category: billCategory, amount: amt, 
+        manager_name: localStorage.getItem('hexamess-user-name') || 'ম্যানেজার', date: serverTimestamp() 
       });
       const perHead = amt / activeMembers.length;
       const batch = writeBatch(db);
       activeMembers.forEach(m => batch.update(doc(db, 'users', m.id), { current_balance: increment(-perHead) }));
       await batch.commit();
       setBillCategory(''); setBillAmount('');
-      showToast(`বিল যুক্ত! (৳${amt}/${activeMembers.length}) জনপ্রতি ৳${perHead.toFixed(0)} কাটা হয়েছে।`, 'success');
-    } catch (err) { console.error(err); showToast('বিল যুক্ত ব্যর্থ।', 'error'); }
+      showToast(`বিল যুক্ত! জনপ্রতি ৳${perHead.toFixed(0)} কাটা হয়েছে।`, 'success');
+    } catch (err) { showToast('বিল যুক্ত ব্যর্থ।', 'error'); }
   };
-  const handleApprove = async (id) => {
-    try {
-      await updateDoc(doc(db, 'expenses', id), { status: 'approved' });
-      showToast('খরচ অনুমোদিত হয়েছে!', 'success');
-    } catch (err) {
-      console.error(err);
-      showToast('অনুমোদনে সমস্যা হয়েছে।', 'error');
-    }
-  };
-
 
   return (
     <>
@@ -210,63 +190,28 @@ export const DashboardHome = () => {
             <div className="form-group"><label>ইউজারনেম</label><input className="form-control" value={newMember.username} onChange={e=>setNewMember({...newMember, username:e.target.value})} required /></div>
             <div className="form-group"><label>পাসওয়ার্ড</label><input className="form-control" type="password" value={newMember.password} onChange={e=>setNewMember({...newMember, password:e.target.value})} required /></div>
             <div className="form-group"><label>প্রাথমিক ডিপোজিট (৳)</label><input className="form-control" type="number" value={newMember.deposit} onChange={e=>setNewMember({...newMember, deposit:e.target.value})} /></div>
-            <div style={{ gridColumn:'1/-1', textAlign:'right' }}>
-              <button className="btn btn-primary" type="submit" disabled={isAdding}>
-                {isAdding ? 'যুক্ত হচ্ছে...' : 'যোগ করুন'}
-              </button>
-            </div>
+            <div style={{ gridColumn:'1/-1', textAlign:'right' }}><button className="btn btn-primary" type="submit" disabled={isAdding}>{isAdding ? 'যুক্ত হচ্ছে...' : 'যোগ করুন'}</button></div>
           </form>
         </div>
       )}
 
-      {/* Stats */}
-      <div className="stats-grid" style={{ marginBottom:'0.5rem' }}>
-        <div className="card glass-card">
-          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>লাইভ মিল রেট <span className="live-icon" /></p>
-          <span style={{ fontSize:'2rem', fontWeight:'700', color:'var(--accent-orange)' }}>৳{liveMealRate}</span>
+      {/* Main Meal Stats */}
+      <div className="stats-grid" style={{ marginBottom:'1.5rem' }}>
+        <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-blue)' }}>
+          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>আজকের মোট মিল <span className="live-icon" /></p>
+          <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-blue)' }}>{todayTotalMeals} টি</span>
         </div>
-        <div className="card">
-          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>ম্যানেজার ফান্ড</p>
-          <span style={{ fontSize:'2rem', fontWeight:'700' }}>৳{managerFund.toLocaleString()}</span>
+        <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-orange)' }}>
+          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>এই মাসের চলতি মোট মিল</p>
+          <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-orange)' }}>{monthTotalMeals} টি</span>
         </div>
-        <div className="card">
-          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>মোট ফিক্সড খরচ</p>
-          <span style={{ fontSize:'2rem', fontWeight:'700', color:'var(--accent-red)' }}>৳{totalFixedBills.toLocaleString()}</span>
-        </div>
-        <div className="card">
-          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>মেম্বার সংখ্যা</p>
-          <span style={{ fontSize:'2rem', fontWeight:'700', color:'var(--accent-blue)' }}>{activeMembers.length}/{members.length}</span>
+        <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-green)' }}>
+          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>লাইভ মিল রেট</p>
+          <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-green)' }}>৳ {liveMealRate}</span>
         </div>
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(340px, 1fr))', gap:'1.5rem', marginBottom:'0.5rem' }}>
-        <div className="card">
-          <h3 style={{ marginBottom:'1.5rem', color:'var(--accent-orange)' }}>⚖️ পেন্ডিং বাজার অনুমোদন</h3>
-          {pendingExpenses.length === 0 ? (
-            <p style={{ color:'var(--text-secondary)', textAlign:'center', padding:'1rem' }}>কোনো পেন্ডিং খরচ নেই।</p>
-          ) : (
-            <div style={{ display:'flex', flexDirection:'column', gap:'1rem', maxHeight: '400px', overflowY: 'auto' }}>
-              {pendingExpenses.map(exp => (
-                <div key={exp.id} className="glass-card" style={{ padding:'1rem', border:'1px solid var(--border-color)', borderRadius:'12px' }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'0.5rem' }}>
-                    <span style={{ fontWeight:'700' }}>{exp.shopper_name}</span>
-                    <span style={{ color:'var(--accent-orange)', fontWeight:'800' }}>৳{exp.cost}</span>
-                  </div>
-                  <p style={{ fontSize:'0.875rem', fontWeight:'600', color:'var(--accent-blue)', marginBottom:'0.25rem' }}>
-                    {exp.itemName ? `${exp.itemName} (${exp.quantity || 'N/A'})` : exp.details}
-                  </p>
-                  <p style={{ fontSize:'0.8125rem', color:'var(--text-secondary)', marginBottom:'1rem' }}>{exp.details && exp.itemName ? exp.details : ''}</p>
-                  <button 
-                    className="btn btn-primary" style={{ width:'100%', fontSize:'0.8125rem' }}
-                    onClick={() => handleApprove(exp.id)}
-                  >
-                    অনুমোদন করুন
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(340px, 1fr))', gap:'1.5rem', marginBottom:'1.5rem' }}>
         <div className="card">
           <h3 style={{ marginBottom:'1.5rem', color:'var(--accent-blue)' }}>মেম্বার ডিপোজিট</h3>
           <form onSubmit={handleDeposit}>
@@ -289,14 +234,14 @@ export const DashboardHome = () => {
         <h3 style={{ marginBottom:'1.5rem', color:'var(--accent-blue)' }}>মেম্বার সামারি</h3>
         <div className="table-container">
           <table>
-            <thead><tr><th>নাম (ইউজারনেম)</th><th>ডিপোজিট</th><th>ব্যালেন্স</th><th>মিল</th><th>স্ট্যাটাস</th><th>অ্যাকশন</th></tr></thead>
+            <thead><tr><th>নাম (ইউজারনেম)</th><th>ডিপোজিট</th><th>ব্যালেন্স</th><th>মোট মিল</th><th>স্ট্যাটাস</th><th>অ্যাকশন</th></tr></thead>
             <tbody>
               {members.map(m => (
                 <tr key={m.id} className={m.status === 'inactive' ? 'row-danger' : ''}>
                   <td><div style={{ fontWeight:'600' }}>{m.name}</div><div style={{ fontSize:'0.75rem', color:'var(--text-secondary)' }}>@{m.username}</div></td>
                   <td>৳{m.total_deposit||0}</td>
                   <td style={{ fontWeight:'700', color: (m.current_balance||0) < 0 ? 'var(--accent-red)' : 'var(--accent-green)' }}>৳{m.current_balance||0}</td>
-                  <td>{m.total_meals||0}</td>
+                  <td>{m.total_meals||0} টি</td>
                   <td><span className={`badge ${m.status === 'active' ? 'badge-success' : 'badge-warning'}`}>{m.status === 'active' ? 'এক্টিভ' : 'নিষ্ক্রিয়'}</span></td>
                   <td style={{ display:'flex', gap:'0.5rem' }}>
                     <button className="btn" style={{ padding:'0.25rem 0.5rem', fontSize:'0.75rem' }} onClick={()=>toggleUserStatus(m.id, m.status)}>{m.status === 'active' ? 'নিষ্ক্রিয় করুন' : 'এক্টিভ করুন'}</button>
@@ -307,25 +252,6 @@ export const DashboardHome = () => {
             </tbody>
           </table>
         </div>
-      </div>
-      <div className="card" style={{ marginTop:'1.5rem' }}>
-        <h3 style={{ marginBottom:'1.5rem', color:'var(--accent-orange)' }}>📊 ফিক্সড বিল হিস্টরি</h3>
-        {fixedBills.length === 0 ? <p style={{ color:'var(--text-secondary)' }}>কোনো ফিক্সড বিল পাওয়া যায়নি।</p> : (
-          <div className="table-container">
-            <table>
-              <thead><tr><th>ক্যাটাগরি</th><th>পরিমাণ</th><th>সংযোজনকারী</th></tr></thead>
-              <tbody>
-                {fixedBills.map(b => (
-                  <tr key={b.id}>
-                    <td><span className="badge badge-success">{b.category}</span></td>
-                    <td style={{ fontWeight:'700' }}>৳{b.amount}</td>
-                    <td style={{ fontSize:'0.875rem' }}>{b.manager_name || 'ম্যানেজার'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
     </>
   );

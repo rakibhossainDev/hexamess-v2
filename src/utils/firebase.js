@@ -61,3 +61,18 @@ export {
   limit,
   Timestamp,
 };
+export const getMonthMealsTotal = async (monthId) => {
+  const q = query(collection(db, 'daily_meals'), where('month_id', '==', monthId));
+  const snap = await getDocs(q);
+  let total = 0;
+  snap.docs.forEach(d => total += (Number(d.data().count) || 0));
+  return total;
+};
+
+export const getTodayMealsTotal = async (dateSlash) => {
+  const q = query(collection(db, 'daily_meals'), where('date', '==', dateSlash));
+  const snap = await getDocs(q);
+  let total = 0;
+  snap.docs.forEach(d => total += (Number(d.data().count) || 0));
+  return total;
+};
