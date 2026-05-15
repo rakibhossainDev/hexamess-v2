@@ -43,15 +43,12 @@ export const DashboardHome = () => {
   const [approvedExpenses, setApprovedExpenses] = useState([]);
   const [config, setConfig] = useState(null);
   
-  // Stats States
-  const [todayTotalMeals, setTodayTotalMeals] = useState(0);
-  const [monthTotalMeals, setMonthTotalMeals] = useState(0);
-  
-  // Meal Input States
-  const [todayMeals, setTodayMeals] = useState({}); // Input buffer
-  const [dbMeals, setDbMeals] = useState({});       // Verified DB state
-  const [saving, setSaving] = useState(false);
+  // Meal Summary States
   const [selectedDate, setSelectedDate] = useState(getTodayDateString());
+  const [manualMealInput, setManualMealInput] = useState('');
+  const [todaySavedMeals, setTodaySavedMeals] = useState(0);
+  const [monthTotalMeals, setMonthTotalMeals] = useState(0);
+  const [saving, setSaving] = useState(false);
 
   // Other UI States
   const [depositAmount, setDepositAmount] = useState('');
@@ -63,9 +60,9 @@ export const DashboardHome = () => {
   const [isAdding, setIsAdding] = useState(false);
   const { toasts, showToast, removeToast } = useToast();
 
-  const todaySlash = useMemo(() => {
+  const formattedDate = useMemo(() => {
     const [y, m, d] = selectedDate.split('-');
-    return `${d}/${m}/${y}`;
+    return `${d}-${m}-${y}`;
   }, [selectedDate]);
 
   useEffect(() => {
@@ -78,34 +75,34 @@ export const DashboardHome = () => {
   useEffect(() => {
     if (!db || !config) return;
     const mid = config.current_month_id;
-    
-    // 1. Fetch Stats & Pre-populate Input
-    const unsubDaily = onSnapshot(query(
-      collection(db, 'daily_meals'),
-      where('date', '==', todaySlash)
-    ), snap => {
-      let total = 0;
-      const mealsMap = {};
-      snap.docs.forEach(d => {
-        const data = d.data();
-        const cnt = Number(data.count) || 0;
-        total += cnt;
-        if (data.memberId) mealsMap[data.memberId] = cnt;
-      });
-      setTodayTotalMeals(total);
-      setDbMeals(mealsMap);
-      setTodayMeals(prev => ({ ...mealsMap, ...prev })); // Merge existing into current input buffer
+
+    // 1. Fetch Today's Manual Summary
+    const unsubToday = onSnapshot(doc(db, 'meal_summaries', selectedDate), snap => {
+      if (snap.exists()) {
+        const val = snap.data().totalMeals || 0;
+        setTodaySavedMeals(val);
+        setManualMealInput(val.toString());
+      } else {
+        setTodaySavedMeals(0);
+        setManualMealInput('');
+      }
     });
 
-    const unsubMonth = onSnapshot(query(
-      collection(db, 'daily_meals'),
-      where('month_id', '==', mid)
-    ), snap => {
+    // 2. Fetch Month's Cumulative Total from Summaries
+    const unsubMonth = onSnapshot(collection(db, 'meal_summaries'), snap => {
       let total = 0;
-      snap.docs.forEach(d => total += (Number(d.data().count) || 0));
+      const [curY, curM] = selectedDate.split('-');
+      snap.docs.forEach(d => {
+        const docId = d.id; // YYYY-MM-DD
+        const [dY, dM] = docId.split('-');
+        if (dY === curY && dM === curM) {
+          total += (Number(d.data().totalMeals) || 0);
+        }
+      });
       setMonthTotalMeals(total);
     });
 
+    // 3. Fetch Approved Market Expenses for Rate
     const unsubExp = onSnapshot(query(
       collection(db, 'expenses'), 
       where('month_id', '==', mid), 
@@ -114,47 +111,26 @@ export const DashboardHome = () => {
       setApprovedExpenses(snap.docs.map(d => ({ id:d.id, ...d.data() })));
     });
 
-    return () => { unsubDaily(); unsubMonth(); unsubExp(); };
-  }, [config, todaySlash]);
+    return () => { unsubToday(); unsubMonth(); unsubExp(); };
+  }, [config, selectedDate]);
 
   const activeMembers = useMemo(() => members.filter(m => m.status === 'active'), [members]);
   const totalMarketCost = useMemo(() => approvedExpenses.reduce((s, e) => s + (Number(e.cost)||0), 0), [approvedExpenses]);
   const liveMealRate = useMemo(() => monthTotalMeals === 0 ? 0 : (totalMarketCost / monthTotalMeals).toFixed(2), [totalMarketCost, monthTotalMeals]);
 
-  const handleMealChange = (memberId, value) => {
-    setTodayMeals(prev => ({ ...prev, [memberId]: Number(value) }));
-  };
-
-  const handleSaveMeals = async () => {
-    if (!db || !config || saving) return;
+  const handleSaveManualMeals = async (e) => {
+    e.preventDefault();
+    if (!db || !manualMealInput || isNaN(manualMealInput)) {
+      window.alert("সঠিক সংখ্যা দিন!");
+      return;
+    }
     setSaving(true);
-    const batch = writeBatch(db);
-
     try {
-      for (const m of activeMembers) {
-        const count = Number(todayMeals[m.id] || 0);
-        const prevCount = Number(dbMeals[m.id] || 0);
-        const delta = count - prevCount;
-
-        const dateId = todaySlash.replace(/\//g, '_');
-        const mealRef = doc(db, 'daily_meals', `meal_${m.id}_${dateId}`);
-        
-        batch.set(mealRef, {
-          memberId: m.id,
-          date: todaySlash,
-          count: count,
-          month_id: config.current_month_id,
-          updatedAt: new Date()
-        }, { merge: true });
-
-        if (delta !== 0) {
-          batch.update(doc(db, 'users', m.id), {
-            total_meals: increment(delta)
-          });
-        }
-      }
-
-      await batch.commit();
+      await setDoc(doc(db, 'meal_summaries', selectedDate), {
+        date: formattedDate,
+        totalMeals: Number(manualMealInput),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
       window.alert("তথ্য সেভ হয়েছে, বস!");
     } catch (err) {
       console.error(err);
@@ -164,12 +140,9 @@ export const DashboardHome = () => {
     }
   };
 
-  // Rest of handlers (Deposit, Bill, Member) omitted for brevity as per instructions but kept functional in the actual file.
   const handleAddMember = async (e) => {
     e.preventDefault();
     if (!newMember.name || !newMember.username || !newMember.password) { showToast('সবগুলো ঘর পূরণ করুন।', 'error'); return; }
-    const isDuplicate = members.some(m => m.username === newMember.username || m.name === newMember.name);
-    if (isDuplicate) { showToast('এই ইউজারনেম বা তথ্য দিয়ে সদস্য আগে থেকেই যুক্ত আছে!', 'error'); return; }
     setIsAdding(true);
     try {
       const dep = Number(newMember.deposit) || 0;
@@ -182,10 +155,6 @@ export const DashboardHome = () => {
       setNewMember({ name:'', username:'', password:'', deposit:'' }); setShowAddForm(false);
       showToast('সদস্য সফলভাবে যুক্ত করা হয়েছে!', 'success');
     } catch (err) { showToast(`মেম্বার যুক্ত করতে সমস্যা হয়েছে: ${err.message}`, 'error'); } finally { setIsAdding(false); }
-  };
-
-  const toggleUserStatus = async (id, currentStatus) => {
-    try { await updateDoc(doc(db, 'users', id), { status: currentStatus === 'active' ? 'inactive' : 'active' }); showToast('স্ট্যাটাস আপডেট হয়েছে।', 'success'); } catch (err) { console.error(err); }
   };
 
   const handleDeposit = async (e) => {
@@ -222,18 +191,9 @@ export const DashboardHome = () => {
 
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
         <h2 style={{ marginBottom:'0.5rem' }}>অ্যাডমিন ড্যাশবোর্ড</h2>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <input 
-            type="date" 
-            className="form-control" 
-            style={{ width: 'auto', background: '#111', border: '1px solid #333', color: '#fff' }}
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-          />
-          <button className="btn btn-primary" onClick={() => setShowAddForm(!showAddForm)}>
-            {showAddForm ? '✕ ফর্ম বন্ধ করুন' : '👤 নতুন মেম্বার যোগ করুন'}
-          </button>
-        </div>
+        <button className="btn btn-primary" onClick={() => setShowAddForm(!showAddForm)}>
+          {showAddForm ? '✕ ফর্ম বন্ধ করুন' : '👤 নতুন মেম্বার যোগ করুন'}
+        </button>
       </div>
 
       {showAddForm && (
@@ -249,11 +209,11 @@ export const DashboardHome = () => {
         </div>
       )}
 
-      {/* Top 3 Cards */}
+      {/* Top Cards (Live Fetch) */}
       <div className="stats-grid" style={{ marginBottom:'1.5rem' }}>
         <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-blue)' }}>
           <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>আজকের মোট মিল <span className="live-icon" /></p>
-          <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-blue)' }}>{todayTotalMeals} টি</span>
+          <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-blue)' }}>{todaySavedMeals} টি</span>
         </div>
         <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-orange)' }}>
           <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>এই মাসের চলতি মোট মিল</p>
@@ -265,57 +225,42 @@ export const DashboardHome = () => {
         </div>
       </div>
 
-      {/* Member Meal Input Section (Dashboard Integration) */}
+      {/* Simplified Manual Meal Entry Section */}
       <div className="card glass-card" style={{ marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, color: 'var(--accent-blue)' }}>🍽️ মেম্বার মিল ইনপুট ({todaySlash})</h3>
-          <span style={{ fontSize: '0.8rem', color: '#888' }}>প্রি-পপুলেটেড ফ্রম ডেটাবেজ</span>
-        </div>
-        
-        <div className="table-container" style={{ maxHeight: '400px', overflowY: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: '#000', color: '#888', fontSize: '0.9rem', textAlign: 'left' }}>
-                <th style={{ padding: '1rem' }}>মেম্বার নাম</th>
-                <th style={{ padding: '1rem', textAlign: 'center' }}>মিল সংখ্যা (০-৫)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {activeMembers.map(m => (
-                <tr key={m.id} style={{ borderBottom: '1px solid #1a1a1a' }}>
-                  <td style={{ padding: '1rem' }}>
-                    <div style={{ fontWeight: '700' }}>{m.name}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#666' }}>@{m.username}</div>
-                  </td>
-                  <td style={{ padding: '1rem', textAlign: 'center' }}>
-                    <select 
-                      className="form-control"
-                      style={{ width: '80px', margin: '0 auto', background: '#000', border: '1px solid #333', color: '#fff', fontWeight: '800' }}
-                      value={todayMeals[m.id] ?? 0}
-                      onChange={(e) => handleMealChange(m.id, e.target.value)}
-                    >
-                      {[0,1,2,3,4,5].map(v => <option key={v} value={v}>{v}</option>)}
-                    </select>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'center' }}>
-          <button 
-            className="btn btn-primary save-btn-interactive"
-            onClick={handleSaveMeals}
-            disabled={saving}
-            style={{ 
-              width: '280px', padding: '1.1rem', borderRadius: '12px', fontSize: '1rem', fontWeight: '800',
-              transition: 'transform 0.15s ease'
-            }}
-          >
-            {saving ? 'সেভ হচ্ছে...' : '💾 আজকের ডাটা সেভ করুন'}
-          </button>
-        </div>
+        <h3 style={{ marginBottom: '1.5rem', color: 'var(--accent-blue)' }}>🍽️ আজকের মিল ইনপুট (ম্যানুয়াল)</h3>
+        <form onSubmit={handleSaveManualMeals} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', alignItems: 'end' }}>
+          <div className="form-group">
+            <label>তারিখ নির্বাচন করুন</label>
+            <input 
+              type="date" 
+              className="form-control" 
+              value={selectedDate} 
+              onChange={e => setSelectedDate(e.target.value)} 
+              required 
+            />
+          </div>
+          <div className="form-group">
+            <label>আজকের মোট মিল সংখ্যা লিখুন</label>
+            <input 
+              type="number" 
+              className="form-control" 
+              value={manualMealInput} 
+              onChange={e => setManualMealInput(e.target.value)} 
+              placeholder="উদাঃ ১৫"
+              required 
+            />
+          </div>
+          <div className="form-group">
+            <button 
+              type="submit" 
+              className="btn btn-primary manual-save-btn" 
+              disabled={saving}
+              style={{ width: '100%', height: '48px', fontWeight: '800' }}
+            >
+              {saving ? 'সেভ হচ্ছে...' : '💾 তথ্য সেভ করুন'}
+            </button>
+          </div>
+        </form>
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(340px, 1fr))', gap:'1.5rem', marginBottom:'1.5rem' }}>
@@ -341,14 +286,13 @@ export const DashboardHome = () => {
         <h3 style={{ marginBottom:'1.5rem', color:'var(--accent-blue)' }}>মেম্বার সামারি</h3>
         <div className="table-container">
           <table>
-            <thead><tr><th>নাম (ইউজারনেম)</th><th>ডিপোজিট</th><th>ব্যালেন্স</th><th>মোট মিল</th><th>স্ট্যাটাস</th><th>অ্যাকশন</th></tr></thead>
+            <thead><tr><th>নাম (ইউজারনেম)</th><th>ডিপোজিট</th><th>ব্যালেন্স</th><th>স্ট্যাটাস</th><th>অ্যাকশন</th></tr></thead>
             <tbody>
               {members.map(m => (
                 <tr key={m.id} className={m.status === 'inactive' ? 'row-danger' : ''}>
                   <td><div style={{ fontWeight:'600' }}>{m.name}</div><div style={{ fontSize:'0.75rem', color:'var(--text-secondary)' }}>@{m.username}</div></td>
                   <td>৳{m.total_deposit||0}</td>
                   <td style={{ fontWeight:'700', color: (m.current_balance||0) < 0 ? 'var(--accent-red)' : 'var(--accent-green)' }}>৳{m.current_balance||0}</td>
-                  <td>{m.total_meals||0} টি</td>
                   <td><span className={`badge ${m.status === 'active' ? 'badge-success' : 'badge-warning'}`}>{m.status === 'active' ? 'এক্টিভ' : 'নিষ্ক্রিয়'}</span></td>
                   <td style={{ display:'flex', gap:'0.5rem' }}>
                     <button className="btn" style={{ padding:'0.25rem 0.5rem', fontSize:'0.75rem' }} onClick={()=>toggleUserStatus(m.id, m.status)}>{m.status === 'active' ? 'নিষ্ক্রিয় করুন' : 'এক্টিভ করুন'}</button>
@@ -362,8 +306,8 @@ export const DashboardHome = () => {
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
-        .save-btn-interactive:active { transform: scale(0.95); }
-        .save-btn-interactive:hover:not(:disabled) { background: #1d4ed8; }
+        .manual-save-btn:active { transform: scale(0.95); }
+        .manual-save-btn:hover:not(:disabled) { background: #1d4ed8; }
       `}} />
     </>
   );
