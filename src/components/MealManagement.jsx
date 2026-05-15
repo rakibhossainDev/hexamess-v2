@@ -1,207 +1,204 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
-  db,
-  collection,
-  doc,
-  onSnapshot,
-  query,
-  where,
-  getDocs,
+  db, collection, doc, onSnapshot, query, where, writeBatch, setDoc, serverTimestamp
 } from '../firebase';
 import { getTodayDateString, formatDisplayDate } from '../utils/monthUtils';
 
 const MealManagement = () => {
   const [members, setMembers] = useState([]);
-  const [todayMeals, setTodayMeals] = useState({});
-  const [savedMeals, setSavedMeals] = useState({});
-  const [monthTotal, setMonthTotal] = useState(0);
+  const [inputMeals, setInputMeals] = useState({}); // Local state for dropdowns
+  const [dbMeals, setDbMeals] = useState({});       // Verified database state
   const [selectedDate, setSelectedDate] = useState(getTodayDateString());
   const [config, setConfig] = useState(null);
+  const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [showPopup, setShowPopup] = useState(true);
 
-  const displayDate = useMemo(() => formatDisplayDate(selectedDate), [selectedDate]);
+  // Format YYYY-MM-DD to DD-MM-YYYY for Document IDs (Consistency with Dashboard)
+  const docIdDate = useMemo(() => {
+    const [y, m, d] = selectedDate.split('-');
+    return `${d}-${m}-${y}`;
+  }, [selectedDate]);
 
   useEffect(() => {
     if (!db) return;
-    const unsub1 = onSnapshot(collection(db, 'users'), (snap) => {
-      setMembers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setLoading(false);
+    const unsub1 = onSnapshot(collection(db, 'users'), snap => {
+      setMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
-    const unsub2 = onSnapshot(doc(db, 'config', 'settings'), (snap) => {
+    const unsub2 = onSnapshot(doc(db, 'config', 'settings'), snap => {
       if (snap.exists()) setConfig(snap.data());
     });
-    return () => {
-      unsub1();
-      unsub2();
-    };
+    return () => { unsub1(); unsub2(); };
   }, []);
 
+  // Fetch individual meal records for selected date
   useEffect(() => {
     if (!db || !config) return;
-    const mid = config.current_month_id;
+    setLoading(true);
 
-    const fetchData = async () => {
-      try {
-        const qDaily = query(
-          collection(db, 'daily_meals'),
-          where('date', '==', selectedDate)
-        );
-        const snapDaily = await getDocs(qDaily);
-        const mealsMap = {};
-        snapDaily.docs.forEach((d) => {
-          const data = d.data();
-          if (data.memberId) mealsMap[data.memberId] = data.count || 0;
-        });
-        setTodayMeals(mealsMap);
-        setSavedMeals(mealsMap);
+    const unsubMeals = onSnapshot(query(
+      collection(db, 'daily_meals'),
+      where('date', '==', docIdDate)
+    ), snap => {
+      const mealsMap = {};
+      snap.docs.forEach(d => {
+        const data = d.data();
+        if (data.memberId) {
+          mealsMap[data.memberId] = Number(data.count) || 0;
+        }
+      });
+      setDbMeals(mealsMap);
+      // Sync local input buffer with DB, but don't overwrite if user is typing (simplified here as they only use dropdowns)
+      setInputMeals(mealsMap);
+      setLoading(false);
+    }, (error) => {
+      console.error("Fetch Meals Error:", error);
+      setLoading(false);
+    });
 
-        const qMonth = query(
-          collection(db, 'daily_meals'),
-          where('month_id', '==', mid)
-        );
-        const snapMonth = await getDocs(qMonth);
-        let mTotal = 0;
-        snapMonth.docs.forEach((d) => {
-          mTotal += (Number(d.data().count) || 0);
-        });
-        setMonthTotal(mTotal);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-    fetchData();
-  }, [config, selectedDate]);
+    return () => unsubMeals();
+  }, [config, docIdDate]);
 
-  if (loading) return <div style={{ padding: '2rem', textAlign: 'center', color: '#fff' }}>লোড হচ্ছে...</div>;
+  const activeMembers = useMemo(() => members.filter(m => m.status === 'active'), [members]);
+  
+  const todayTotal = useMemo(() => {
+    return Object.values(inputMeals).reduce((s, v) => s + v, 0);
+  }, [inputMeals]);
+
+  const handleMealChange = (memberId, value) => {
+    setInputMeals(prev => ({ ...prev, [memberId]: Number(value) }));
+  };
+
+  const handleSaveAll = async () => {
+    if (!db || !config || saving) return;
+    setSaving(true);
+    const batch = writeBatch(db);
+
+    try {
+      let totalForDay = 0;
+
+      activeMembers.forEach(member => {
+        const count = Number(inputMeals[member.id] || 0);
+        totalForDay += count;
+
+        const mealDocId = `meal_${member.id}_${docIdDate}`;
+        const mealRef = doc(db, 'daily_meals', mealDocId);
+
+        batch.set(mealRef, {
+          memberId: member.id,
+          date: docIdDate,
+          count: count,
+          month_id: config.current_month_id,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+      });
+
+      // SYNC WITH DASHBOARD: Update meal_summaries
+      const summaryRef = doc(db, 'meal_summaries', docIdDate);
+      batch.set(summaryRef, {
+        date: docIdDate,
+        totalMeals: totalForDay,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      await batch.commit();
+      window.alert("তথ্য সেভ হয়েছে, বস!");
+    } catch (error) {
+      console.error("Meal Save Error:", error);
+      window.alert("বস, তথ্য সেভ হয়নি! " + error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
-    <div className="meal-management-container" style={{ fontFamily: "'Hind Siliguri', sans-serif", color: '#fff', padding: '1rem' }}>
-      
-      {/* Maintenance Popup */}
-      {showPopup && (
-        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-          <div className="card glass-card" style={{ maxWidth: '450px', textAlign: 'center', padding: '2rem', border: '1px solid var(--accent-blue)', boxShadow: '0 0 30px rgba(0, 209, 255, 0.2)' }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚙️</div>
-            <h3 style={{ marginBottom: '1rem', color: 'var(--accent-blue)' }}>সিস্টেম আপডেট চলছে</h3>
-            <p style={{ color: '#ccc', lineHeight: '1.6', marginBottom: '2rem' }}>
-              পরবর্তী আপডেটের জন্য অপেক্ষা করুন। বর্তমানে সিস্টেমটি ডেটাবেজের সাথে সিঙ্ক করা হচ্ছে।
-            </p>
-            <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setShowPopup(false)}>বুঝেছি</button>
-          </div>
-        </div>
-      )}
-
-      {/* Date Picker Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', background: '#111', padding: '1.5rem', borderRadius: '12px', border: '1px solid #222' }}>
-        <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: '700' }}>🍽️ মিল ম্যানেজমেন্ট ({displayDate})</h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <span style={{ fontSize: '0.85rem', color: '#888' }}>তারিখ নির্বাচন:</span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', fontFamily: "'Hind Siliguri', sans-serif" }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>🍽️ মিল ম্যানেজমেন্ট</h2>
+        <div className="form-group" style={{ margin: 0 }}>
           <input 
             type="date" 
-            style={{ padding: '0.6rem', borderRadius: '10px', border: '1px solid #333', background: '#000', color: '#fff', fontWeight: '700', cursor: 'pointer' }}
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
+            className="form-control" 
+            value={selectedDate} 
+            onChange={(e) => setSelectedDate(e.target.value)} 
+            style={{ width: 'auto', background: '#111', color: '#fff', border: '1px solid #333' }}
           />
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '2rem' }}>
-        
-        <div className="left-column">
-          <div className="card" style={{ background: '#0a0a0a', borderRadius: '16px', border: '1px solid #222', overflow: 'hidden' }}>
-            <div style={{ padding: '1.25rem', borderBottom: '1px solid #222', background: '#111', fontWeight: '700' }}>মেম্বার তালিকা</div>
-            
-            <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
-              {members.map(m => (
-                <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', borderBottom: '1px solid #111' }}>
-                  <div>
-                    <div style={{ fontWeight: '700' }}>{m.name}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#666' }}>@{m.username}</div>
-                  </div>
-                  
-                  <select 
-                    style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid #333', background: '#000', color: '#fff', fontWeight: '700', width: '90px', cursor: 'not-allowed', opacity: 0.6 }}
-                    value={todayMeals[m.id] || 0}
-                    disabled
-                  >
-                    {[0,1,2,3,4,5].map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                  </select>
-                </div>
-              ))}
-            </div>
-
-            {/* Disabled Save Button */}
-            <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#0a0a0a', borderTop: '1px solid #222' }}>
-              <button 
-                disabled
-                style={{ 
-                  width: '100%',
-                  maxWidth: '300px',
-                  padding: '1rem',
-                  borderRadius: '12px',
-                  border: 'none',
-                  background: '#333',
-                  color: '#666',
-                  fontWeight: '800',
-                  fontSize: '1rem',
-                  cursor: 'not-allowed',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '1rem'
-                }}
-              >
-                💾 আজকের সব মিল সেভ করুন
-              </button>
-              <p style={{ marginTop: '1rem', color: 'var(--accent-orange)', fontSize: '0.85rem', fontWeight: '600' }}>
-                ⚠️ এই ফিচারটি পরবর্তী আপডেটে লাইভ হবে।
-              </p>
-            </div>
+      <div className="card glass-card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <div>
+            <h3 style={{ margin: 0, color: 'var(--accent-blue)' }}>মেম্বার তালিকা ({formatDisplayDate(selectedDate)})</h3>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: '#888' }}>প্রতি মেম্বারের মিল ইনপুট দিন</p>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '0.75rem', color: '#888' }}>আজকের মোট মিল</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--accent-blue)' }}>{todayTotal} টি</div>
           </div>
         </div>
 
-        <div className="right-column">
-          <div className="card" style={{ background: '#111', padding: '1.5rem', borderRadius: '16px', border: '1px solid #222', position: 'sticky', top: '1rem' }}>
-            <h3 style={{ margin: '0 0 1.5rem 0', color: 'var(--accent-blue)', fontSize: '1.2rem', fontWeight: '700' }}>📊 আজকের প্রিভিউ (সংরক্ষিত)</h3>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
-              <div style={{ padding: '1.25rem', background: '#000', borderRadius: '12px', borderLeft: '5px solid var(--accent-blue)' }}>
-                <div style={{ color: '#888', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>আজকের মোট মিল:</div>
-                <div style={{ fontSize: '2rem', fontWeight: '900', color: 'var(--accent-blue)', marginTop: '0.25rem' }}>
-                  {Object.values(savedMeals).reduce((s, c) => s + (Number(c) || 0), 0)} টি
-                </div>
-              </div>
-              <div style={{ padding: '1.25rem', background: '#000', borderRadius: '12px', borderLeft: '5px solid var(--accent-orange)' }}>
-                <div style={{ color: '#888', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>এই মাসের মোট মিল:</div>
-                <div style={{ fontSize: '2rem', fontWeight: '900', color: 'var(--accent-orange)', marginTop: '0.25rem' }}>{monthTotal} টি</div>
-              </div>
-            </div>
-
-            <div style={{ borderTop: '1px solid #222', paddingTop: '1.5rem' }}>
-              <div style={{ color: '#888', fontSize: '0.8rem', textTransform: 'uppercase', marginBottom: '1.25rem', letterSpacing: '1px' }}>ব্যক্তিগত সংরক্ষিত মিল</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                {members.map(m => (
-                  <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: 'rgba(255,255,255,0.02)', borderRadius: '10px' }}>
-                    <span style={{ fontWeight: '600' }}>{m.name}</span>
-                    <span style={{ fontWeight: '800', color: (savedMeals[m.id] > 0 ? 'var(--accent-blue)' : '#444') }}>
-                      {savedMeals[m.id] || 0}
-                    </span>
-                  </div>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '3rem', color: '#666' }}>লোড হচ্ছে...</div>
+        ) : (
+          <div className="table-container" style={{ maxHeight: '500px', overflowY: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: '#000', color: '#888', fontSize: '0.9rem', textAlign: 'left' }}>
+                  <th style={{ padding: '1rem' }}>মেম্বার নাম</th>
+                  <th style={{ padding: '1rem', textAlign: 'center' }}>মিল সংখ্যা (০-৫)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activeMembers.map(member => (
+                  <tr key={member.id} style={{ borderBottom: '1px solid #1a1a1a' }}>
+                    <td style={{ padding: '1rem' }}>
+                      <div style={{ fontWeight: '600', color: '#fff' }}>{member.name}</div>
+                      <div style={{ fontSize: '0.8rem', color: '#666' }}>@{member.username}</div>
+                    </td>
+                    <td style={{ padding: '1rem', textAlign: 'center' }}>
+                      <select 
+                        className="form-control"
+                        style={{ 
+                          width: '80px', margin: '0 auto', background: '#000', color: '#fff', 
+                          border: '1px solid #333', fontWeight: '800', textAlign: 'center'
+                        }}
+                        value={inputMeals[member.id] ?? 0}
+                        onChange={(e) => handleMealChange(member.id, e.target.value)}
+                      >
+                        {[0, 1, 2, 3, 4, 5].map(v => (
+                          <option key={v} value={v}>{v}</option>
+                        ))}
+                      </select>
+                    </td>
+                  </tr>
                 ))}
-              </div>
-            </div>
+                {activeMembers.length === 0 && (
+                  <tr><td colSpan="2" style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>কোনো সক্রিয় মেম্বার পাওয়া যায়নি।</td></tr>
+                )}
+              </tbody>
+            </table>
           </div>
-        </div>
+        )}
 
+        <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'center' }}>
+          <button 
+            className="btn btn-primary meal-save-btn"
+            disabled={saving || loading}
+            onClick={handleSaveAll}
+            style={{ 
+              width: '280px', padding: '1.1rem', borderRadius: '12px', fontSize: '1rem', 
+              fontWeight: '800', transition: 'transform 0.15s ease', boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
+            }}
+          >
+            {saving ? 'সেভ হচ্ছে...' : '💾 আজকের সব মিল সেভ করুন'}
+          </button>
+        </div>
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
-        @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
-        body { background: #000; }
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-track { background: #000; }
-        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        .meal-save-btn:active { transform: scale(0.95); }
+        .meal-save-btn:hover:not(:disabled) { background: #1d4ed8; filter: brightness(1.1); }
+        .glass-card { background: rgba(20, 20, 20, 0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.05); }
       `}} />
     </div>
   );
