@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { db, collection, getDocs, query, where } from '../firebase';
+import { auth, db, collection, getDocs, query, where } from '../utils/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import '../Dashboard.css';
 
 const Login = () => {
@@ -62,49 +63,36 @@ const Login = () => {
       if (!snap.empty) {
         const userDoc = snap.docs[0];
         const userData = userDoc.data();
-        
-        // Password Mismatch Check
-        if (userData.password !== password) {
-          console.error(`Login failed for ${username}: Password mismatch.`);
-          setError('পাসওয়ার্ড সঠিক নয়।');
-          return;
-        }
 
         if (userData.status === 'inactive') {
           setError('আপনার একাউন্টটি বর্তমানে নিষ্ক্রিয়। ম্যানেজারের সাথে যোগাযোগ করুন।');
           return;
         }
 
-        // Store Session Info
-        localStorage.setItem('hexamess-user-id', userDoc.id);
-        localStorage.setItem('hexamess-user-name', userData.name);
-        localStorage.setItem('hexamess-user-role', userData.role);
-        
-        if (userData.role === 'manager') {
-          localStorage.setItem('hexamess-admin', 'true');
-          navigate('/admin');
-        } else {
-          localStorage.removeItem('hexamess-admin');
-          navigate('/member');
-        }
-      } else {
-        // 3. Fallback for Manager (admin/112233)
-        if (lowerUsername === 'admin' && password === '112233') {
-          const mgrQ = query(collection(db, 'users'), where('role', '==', 'manager'));
-          const mgrSnap = await getDocs(mgrQ);
-          
-          if (mgrSnap.empty) {
-            console.log("Using hardcoded manager fallback (admin/112233)");
-            localStorage.setItem('hexamess-user-id', 'admin-id');
-            localStorage.setItem('hexamess-user-name', 'মেস ম্যানেজার');
-            localStorage.setItem('hexamess-user-role', 'manager');
-            localStorage.setItem('hexamess-admin', 'true');
-            navigate('/admin');
-            return;
-          }
+        // Determine email (fallback to username if it's already an email)
+        const emailToUse = userData.email || lowerUsername;
+
+        try {
+          await signInWithEmailAndPassword(auth, emailToUse, password);
+          // If successful, onAuthStateChanged in App.jsx will handle redirection
+          // But we can also manually navigate here if we want to be explicit.
+          // App.jsx PublicGuard will automatically redirect us because auth state changes.
+        } catch (authErr) {
+          console.error("Auth Error:", authErr);
+          setError('লগইন ব্যর্থ হয়েছে। ইমেইল বা পাসওয়ার্ড সঠিক নয়।');
+          return;
         }
 
-        console.error(`Login failed for ${username}: User not found.`);
+      } else {
+        // Fallback for super-admin or hardcoded if needed, but Firebase Auth is preferred.
+        if (lowerUsername === 'admin' && password === '112233') {
+          // This fallback won't trigger Firebase Auth, so ProtectedRoute will fail.
+          // For Firebase Auth, you MUST log in with valid credentials.
+          setError('দয়া করে সঠিক ইউজারনেম দিয়ে লগইন করুন (Firebase Auth Required)।');
+          return;
+        }
+
+        console.error(`Login failed for ${username}: User not found in Firestore.`);
         setError('ইউজারনেম সঠিক নয়।');
       }
     } catch (err) {
