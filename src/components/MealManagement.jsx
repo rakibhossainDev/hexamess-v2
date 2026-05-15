@@ -6,33 +6,46 @@ import { getTodayDateString, formatDisplayDate } from '../utils/monthUtils';
 
 const MealManagement = () => {
   const [members, setMembers] = useState([]);
-  const [inputMeals, setInputMeals] = useState({}); // Local state for dropdowns
-  const [dbMeals, setDbMeals] = useState({});       // Verified database state
+  const [inputMeals, setInputMeals] = useState({}); 
+  const [dbMeals, setDbMeals] = useState({});       
   const [selectedDate, setSelectedDate] = useState(getTodayDateString());
   const [config, setConfig] = useState(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Format YYYY-MM-DD to DD-MM-YYYY for Document IDs (Consistency with Dashboard)
+  // Format YYYY-MM-DD to DD-MM-YYYY for Document IDs
   const docIdDate = useMemo(() => {
     const [y, m, d] = selectedDate.split('-');
     return `${d}-${m}-${y}`;
   }, [selectedDate]);
 
+  // 1. Resilient Member Fetching
   useEffect(() => {
     if (!db) return;
-    const unsub1 = onSnapshot(collection(db, 'users'), snap => {
-      setMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    const unsubMembers = onSnapshot(collection(db, 'users'), snap => {
+      const users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setMembers(users);
+      // If we only have members to show, we can technically stop the "stuck" loading
+      if (users.length > 0) setLoading(false);
+    }, (error) => {
+      console.error("Fetch Members Error:", error);
+      setLoading(false);
     });
-    const unsub2 = onSnapshot(doc(db, 'config', 'settings'), snap => {
-      if (snap.exists()) setConfig(snap.data());
+
+    const unsubConfig = onSnapshot(doc(db, 'config', 'settings'), snap => {
+      if (snap.exists()) {
+        setConfig(snap.data());
+      } else {
+        console.warn("Config document 'settings' not found!");
+      }
     });
-    return () => { unsub1(); unsub2(); };
+
+    return () => { unsubMembers(); unsubConfig(); };
   }, []);
 
-  // Fetch individual meal records for selected date
+  // 2. Meal Fetching & Persistence
   useEffect(() => {
-    if (!db || !config) return;
+    if (!db) return;
     setLoading(true);
 
     const unsubMeals = onSnapshot(query(
@@ -47,7 +60,6 @@ const MealManagement = () => {
         }
       });
       setDbMeals(mealsMap);
-      // Sync local input buffer with DB, but don't overwrite if user is typing (simplified here as they only use dropdowns)
       setInputMeals(mealsMap);
       setLoading(false);
     }, (error) => {
@@ -56,7 +68,7 @@ const MealManagement = () => {
     });
 
     return () => unsubMeals();
-  }, [config, docIdDate]);
+  }, [docIdDate]);
 
   const activeMembers = useMemo(() => members.filter(m => m.status === 'active'), [members]);
   
@@ -68,17 +80,22 @@ const MealManagement = () => {
     setInputMeals(prev => ({ ...prev, [memberId]: Number(value) }));
   };
 
+  // 3 & 4. Firestore Sync & Dashboard Update
   const handleSaveAll = async () => {
-    if (!db || !config || saving) return;
+    if (!db || !config || saving) {
+      if (!config) alert("সিস্টেম কনফিগ লোড হচ্ছে, দয়া করে একটু অপেক্ষা করুন।");
+      return;
+    }
+    
     setSaving(true);
     const batch = writeBatch(db);
 
     try {
-      let totalForDay = 0;
+      let calculatedTotal = 0;
 
       activeMembers.forEach(member => {
         const count = Number(inputMeals[member.id] || 0);
-        totalForDay += count;
+        calculatedTotal += count;
 
         const mealDocId = `meal_${member.id}_${docIdDate}`;
         const mealRef = doc(db, 'daily_meals', mealDocId);
@@ -96,15 +113,15 @@ const MealManagement = () => {
       const summaryRef = doc(db, 'meal_summaries', docIdDate);
       batch.set(summaryRef, {
         date: docIdDate,
-        totalMeals: totalForDay,
+        totalMeals: calculatedTotal,
         updatedAt: serverTimestamp()
       }, { merge: true });
 
       await batch.commit();
-      window.alert("তথ্য সেভ হয়েছে, বস!");
+      alert("তথ্য সেভ হয়েছে, বস!");
     } catch (error) {
       console.error("Meal Save Error:", error);
-      window.alert("বস, তথ্য সেভ হয়নি! " + error.message);
+      alert("বস, তথ্য সেভ হয়নি! " + error.message);
     } finally {
       setSaving(false);
     }
@@ -129,7 +146,7 @@ const MealManagement = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <div>
             <h3 style={{ margin: 0, color: 'var(--accent-blue)' }}>মেম্বার তালিকা ({formatDisplayDate(selectedDate)})</h3>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: '#888' }}>প্রতি মেম্বারের মিল ইনপুট দিন</p>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: '#888' }}>সঠিক মিল ইনপুট দিয়ে সেভ করুন</p>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '0.75rem', color: '#888' }}>আজকের মোট মিল</div>
@@ -137,8 +154,11 @@ const MealManagement = () => {
           </div>
         </div>
 
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: '#666' }}>লোড হচ্ছে...</div>
+        {loading && activeMembers.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '4rem' }}>
+            <div className="spinner" style={{ margin: '0 auto 1rem', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--accent-blue)', borderRadius: '50%', width: '30px', height: '30px', animation: 'spin 1s linear infinite' }} />
+            <div style={{ color: '#666' }}>মেম্বার তালিকা লোড হচ্ছে...</div>
+          </div>
         ) : (
           <div className="table-container" style={{ maxHeight: '500px', overflowY: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -172,9 +192,6 @@ const MealManagement = () => {
                     </td>
                   </tr>
                 ))}
-                {activeMembers.length === 0 && (
-                  <tr><td colSpan="2" style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>কোনো সক্রিয় মেম্বার পাওয়া যায়নি।</td></tr>
-                )}
               </tbody>
             </table>
           </div>
@@ -183,11 +200,11 @@ const MealManagement = () => {
         <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'center' }}>
           <button 
             className="btn btn-primary meal-save-btn"
-            disabled={saving || loading}
+            disabled={saving || activeMembers.length === 0}
             onClick={handleSaveAll}
             style={{ 
               width: '280px', padding: '1.1rem', borderRadius: '12px', fontSize: '1rem', 
-              fontWeight: '800', transition: 'transform 0.15s ease', boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
+              fontWeight: '800', transition: 'transform 0.15s ease', boxShadow: '0 4px 20px rgba(0,0,0,0.4)'
             }}
           >
             {saving ? 'সেভ হচ্ছে...' : '💾 আজকের সব মিল সেভ করুন'}
@@ -196,9 +213,10 @@ const MealManagement = () => {
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes spin { to { transform: rotate(360deg); } }
         .meal-save-btn:active { transform: scale(0.95); }
-        .meal-save-btn:hover:not(:disabled) { background: #1d4ed8; filter: brightness(1.1); }
-        .glass-card { background: rgba(20, 20, 20, 0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.05); }
+        .meal-save-btn:hover:not(:disabled) { background: #1d4ed8; filter: brightness(1.2); }
+        .glass-card { background: rgba(18, 18, 18, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.06); }
       `}} />
     </div>
   );
