@@ -65,10 +65,11 @@ export const DashboardHome = () => {
   const [newMember, setNewMember] = useState({ name: '', username: '', password: '', deposit: '' });
   const [isAdding, setIsAdding] = useState(false);
 
-  // Helper: DD-MM-YYYY format for Document ID
+  // Helper: DD/MM/YYYY format for Document ID
   const docIdKey = useMemo(() => {
+    if (!selectedDateIso) return '';
     const [y, m, d] = selectedDateIso.split('-');
-    return `${d}-${m}-${y}`;
+    return `${d}/${m}/${y}`;
   }, [selectedDateIso]);
 
   const { toasts, showToast, removeToast } = useToast();
@@ -106,11 +107,11 @@ export const DashboardHome = () => {
       // B. Fetch Monthly Summation
       const querySnapshot = await getDocs(collection(db, 'meal_summaries'));
       let total = 0;
-      const [, targetM, targetY] = docIdKey.split('-');
+      const [targetY, targetM] = selectedDateIso.split('-');
       
       querySnapshot.forEach((d) => {
-        const parts = d.id.split('-');
-        if (parts.length === 3 && parts[1] === targetM && parts[2] === targetY) {
+        const parts = d.id.split('/'); // Standard format: DD/MM/YYYY
+        if (parts.length === 3 && parts[2] === targetY && parts[1] === targetM) {
           total += Number(d.data().totalMeals) || 0;
         }
       });

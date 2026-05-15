@@ -1,3 +1,4 @@
+// Firestore Rules: set to 'allow read, write: if true;' for testing if you see permission errors.
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   db, collection, doc, onSnapshot, query, where, writeBatch, setDoc, serverTimestamp, getDocs
@@ -15,10 +16,11 @@ const MealManagement = () => {
   const [loading, setLoading] = useState(true);
   const { toasts, showToast, removeToast } = useToast();
 
-  // Unified Date Format: DD-MM-YYYY (Source of truth for IDs)
+  // Format date to DD/MM/YYYY for Firestore Document IDs
   const docIdDate = useMemo(() => {
+    if (!selectedDate) return '';
     const [y, m, d] = selectedDate.split('-');
-    return `${d}-${m}-${y}`;
+    return `${d}/${m}/${y}`;
   }, [selectedDate]);
 
   // 3. Persistence: Fetch saved meals for selected date
@@ -50,13 +52,44 @@ const MealManagement = () => {
 
   useEffect(() => {
     if (!db) return;
-    const unsubMembers = onSnapshot(collection(db, 'users'), snap => {
-      setMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-    const unsubConfig = onSnapshot(doc(db, 'config', 'settings'), snap => {
-      if (snap.exists()) setConfig(snap.data());
-    });
-    return () => { unsubMembers(); unsubConfig(); };
+    
+    setLoading(true);
+    // Timeout Safety: Force loading to false after 3 seconds
+    const safetyTimeout = setTimeout(() => setLoading(false), 3000);
+
+    const unsubMembers = onSnapshot(collection(db, 'users'), 
+      (snap) => {
+        if (snap.empty) {
+          console.warn("Users collection is empty!");
+          setMembers([]);
+        } else {
+          setMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        }
+        setLoading(false);
+        clearTimeout(safetyTimeout);
+      },
+      (error) => {
+        console.error("Error fetching users:", error);
+        alert("ইউজার ডাটা লোড করতে সমস্যা হয়েছে। এরর: " + error.message);
+        setLoading(false);
+        clearTimeout(safetyTimeout);
+      }
+    );
+
+    const unsubConfig = onSnapshot(doc(db, 'config', 'settings'), 
+      (snap) => {
+        if (snap.exists()) setConfig(snap.data());
+      },
+      (error) => {
+        console.error("Error fetching config:", error);
+      }
+    );
+
+    return () => { 
+      unsubMembers(); 
+      unsubConfig(); 
+      clearTimeout(safetyTimeout);
+    };
   }, []);
 
   useEffect(() => {
@@ -77,11 +110,8 @@ const MealManagement = () => {
   const handleSaveAll = async () => {
     if (!db || saving) return;
     
-    // Non-blocking config check
-    if (!config) {
-      showToast("সিস্টেম কনফিগ লোড হচ্ছে, অনুগ্রহ করে একটু অপেক্ষা করুন।", "error");
-      return;
-    }
+    // We proceed even if config is null, using current month as fallback
+    const currentMonthId = config?.current_month_id || selectedDate.substring(0, 7);
 
     setSaving(true);
     const batch = writeBatch(db);
@@ -90,39 +120,43 @@ const MealManagement = () => {
       let totalSum = 0;
 
       activeMembers.forEach(member => {
-        const count = Number(inputMeals[member.id] || 0);
+        const countValue = inputMeals[member.id] || 0;
+        const count = Number(countValue); // Ensure 'count' is saved as a Number
         totalSum += count;
 
+        // Doc ID Format: meal_${memberId}_${docIdDate} (DD/MM/YYYY)
         const mealDocId = `meal_${member.id}_${docIdDate}`;
         const mealRef = doc(db, 'daily_meals', mealDocId);
 
-        // Save individual member meal (Atomic Batch)
         batch.set(mealRef, {
           memberId: member.id,
           date: docIdDate,
           count: count,
-          month_id: config.current_month_id,
+          month_id: currentMonthId,
           updatedAt: serverTimestamp()
         }, { merge: true });
       });
 
-      // 2. Dashboard Total Sync: Update 'meal_summaries'
+      // Dashboard Sync: Update 'meal_summaries' for the 'docIdDate'
       const summaryRef = doc(db, 'meal_summaries', docIdDate);
       batch.set(summaryRef, {
         date: docIdDate,
-        totalMeals: Number(totalSum), // Type Safe Number
+        totalMeals: Number(totalSum),
         updatedAt: serverTimestamp()
       }, { merge: true });
 
       await batch.commit();
       
-      // 4. UI Feedback
-      alert("সব মেম্বারের মিল সেভ হয়েছে, বস!");
-      console.log(`Saved total ${totalSum} meals for ${docIdDate}`);
+      // Success Feedback
+      alert("তথ্য সেভ হয়েছে, বস!");
+      console.log(`Saved total ${totalSum} meals for ${selectedDate}`);
+      
+      // Refresh local state (already synced via handled inputs, but refetching ensures parity)
+      await fetchSavedMeals();
       
     } catch (error) {
-      console.error("Meal Save Failure:", error); // Specific Firebase error logging
-      showToast(`সেভ করতে সমস্যা হয়েছে: ${error.message}`, "error");
+      console.error("Meal Save Failure:", error);
+      alert("সেভ হয়নি! এরর: " + error.message);
     } finally {
       setSaving(false);
     }
@@ -171,29 +205,37 @@ const MealManagement = () => {
                 </tr>
               </thead>
               <tbody>
-                {activeMembers.map(member => (
-                  <tr key={member.id} style={{ borderBottom: '1px solid #1a1a1a' }}>
-                    <td style={{ padding: '1rem' }}>
-                      <div style={{ fontWeight: '600', color: '#fff' }}>{member.name}</div>
-                      <div style={{ fontSize: '0.8rem', color: '#666' }}>@{member.username}</div>
-                    </td>
-                    <td style={{ padding: '1rem', textAlign: 'center' }}>
-                      <select 
-                        className="form-control"
-                        style={{ 
-                          width: '85px', margin: '0 auto', background: '#000', color: '#fff', 
-                          border: '1px solid #444', fontWeight: '800', textAlign: 'center'
-                        }}
-                        value={inputMeals[member.id] ?? 0}
-                        onChange={(e) => handleMealChange(member.id, e.target.value)}
-                      >
-                        {[0, 1, 2, 3, 4, 5].map(v => (
-                          <option key={v} value={v}>{v}</option>
-                        ))}
-                      </select>
+                {activeMembers.length === 0 ? (
+                  <tr>
+                    <td colSpan="2" style={{ padding: '4rem', textAlign: 'center', color: '#666' }}>
+                      কোন মেম্বার পাওয়া যায়নি
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  activeMembers.map(member => (
+                    <tr key={member.id} style={{ borderBottom: '1px solid #1a1a1a' }}>
+                      <td style={{ padding: '1rem' }}>
+                        <div style={{ fontWeight: '600', color: '#fff' }}>{member.name}</div>
+                        <div style={{ fontSize: '0.8rem', color: '#666' }}>@{member.username}</div>
+                      </td>
+                      <td style={{ padding: '1rem', textAlign: 'center' }}>
+                        <select 
+                          className="form-control"
+                          style={{ 
+                            width: '85px', margin: '0 auto', background: '#000', color: '#fff', 
+                            border: '1px solid #444', fontWeight: '800', textAlign: 'center'
+                          }}
+                          value={inputMeals[member.id] ?? 0}
+                          onChange={(e) => handleMealChange(member.id, e.target.value)}
+                        >
+                          {[0, 1, 2, 3, 4, 5].map(v => (
+                            <option key={v} value={v}>{v}</option>
+                          ))}
+                        </select>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
