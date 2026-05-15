@@ -4,16 +4,17 @@ import { getTodayDateString } from '../utils/monthUtils';
 
 const MealManagement = () => {
   const [members, setMembers] = useState([]);
-  const [todayMeals, setTodayMeals] = useState({}); // Local edited state
-  const [dbMeals, setDbMeals] = useState({});       // Actual DB state
+  const [todayMeals, setTodayMeals] = useState({});
+  const [dbMeals, setDbMeals] = useState({});
   const [monthMeals, setMonthMeals] = useState({});
   const [loading, setLoading] = useState(true);
   const [mealsLoading, setMealsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(getTodayDateString()); // YYYY-MM-DD
+  const [selectedDate, setSelectedDate] = useState(getTodayDateString());
   const [config, setConfig] = useState(null);
 
-  const MEAL_OPTIONS = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
+  // Updated to Whole Numbers only
+  const MEAL_OPTIONS = [0, 1, 2, 3, 4, 5];
 
   const formatToSlash = (iso) => {
     if (!iso) return '';
@@ -23,7 +24,6 @@ const MealManagement = () => {
 
   const displayDate = useMemo(() => formatToSlash(selectedDate), [selectedDate]);
 
-  // Initial Fetch
   useEffect(() => {
     if (!db) return;
     const unsub1 = onSnapshot(collection(db, 'users'), snap => {
@@ -36,7 +36,6 @@ const MealManagement = () => {
     return () => { unsub1(); unsub2(); };
   }, []);
 
-  // Sync with Firestore on Date Change
   useEffect(() => {
     if (!db || !config) return;
     const mid = config.current_month_id;
@@ -78,7 +77,7 @@ const MealManagement = () => {
   }, [config, displayDate, selectedDate]);
 
   const handleDropdownChange = (memberId, value) => {
-    const numVal = parseFloat(value) || 0;
+    const numVal = parseInt(value) || 0;
     setTodayMeals(prev => ({ ...prev, [memberId]: numVal }));
   };
 
@@ -94,7 +93,6 @@ const MealManagement = () => {
         const prevCount = Number(dbMeals[member.id] || 0);
         const delta = count - prevCount;
 
-        // 1. Prepare Daily Meal Record
         const mealDocId = `meal_${dateKey}_${member.id}`;
         const mealRef = doc(db, 'daily_meals', mealDocId);
         batch.set(mealRef, {
@@ -105,7 +103,6 @@ const MealManagement = () => {
           updatedAt: new Date()
         }, { merge: true });
 
-        // 2. Prepare User Aggregate Update (Delta Sync)
         if (delta !== 0) {
           const userRef = doc(db, 'users', member.id);
           batch.update(userRef, {
@@ -130,7 +127,7 @@ const MealManagement = () => {
   if (loading) return <div style={{ padding: '2rem', textAlign: 'center', color: '#fff' }}>লোড হচ্ছে...</div>;
 
   return (
-    <div className="meal-management-container" style={{ fontFamily: "'Hind Siliguri', sans-serif", color: '#fff', padding: '1rem', paddingBottom: '100px' }}>
+    <div className="meal-management-container" style={{ fontFamily: "'Hind Siliguri', sans-serif", color: '#fff', padding: '1rem' }}>
       
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', background: '#1a1a1a', padding: '1.5rem', borderRadius: '12px', border: '1px solid #333' }}>
         <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700' }}>🍽️ মিল ম্যানেজমেন্ট ({displayDate})</h2>
@@ -148,7 +145,7 @@ const MealManagement = () => {
           <div style={{ background: '#111', borderRadius: '12px', border: '1px solid #222', overflow: 'hidden' }}>
             <div style={{ padding: '1rem', borderBottom: '1px solid #222', background: '#1a1a1a', fontWeight: '700', display: 'flex', justifyContent: 'space-between' }}>
               <span>মেম্বার তালিকা</span>
-              <span style={{ color: '#888', fontSize: '0.8rem' }}>মিল সংখ্যা (০-৫)</span>
+              <span style={{ color: '#888', fontSize: '0.8rem' }}>মিল সংখ্যা (১-৫)</span>
             </div>
             
             {mealsLoading ? (
@@ -174,6 +171,27 @@ const MealManagement = () => {
               </div>
             )}
           </div>
+
+          {/* Repositioned Save Button */}
+          <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-start' }}>
+            <button 
+              onClick={handleSaveAll}
+              disabled={saving || mealsLoading}
+              style={{ 
+                padding: '0.85rem 2rem', borderRadius: '10px', border: 'none', 
+                background: 'linear-gradient(135deg, #00d1ff, #0088ff)', 
+                color: '#000', fontWeight: '800', fontSize: '1rem', 
+                cursor: 'pointer', boxShadow: '0 4px 15px rgba(0, 209, 255, 0.3)',
+                transition: 'all 0.3s ease',
+                opacity: saving ? 0.7 : 1,
+                pointerEvents: saving ? 'none' : 'auto',
+                display: 'flex', alignItems: 'center', gap: '0.75rem',
+                width: '100%', justifyContent: 'center'
+              }}
+            >
+              {saving ? <div className="spinner-sm"></div> : '💾 আজকের সব মিল সেভ করুন'}
+            </button>
+          </div>
         </div>
 
         <div className="right-side">
@@ -193,7 +211,7 @@ const MealManagement = () => {
 
             <div style={{ borderTop: '1px solid #333', paddingTop: '1rem' }}>
               <div style={{ color: '#888', fontSize: '0.8rem', textTransform: 'uppercase', marginBottom: '1rem' }}>মেম্বার ব্রেকডাউন (মাসিক)</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div className="breakdown-list" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {members.map(m => (
                   <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem', padding: '0.5rem', background: 'rgba(255,255,255,0.02)', borderRadius: '6px' }}>
                     <span style={{ color: '#ccc', fontWeight: '500' }}>{m.name}</span>
@@ -210,35 +228,10 @@ const MealManagement = () => {
 
       </div>
 
-      {/* Unified Save Button Footer */}
-      <div style={{ 
-        position: 'fixed', bottom: 0, left: 0, right: 0, 
-        padding: '1.5rem', background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', 
-        borderTop: '1px solid #333', zIndex: 100,
-        display: 'flex', justifyContent: 'center'
-      }}>
-        <button 
-          onClick={handleSaveAll}
-          disabled={saving || mealsLoading}
-          style={{ 
-            padding: '1rem 3rem', borderRadius: '12px', border: 'none', 
-            background: 'linear-gradient(135deg, #00d1ff, #0088ff)', 
-            color: '#000', fontWeight: '800', fontSize: '1.1rem', 
-            cursor: 'pointer', boxShadow: '0 4px 20px rgba(0, 209, 255, 0.4)',
-            transition: 'all 0.3s ease',
-            opacity: saving ? 0.7 : 1,
-            pointerEvents: saving ? 'none' : 'auto',
-            display: 'flex', alignItems: 'center', gap: '1rem'
-          }}
-        >
-          {saving ? <div className="spinner-sm"></div> : '💾 আজকের সব মিল সেভ করুন'}
-        </button>
-      </div>
-
       <style dangerouslySetInnerHTML={{ __html: `
         @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
         body { background: #000; }
-        .spinner-sm { width: 20px; height: 20px; border: 3px solid #000; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; }
+        .spinner-sm { width: 18px; height: 18px; border: 3px solid #000; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
       `}} />
     </div>
