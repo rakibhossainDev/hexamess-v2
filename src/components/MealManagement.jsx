@@ -13,7 +13,7 @@ const MealManagement = () => {
   const [selectedDate, setSelectedDate] = useState(getTodayDateString());
   const [config, setConfig] = useState(null);
 
-  // Updated to Whole Numbers only
+  // Strict Whole Numbers (0-5)
   const MEAL_OPTIONS = [0, 1, 2, 3, 4, 5];
 
   const formatToSlash = (iso) => {
@@ -81,8 +81,10 @@ const MealManagement = () => {
     setTodayMeals(prev => ({ ...prev, [memberId]: numVal }));
   };
 
-  const handleSaveAll = async () => {
-    if (!db || !config) return;
+  const handleSaveAll = async (e) => {
+    if (e) e.preventDefault();
+    if (!db || !config || saving) return;
+    
     setSaving(true);
     const batch = writeBatch(db);
     const dateKey = displayDate.replace(/\//g, '_');
@@ -95,6 +97,7 @@ const MealManagement = () => {
 
         const mealDocId = `meal_${dateKey}_${member.id}`;
         const mealRef = doc(db, 'daily_meals', mealDocId);
+        
         batch.set(mealRef, {
           memberId: member.id,
           date: displayDate,
@@ -112,10 +115,10 @@ const MealManagement = () => {
       });
 
       await batch.commit();
-      window.alert("সফল! আজকের সব মিল আপডেট করা হয়েছে।");
+      window.alert("সফলভাবে সেভ হয়েছে!");
     } catch (err) {
-      console.error(err);
-      window.alert("ব্যর্থ! ডাটা সেভ করা যায়নি। আবার চেষ্টা করুন।");
+      console.error("Save error:", err);
+      window.alert("ব্যর্থ! ডাটা সেভ করা যায়নি।");
     } finally {
       setSaving(false);
     }
@@ -129,6 +132,7 @@ const MealManagement = () => {
   return (
     <div className="meal-management-container" style={{ fontFamily: "'Hind Siliguri', sans-serif", color: '#fff', padding: '1rem' }}>
       
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', background: '#1a1a1a', padding: '1.5rem', borderRadius: '12px', border: '1px solid #333' }}>
         <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700' }}>🍽️ মিল ম্যানেজমেন্ট ({displayDate})</h2>
         <input 
@@ -141,9 +145,10 @@ const MealManagement = () => {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '2rem' }}>
         
+        {/* Left Side: Member List Card */}
         <div className="left-side">
-          <div style={{ background: '#111', borderRadius: '12px', border: '1px solid #222', overflow: 'hidden' }}>
-            <div style={{ padding: '1rem', borderBottom: '1px solid #222', background: '#1a1a1a', fontWeight: '700', display: 'flex', justifyContent: 'space-between' }}>
+          <div className="card" style={{ background: '#111', borderRadius: '16px', border: '1px solid #222', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '1.25rem', borderBottom: '1px solid #222', background: '#1a1a1a', fontWeight: '700', display: 'flex', justifyContent: 'space-between' }}>
               <span>মেম্বার তালিকা</span>
               <span style={{ color: '#888', fontSize: '0.8rem' }}>মিল সংখ্যা (১-৫)</span>
             </div>
@@ -151,49 +156,60 @@ const MealManagement = () => {
             {mealsLoading ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: '#666' }}>লোড হচ্ছে...</div>
             ) : (
-              <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
-                {members.map(m => (
-                  <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', borderBottom: '1px solid #1a1a1a' }}>
-                    <div>
-                      <div style={{ fontWeight: '700' }}>{m.name}</div>
-                      <div style={{ fontSize: '0.8rem', color: '#666' }}>@{m.username}</div>
+              <>
+                <div className="list-content" style={{ maxHeight: '55vh', overflowY: 'auto' }}>
+                  {members.map(m => (
+                    <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', borderBottom: '1px solid #1a1a1a' }}>
+                      <div>
+                        <div style={{ fontWeight: '700' }}>{m.name}</div>
+                        <div style={{ fontSize: '0.8rem', color: '#666' }}>@{m.username}</div>
+                      </div>
+                      
+                      <select 
+                        style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid #444', background: '#000', color: '#fff', fontWeight: '700', width: '100px', cursor: 'pointer' }}
+                        value={todayMeals[m.id] || 0}
+                        onChange={(e) => handleDropdownChange(m.id, e.target.value)}
+                      >
+                        {MEAL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                      </select>
                     </div>
-                    
-                    <select 
-                      style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid #444', background: '#000', color: '#fff', fontWeight: '700', width: '100px' }}
-                      value={todayMeals[m.id] || 0}
-                      onChange={(e) => handleDropdownChange(m.id, e.target.value)}
-                    >
-                      {MEAL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                    </select>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  ))}
+                </div>
 
-          {/* Repositioned Save Button */}
-          <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-start' }}>
-            <button 
-              onClick={handleSaveAll}
-              disabled={saving || mealsLoading}
-              style={{ 
-                padding: '0.85rem 2rem', borderRadius: '10px', border: 'none', 
-                background: 'linear-gradient(135deg, #00d1ff, #0088ff)', 
-                color: '#000', fontWeight: '800', fontSize: '1rem', 
-                cursor: 'pointer', boxShadow: '0 4px 15px rgba(0, 209, 255, 0.3)',
-                transition: 'all 0.3s ease',
-                opacity: saving ? 0.7 : 1,
-                pointerEvents: saving ? 'none' : 'auto',
-                display: 'flex', alignItems: 'center', gap: '0.75rem',
-                width: '100%', justifyContent: 'center'
-              }}
-            >
-              {saving ? <div className="spinner-sm"></div> : '💾 আজকের সব মিল সেভ করুন'}
-            </button>
+                {/* Fixed Save Button Inside the Card */}
+                <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'center', borderTop: '1px solid #222', background: '#111' }}>
+                  <button 
+                    id="save-all-btn"
+                    onClick={(e) => handleSaveAll(e)}
+                    disabled={saving || mealsLoading}
+                    style={{ 
+                      width: '250px',
+                      padding: '0.9rem',
+                      borderRadius: '10px',
+                      border: 'none',
+                      background: '#2563eb', // Blue-600
+                      color: '#fff',
+                      fontWeight: '800',
+                      fontSize: '1rem',
+                      cursor: (saving || mealsLoading) ? 'not-allowed' : 'pointer',
+                      boxShadow: '0 4px 15px rgba(37, 99, 235, 0.3)',
+                      transition: 'all 0.3s ease',
+                      opacity: saving ? 0.7 : 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.75rem'
+                    }}
+                  >
+                    {saving ? <div className="spinner-sm"></div> : 'আজকের সব মিল সেভ করুন'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
+        {/* Right Side: Preview */}
         <div className="right-side">
           <div style={{ background: '#1a1a1a', padding: '1.5rem', borderRadius: '12px', border: '1px solid #333', position: 'sticky', top: '1rem' }}>
             <h3 style={{ margin: '0 0 1rem 0', color: '#00d1ff', fontSize: '1.2rem' }}>📊 প্রিভিউ ({displayDate})</h3>
@@ -231,8 +247,12 @@ const MealManagement = () => {
       <style dangerouslySetInnerHTML={{ __html: `
         @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
         body { background: #000; }
-        .spinner-sm { width: 18px; height: 18px; border: 3px solid #000; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; }
+        .spinner-sm { width: 18px; height: 18px; border: 3px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
+        /* Custom Scrollbar */
+        .list-content::-webkit-scrollbar { width: 6px; }
+        .list-content::-webkit-scrollbar-track { background: #111; }
+        .list-content::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
       `}} />
     </div>
   );
