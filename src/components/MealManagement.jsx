@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   db,
   collection,
@@ -36,6 +36,19 @@ function legacyMealDocId(memberId, iso) {
   return `${memberId}_${d}_${m}_${y}`;
 }
 
+/** Canonical daily_meals document id (per spec). */
+function mealDocId(memberId, isoDate) {
+  return `meal_${memberId}_${isoDate}`;
+}
+
+async function tryDeleteMealDoc(ref) {
+  try {
+    await deleteDoc(ref);
+  } catch {
+    /* missing doc or rules */
+  }
+}
+
 const MealManagement = () => {
   const [members, setMembers] = useState([]);
   const [todayMeals, setTodayMeals] = useState({});
@@ -63,63 +76,72 @@ const MealManagement = () => {
     };
   }, []);
 
-  const loadPersistedForDate = useCallback(async () => {
+  // Dynamic fetch: reload Firestore data whenever the calendar date changes.
+  useEffect(() => {
     if (!db || !config) return;
 
+    let cancelled = false;
     const mid = config.current_month_id;
 
-    try {
-      const legacyKey = legacyDateKeyFromIso(selectedDate);
-      const qIso = query(
-        collection(db, 'daily_meals'),
-        where('date', '==', selectedDate)
-      );
-      const snapIso = await getDocs(qIso);
-      const mealsMap = {};
-      snapIso.docs.forEach((d) => {
-        const data = d.data();
-        if (data.memberId != null) {
-          mealsMap[data.memberId] = normalizeMealCount(data.count);
-        }
-      });
-      if (legacyKey) {
-        const qLegacy = query(
+    (async () => {
+      try {
+        const legacyKey = legacyDateKeyFromIso(selectedDate);
+        const qIso = query(
           collection(db, 'daily_meals'),
-          where('date', '==', legacyKey)
+          where('date', '==', selectedDate)
         );
-        const snapLegacy = await getDocs(qLegacy);
-        snapLegacy.docs.forEach((d) => {
+        const snapIso = await getDocs(qIso);
+        if (cancelled) return;
+
+        const mealsMap = {};
+        snapIso.docs.forEach((d) => {
           const data = d.data();
-          if (data.memberId == null) return;
-          if (mealsMap[data.memberId] === undefined) {
+          if (data.memberId != null) {
             mealsMap[data.memberId] = normalizeMealCount(data.count);
           }
         });
-      }
-      setTodayMeals(mealsMap);
-      setSavedMeals(mealsMap);
-
-      const qMonth = query(
-        collection(db, 'daily_meals'),
-        where('month_id', '==', mid)
-      );
-      const snapMonth = await getDocs(qMonth);
-      let mTotal = 0;
-      snapMonth.docs.forEach((d) => {
-        const data = d.data();
-        if (data.memberId != null && data.count != null) {
-          mTotal += normalizeMealCount(data.count);
+        if (legacyKey) {
+          const qLegacy = query(
+            collection(db, 'daily_meals'),
+            where('date', '==', legacyKey)
+          );
+          const snapLegacy = await getDocs(qLegacy);
+          if (cancelled) return;
+          snapLegacy.docs.forEach((d) => {
+            const data = d.data();
+            if (data.memberId == null) return;
+            if (mealsMap[data.memberId] === undefined) {
+              mealsMap[data.memberId] = normalizeMealCount(data.count);
+            }
+          });
         }
-      });
-      setMonthTotal(mTotal);
-    } catch (e) {
-      console.error(e);
-    }
-  }, [config, selectedDate]);
+        setTodayMeals(mealsMap);
+        setSavedMeals(mealsMap);
 
-  useEffect(() => {
-    loadPersistedForDate();
-  }, [loadPersistedForDate]);
+        const qMonth = query(
+          collection(db, 'daily_meals'),
+          where('month_id', '==', mid)
+        );
+        const snapMonth = await getDocs(qMonth);
+        if (cancelled) return;
+
+        let mTotal = 0;
+        snapMonth.docs.forEach((d) => {
+          const data = d.data();
+          if (data.memberId != null && data.count != null) {
+            mTotal += normalizeMealCount(data.count);
+          }
+        });
+        setMonthTotal(mTotal);
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [config, selectedDate]);
 
   const handleDropdownChange = (memberId, value) => {
     setTodayMeals((prev) => ({
@@ -139,8 +161,8 @@ const MealManagement = () => {
         const prevCount = normalizeMealCount(savedMeals[member.id]);
         const delta = count - prevCount;
 
-        const docId = `${member.id}_${selectedDate}`;
-        const mealRef = doc(db, 'daily_meals', docId);
+        const canonicalId = mealDocId(member.id, selectedDate);
+        const mealRef = doc(db, 'daily_meals', canonicalId);
 
         await setDoc(
           mealRef,
@@ -160,13 +182,13 @@ const MealManagement = () => {
           });
         }
 
+        const preMealPrefixId = `${member.id}_${selectedDate}`;
+        if (preMealPrefixId !== canonicalId) {
+          await tryDeleteMealDoc(doc(db, 'daily_meals', preMealPrefixId));
+        }
         const legacyId = legacyMealDocId(member.id, selectedDate);
-        if (legacyId && legacyId !== docId) {
-          try {
-            await deleteDoc(doc(db, 'daily_meals', legacyId));
-          } catch {
-            /* legacy doc may not exist */
-          }
+        if (legacyId && legacyId !== canonicalId) {
+          await tryDeleteMealDoc(doc(db, 'daily_meals', legacyId));
         }
       });
 
@@ -191,13 +213,13 @@ const MealManagement = () => {
         }
       });
 
-      window.alert('তথ্য সেভ হয়েছে, বস!');
+      alert('তথ্য সেভ হয়েছে, বস!');
 
       setSavedMeals(nextSaved);
       setMonthTotal(nextMonthTotal);
     } catch (err) {
       console.error(err);
-      window.alert('বস, তথ্য সেভ হয়নি!');
+      alert('বস, তথ্য সেভ হয়নি!');
     } finally {
       setSaving(false);
     }
