@@ -25,31 +25,38 @@ const MealManagement = () => {
     return `${d}/${m}/${y}`;
   }, [selectedDate]);
 
-  // 3. Persistence: Fetch saved meals for selected date
-  const fetchSavedMeals = useCallback(async () => {
-    if (!db) return;
-    setLoading(true);
-    
-    // Safety timeout for loading state
-    const timeout = setTimeout(() => setLoading(false), 5000);
+  // 3. Real-time Persistence: Listen to saved meals for selected date
+  useEffect(() => {
+    if (!db || !docIdDate) return;
 
-    try {
-      const q = query(collection(db, 'daily_meals'), where('date', '==', docIdDate));
-      const snap = await getDocs(q);
-      const mealsMap = {};
-      snap.docs.forEach(d => {
-        const data = d.data();
-        if (data.memberId) mealsMap[data.memberId] = Number(data.count) || 0;
-      });
-      
-      console.log(`Fetched ${snap.size} meal records for ${docIdDate}`);
-      setInputMeals(mealsMap);
-      clearTimeout(timeout);
-    } catch (error) {
-      console.error("Fetch Meals Error:", error);
-    } finally {
-      setLoading(false);
-    }
+    setLoading(true);
+    const safetyTimeout = setTimeout(() => setLoading(false), 3000);
+
+    const unsubSelectedDate = onSnapshot(
+      query(collection(db, 'daily_meals'), where('date', '==', docIdDate)),
+      (snap) => {
+        const mealsMap = {};
+        snap.docs.forEach(d => {
+          const data = d.data();
+          if (data.memberId) mealsMap[data.memberId] = Number(data.count || 0);
+        });
+        
+        console.log(`Synced ${snap.size} meal records for ${docIdDate}`);
+        setInputMeals(mealsMap);
+        setLoading(false);
+        clearTimeout(safetyTimeout);
+      },
+      (error) => {
+        console.error("Selected Date Sync Error:", error);
+        setLoading(false);
+        clearTimeout(safetyTimeout);
+      }
+    );
+
+    return () => {
+      unsubSelectedDate();
+      clearTimeout(safetyTimeout);
+    };
   }, [docIdDate]);
 
   useEffect(() => {
@@ -113,10 +120,6 @@ const MealManagement = () => {
     };
   }, []);
 
-  useEffect(() => {
-    fetchSavedMeals();
-  }, [fetchSavedMeals]);
-
   const activeMembers = useMemo(() => members.filter(m => m.status === 'active'), [members]);
   
   const currentTotal = useMemo(() => {
@@ -162,11 +165,10 @@ const MealManagement = () => {
       await batch.commit();
       
       showToast("তথ্য সেভ হয়েছে, বস!", "success");
-      setRefreshKey(prev => prev + 1); // Trigger immediate re-sync
-      // All totals (Lifetime, Today, Monthly) are automated via Firestore listeners!
+      setRefreshKey(prev => prev + 1); // Trigger re-sync for dashboard context
     } catch (error) {
-      console.error("Batch Save Error:", error);
-      alert("সেভ হয়নি! এরর: " + error.message);
+      console.error("Critical Save Error:", error);
+      alert("সেভ হয়নি! বস, এরর চেক করুন: " + error.message);
     } finally {
       setSaving(false);
     }
