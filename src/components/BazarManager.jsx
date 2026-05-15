@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { db, collection, doc, onSnapshot, addDoc, serverTimestamp, query, where } from '../utils/firebase';
+import { db, collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, serverTimestamp, query, where } from '../utils/firebase';
 import { ToastContainer } from './Toast';
 import { useToast } from '../hooks/useToast';
 import { getTodayDateString, formatDisplayDate } from '../utils/monthUtils';
@@ -12,6 +12,7 @@ const BazarManager = () => {
   const [selectedManager, setSelectedManager] = useState('');
   const [bazarDate, setBazarDate] = useState(getTodayDateString());
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const { toasts, showToast, removeToast } = useToast();
 
   // Unified monthYear for aggregation
@@ -54,25 +55,67 @@ const BazarManager = () => {
 
     setSaving(true);
     try {
-      await addDoc(collection(db, 'bazar_records'), {
-        itemName,
-        amount: amountNum,
-        date: bazarDate,
-        managerName: manager.name,
-        managerId: manager.id,
-        monthYear,
-        createdAt: serverTimestamp()
-      });
+      if (editingId) {
+        // UPDATE EXISTING RECORD
+        await updateDoc(doc(db, 'bazar_records', editingId), {
+          itemName,
+          amount: amountNum,
+          date: bazarDate,
+          managerName: manager.name,
+          managerId: manager.id,
+          monthYear,
+          updatedAt: serverTimestamp()
+        });
+        showToast('খরচ আপডেট করা হয়েছে!', 'success');
+      } else {
+        // CREATE NEW RECORD
+        await addDoc(collection(db, 'bazar_records'), {
+          itemName,
+          amount: amountNum,
+          date: bazarDate,
+          managerName: manager.name,
+          managerId: manager.id,
+          monthYear,
+          createdAt: serverTimestamp()
+        });
+        showToast('বাজার খরচ সফলভাবে ইস্যু করা হয়েছে!', 'success');
+      }
 
-      setItemName('');
-      setAmount('');
-      showToast('বাজার খরচ সফলভাবে ইস্যু করা হয়েছে!', 'success');
+      resetForm();
     } catch (err) {
       console.error('Bazar Save Error:', err);
       showToast('সেভ করতে সমস্যা হয়েছে।', 'error');
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleEdit = (record) => {
+    setEditingId(record.id);
+    setItemName(record.itemName);
+    setAmount(record.amount);
+    setBazarDate(record.date);
+    setSelectedManager(record.managerId || '');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("আপনি কি নিশ্চিত যে এই খরচটি ডিলিট করতে চান?")) return;
+    
+    try {
+      await deleteDoc(doc(db, 'bazar_records', id));
+      showToast('খরচ ডিলিট করা হয়েছে।', 'success');
+    } catch (err) {
+      console.error('Delete Error:', err);
+      showToast('ডিলিট করা যায়নি।', 'error');
+    }
+  };
+
+  const resetForm = () => {
+    setEditingId(null);
+    setItemName('');
+    setAmount('');
+    setSelectedManager('');
   };
 
   const totalBazar = bazarRecords.reduce((s, r) => s + (Number(r.amount) || 0), 0);
@@ -128,14 +171,26 @@ const BazarManager = () => {
               {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
           </div>
-          <button 
-            type="submit" 
-            className="btn btn-primary" 
-            disabled={saving}
-            style={{ height: 'fit-content', padding: '0.875rem 1.5rem', gridColumn: 'span 1' }}
-          >
-            {saving ? 'সেভ হচ্ছে...' : 'ইস্যু করুন'}
-          </button>
+          <div style={{ display: 'flex', gap: '0.75rem', gridColumn: 'span 1' }}>
+            <button 
+              type="submit" 
+              className={`btn ${editingId ? 'btn-success' : 'btn-primary'}`} 
+              disabled={saving}
+              style={{ flex: 2, height: 'fit-content', padding: '0.875rem 1rem' }}
+            >
+              {saving ? 'সেভ হচ্ছে...' : (editingId ? 'আপডেট করুন' : 'ইস্যু করুন')}
+            </button>
+            {editingId && (
+              <button 
+                type="button" 
+                className="btn" 
+                onClick={resetForm}
+                style={{ flex: 1, background: 'var(--surface-hover)' }}
+              >
+                বাতিল
+              </button>
+            )}
+          </div>
         </form>
       </div>
 
@@ -156,18 +211,25 @@ const BazarManager = () => {
                 <th>আইটেম</th>
                 <th>ম্যানেজার</th>
                 <th style={{ textAlign: 'right' }}>পরিমাণ</th>
+                <th style={{ textAlign: 'right' }}>অ্যাকশন</th>
               </tr>
             </thead>
             <tbody>
               {bazarRecords.length === 0 ? (
-                <tr><td colSpan="4" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>কোন রেকর্ড পাওয়া যায়নি।</td></tr>
+                <tr><td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>কোন রেকর্ড পাওয়া যায়নি।</td></tr>
               ) : (
                 bazarRecords.map(r => (
-                  <tr key={r.id}>
+                  <tr key={r.id} style={{ background: editingId === r.id ? 'rgba(0, 150, 255, 0.1)' : 'transparent' }}>
                     <td>{formatDisplayDate(r.date)}</td>
                     <td style={{ fontWeight: '500' }}>{r.itemName}</td>
                     <td>{r.managerName}</td>
                     <td style={{ textAlign: 'right', fontWeight: '700', color: 'var(--accent-orange)' }}>৳{r.amount}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                        <button className="icon-btn" onClick={() => handleEdit(r)} title="Edit">✏️</button>
+                        <button className="icon-btn" onClick={() => handleDelete(r.id)} title="Delete" style={{ color: 'var(--accent-red)' }}>🗑️</button>
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
