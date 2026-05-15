@@ -14,6 +14,7 @@ const MealManagement = () => {
   const [config, setConfig] = useState(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [lifetimeMeals, setLifetimeMeals] = useState({}); // Stores lifetime total per member
   const { toasts, showToast, removeToast } = useToast();
 
   // Format date to DD/MM/YYYY for Firestore Document IDs
@@ -85,9 +86,27 @@ const MealManagement = () => {
       }
     );
 
+    // Lifetime Meal Aggregation Listener
+    const unsubLifetime = onSnapshot(collection(db, 'daily_meals'), 
+      (snap) => {
+        const totals = {};
+        snap.docs.forEach(d => {
+          const data = d.data();
+          if (data.memberId) {
+            totals[data.memberId] = (totals[data.memberId] || 0) + (Number(data.count) || 0);
+          }
+        });
+        setLifetimeMeals(totals);
+      },
+      (error) => {
+        console.error("Error fetching lifetime meals:", error);
+      }
+    );
+
     return () => { 
       unsubMembers(); 
       unsubConfig(); 
+      unsubLifetime();
       clearTimeout(safetyTimeout);
     };
   }, []);
@@ -214,10 +233,21 @@ const MealManagement = () => {
                 ) : (
                   activeMembers.map(member => (
                     <tr key={member.id} style={{ borderBottom: '1px solid #1a1a1a' }}>
-                      <td style={{ padding: '1rem' }}>
-                        <div style={{ fontWeight: '600', color: '#fff' }}>{member.name}</div>
-                        <div style={{ fontSize: '0.8rem', color: '#666' }}>@{member.username}</div>
-                      </td>
+                    <td style={{ padding: '1rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontWeight: '600', color: '#fff' }}>{member.name}</div>
+                          <div style={{ fontSize: '0.8rem', color: '#666' }}>@{member.username}</div>
+                        </div>
+                        <div style={{ 
+                          padding: '0.25rem 0.6rem', background: 'rgba(30, 58, 138, 0.3)', 
+                          color: '#60a5fa', borderRadius: '6px', fontSize: '0.75rem', 
+                          fontWeight: '700', border: '1px solid rgba(96, 165, 250, 0.2)' 
+                        }}>
+                          মোট মিল: {lifetimeMeals[member.id] || 0}
+                        </div>
+                      </div>
+                    </td>
                       <td style={{ padding: '1rem', textAlign: 'center' }}>
                         <select 
                           className="form-control"

@@ -49,7 +49,6 @@ export const DashboardHome = () => {
 
   // Meal Summary States
   const [selectedDateIso, setSelectedDateIso] = useState(getTodayDateString());
-  const [manualMealInput, setManualMealInput] = useState('');
   const [todaySavedMeals, setTodaySavedMeals] = useState(0);
   const [monthTotalMeals, setMonthTotalMeals] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -89,34 +88,22 @@ export const DashboardHome = () => {
     const fetchTimeout = setTimeout(() => setFetching(false), 5000);
 
     try {
-      // A. Fetch Today's Total
-      const todayRef = doc(db, 'meal_summaries', docIdKey);
-      const todaySnap = await getDoc(todayRef);
-      
-      if (todaySnap.exists()) {
-        const data = todaySnap.data();
-        console.log("Fetched Today Data:", data);
-        const val = Number(data.totalMeals) || 0;
-        setTodaySavedMeals(val);
-        setManualMealInput(val.toString());
-      } else {
-        setTodaySavedMeals(0);
-        setManualMealInput('');
-      }
+      // A. Fetch Today's Total from daily_meals
+      const qToday = query(collection(db, 'daily_meals'), where('date', '==', docIdKey));
+      const snapToday = await getDocs(qToday);
+      let todayTotal = 0;
+      snapToday.forEach(d => todayTotal += (Number(d.data().count) || 0));
+      setTodaySavedMeals(todayTotal);
 
-      // B. Fetch Monthly Summation
-      const querySnapshot = await getDocs(collection(db, 'meal_summaries'));
-      let total = 0;
+      // B. Fetch Monthly Summation from daily_meals
       const [targetY, targetM] = selectedDateIso.split('-');
+      const monthId = `${targetY}-${targetM}`;
+      const qMonth = query(collection(db, 'daily_meals'), where('month_id', '==', monthId));
+      const snapMonth = await getDocs(qMonth);
+      let monthTotal = 0;
+      snapMonth.forEach(d => monthTotal += (Number(d.data().count) || 0));
       
-      querySnapshot.forEach((d) => {
-        const parts = d.id.split('/'); // Standard format: DD/MM/YYYY
-        if (parts.length === 3 && parts[2] === targetY && parts[1] === targetM) {
-          total += Number(d.data().totalMeals) || 0;
-        }
-      });
-      
-      setMonthTotalMeals(total);
+      setMonthTotalMeals(monthTotal);
       clearTimeout(fetchTimeout);
 
     } catch (error) {
@@ -147,31 +134,6 @@ export const DashboardHome = () => {
   const totalMarketCost = useMemo(() => approvedExpenses.reduce((s, e) => s + (Number(e.cost)||0), 0), [approvedExpenses]);
   const liveMealRate = useMemo(() => monthTotalMeals === 0 ? 0 : (totalMarketCost / monthTotalMeals).toFixed(2), [totalMarketCost, monthTotalMeals]);
 
-  const handleSaveManualMeals = async (e) => {
-    e.preventDefault();
-    if (!db || !manualMealInput || isNaN(manualMealInput)) {
-      showToast("সঠিক সংখ্যা দিন!", "error");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const mealRef = doc(db, 'meal_summaries', docIdKey);
-      await setDoc(mealRef, {
-        date: docIdKey,
-        totalMeals: Number(manualMealInput),
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-
-      showToast("তথ্য সেভ হয়েছে, বস!", "success");
-      setRefresh(prev => prev + 1);
-    } catch (error) {
-      console.error("Save Error:", error);
-      showToast("বস, তথ্য সেভ হয়নি!", "error");
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const handleAddMember = async (e) => {
     e.preventDefault();
@@ -269,43 +231,6 @@ export const DashboardHome = () => {
         </div>
       </div>
 
-      {/* Manual Meal Entry Section */}
-      <div className="card glass-card" style={{ marginBottom: '1.5rem' }}>
-        <h3 style={{ marginBottom: '1.5rem', color: 'var(--accent-blue)' }}>🍽️ আজকের মিল ইনপুট (ম্যানুয়াল)</h3>
-        <form onSubmit={handleSaveManualMeals} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', alignItems: 'end' }}>
-          <div className="form-group">
-            <label>তারিখ নির্বাচন করুন</label>
-            <input 
-              type="date" 
-              className="form-control" 
-              value={selectedDateIso} 
-              onChange={e => setSelectedDateIso(e.target.value)} 
-              required 
-            />
-          </div>
-          <div className="form-group">
-            <label>আজকের মোট মিল সংখ্যা লিখুন</label>
-            <input 
-              type="number" 
-              className="form-control" 
-              value={manualMealInput} 
-              onChange={e => setManualMealInput(e.target.value)} 
-              placeholder="উদাঃ ১৫"
-              required 
-            />
-          </div>
-          <div className="form-group">
-            <button 
-              type="submit" 
-              className="btn btn-primary manual-save-btn" 
-              disabled={saving}
-              style={{ width: '100%', height: '48px', fontWeight: '800' }}
-            >
-              {saving ? 'সেভ হচ্ছে...' : '💾 তথ্য সেভ করুন'}
-            </button>
-          </div>
-        </form>
-      </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(340px, 1fr))', gap:'1.5rem', marginBottom:'1.5rem' }}>
         <div className="card">
