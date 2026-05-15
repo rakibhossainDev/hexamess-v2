@@ -21,22 +21,32 @@ const LoadingFallback = () => (
   </div>
 );
 
-/* ─── Admin Route Guard ─── */
-const AdminGuard = ({ children }) => {
-  const isAdmin = localStorage.getItem('hexamess-admin') === 'true';
+/* ─── Route Guards ─── */
+const ProtectedRoute = ({ children, allowedRoles }) => {
+  const userId = localStorage.getItem('hexamess-user-id');
   const role = localStorage.getItem('hexamess-user-role');
-  
-  // Super-admin check or manager role check
-  if (!isAdmin || role !== 'manager') {
+  const isAdmin = localStorage.getItem('hexamess-admin') === 'true';
+
+  if (!userId) {
     return <Navigate to="/" replace />;
   }
+
+  if (allowedRoles && !allowedRoles.includes(role)) {
+    // If manager, go to admin. If member, go to member.
+    return <Navigate to={role === 'manager' ? "/admin" : "/member"} replace />;
+  }
+
   return children;
 };
 
-/* ─── Member Route Guard ─── */
-const MemberGuard = ({ children }) => {
+const PublicGuard = ({ children }) => {
   const userId = localStorage.getItem('hexamess-user-id');
-  if (!userId) return <Navigate to="/" replace />;
+  const role = localStorage.getItem('hexamess-user-role');
+
+  if (userId) {
+    return <Navigate to={role === 'manager' ? "/admin" : "/member"} replace />;
+  }
+
   return children;
 };
 
@@ -46,15 +56,15 @@ function App() {
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
           {/* Public */}
-          <Route path="/" element={<Login />} />
+          <Route path="/" element={<PublicGuard><Login /></PublicGuard>} />
 
           {/* Protected Admin Routes */}
           <Route
             path="/admin"
             element={
-              <AdminGuard>
+              <ProtectedRoute allowedRoles={['manager']}>
                 <AdminDashboard />
-              </AdminGuard>
+              </ProtectedRoute>
             }
           >
             <Route index element={<DashboardHome />} />
@@ -72,16 +82,15 @@ function App() {
           <Route
             path="/member"
             element={
-              <MemberGuard>
+              <ProtectedRoute allowedRoles={['member', 'manager']}>
                 <MemberDashboard />
-              </MemberGuard>
+              </ProtectedRoute>
             }
           />
-          <Route path="/member/profile" element={<MemberGuard><Profile /></MemberGuard>} />
-          {/* We can expand member routes if needed, but for now it's a single dashboard */}
-          <Route path="/member/meals" element={<MemberGuard><MemberDashboard /></MemberGuard>} />
-          <Route path="/member/market" element={<MemberGuard><MemberDashboard /></MemberGuard>} />
-          <Route path="/member/history" element={<MemberGuard><HistoryArchive /></MemberGuard>} />
+          <Route path="/member/profile" element={<ProtectedRoute allowedRoles={['member', 'manager']}><Profile /></ProtectedRoute>} />
+          <Route path="/member/meals" element={<ProtectedRoute allowedRoles={['member', 'manager']}><MemberDashboard /></ProtectedRoute>} />
+          <Route path="/member/market" element={<ProtectedRoute allowedRoles={['member', 'manager']}><MemberDashboard /></ProtectedRoute>} />
+          <Route path="/member/history" element={<ProtectedRoute allowedRoles={['member', 'manager']}><HistoryArchive /></ProtectedRoute>} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />

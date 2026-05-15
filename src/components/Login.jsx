@@ -4,7 +4,6 @@ import { db, collection, getDocs, query, where } from '../firebase';
 import '../Dashboard.css';
 
 const Login = () => {
-  const [activeTab, setActiveTab] = useState('member'); // 'member' or 'manager'
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -76,12 +75,6 @@ const Login = () => {
           return;
         }
 
-        // Check if role matches tab selection (optional but helpful)
-        if (activeTab === 'manager' && userData.role !== 'manager') {
-          setError('আপনি ম্যানেজার নন। সদস্য লগইন ব্যবহার করুন।');
-          return;
-        }
-
         // Store Session Info
         localStorage.setItem('hexamess-user-id', userDoc.id);
         localStorage.setItem('hexamess-user-name', userData.name);
@@ -96,7 +89,7 @@ const Login = () => {
         }
       } else {
         // 3. Fallback for Manager (admin/112233)
-        if (activeTab === 'manager' && lowerUsername === 'admin' && password === '112233') {
+        if (lowerUsername === 'admin' && password === '112233') {
           const mgrQ = query(collection(db, 'users'), where('role', '==', 'manager'));
           const mgrSnap = await getDocs(mgrQ);
           
@@ -165,35 +158,6 @@ const Login = () => {
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9375rem' }}>প্রফেশনাল মেস ম্যানেজমেন্ট সিস্টেম</p>
         </div>
 
-        {/* Dual Login Tabs */}
-        <div style={{ 
-          display: 'flex', background: 'var(--surface-hover)', 
-          padding: '0.4rem', borderRadius: '12px', marginBottom: '2rem' 
-        }}>
-          <button 
-            onClick={() => { setActiveTab('member'); setError(''); }}
-            style={{ 
-              flex: 1, padding: '0.75rem', borderRadius: '10px', border: 'none',
-              background: activeTab === 'member' ? 'var(--surface-color)' : 'transparent',
-              color: activeTab === 'member' ? 'var(--accent-blue)' : 'var(--text-secondary)',
-              fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s'
-            }}
-          >
-            সদস্য লগইন
-          </button>
-          <button 
-            onClick={() => { setActiveTab('manager'); setError(''); }}
-            style={{ 
-              flex: 1, padding: '0.75rem', borderRadius: '10px', border: 'none',
-              background: activeTab === 'manager' ? 'var(--surface-color)' : 'transparent',
-              color: activeTab === 'manager' ? 'var(--accent-blue)' : 'var(--text-secondary)',
-              fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s'
-            }}
-          >
-            ম্যানেজার লগইন
-          </button>
-        </div>
-
         {error && (
           <div className="alert-danger" style={{ marginBottom: '1.5rem', animation: 'shake 0.4s' }}>
             <span>!</span> {error}
@@ -202,7 +166,7 @@ const Login = () => {
 
         <form onSubmit={handleLogin}>
           <div className="form-group">
-            <label>{activeTab === 'manager' ? 'ম্যানেজার ইউজারনেম' : 'সদস্য ইউজারনেম'}</label>
+            <label>ইউজারনেম</label>
             <input 
               type="text" className="form-control" 
               placeholder="আপনার ইউজারনেম দিন" value={username}
@@ -218,7 +182,7 @@ const Login = () => {
             />
           </div>
           <button type="submit" className="btn-electric" disabled={loading}>
-            {loading ? 'লগইন হচ্ছে...' : (activeTab === 'manager' ? 'ম্যানেজার হিসেবে প্রবেশ করুন' : 'সদস্য হিসেবে প্রবেশ করুন')}
+            {loading ? 'লগইন হচ্ছে...' : 'প্রবেশ করুন'}
           </button>
         </form>
 

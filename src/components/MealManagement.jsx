@@ -158,7 +158,37 @@ const MealManagement = () => {
       </div>
 
       <div className="card glass-card">
-        <div className="table-container">
+        {/* Mobile View (Cards) */}
+        <div className="block md:hidden space-y-4">
+          {activeMembers.map(member => (
+            <div key={member.id} className="bg-[var(--surface-color)] p-4 rounded-xl border border-[var(--border-color)] shadow-sm flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <div className="avatar flex-shrink-0">{member.name[0]}</div>
+                <div className="flex-1">
+                  <div className="font-semibold text-[var(--text-primary)]">{member.name}</div>
+                  <div className="text-xs text-[var(--text-secondary)]">@{member.username}</div>
+                </div>
+                <span className="badge badge-blue whitespace-nowrap text-xs">মোট: {lifetimeMeals[member.id] || 0}</span>
+              </div>
+              <div className="flex justify-between items-center border-t border-[var(--border-color)] pt-3 mt-1">
+                <span className="text-sm font-medium">আজকের মিল:</span>
+                <select 
+                  className="form-control" 
+                  value={inputMeals[member.id] || 0}
+                  onChange={(e) => handleMealChange(member.id, e.target.value)}
+                  style={{ width: '80px', minHeight: '36px', padding: '0.25rem 0.5rem' }}
+                >
+                  {[0, 0.5, 1, 1.5, 2, 2.5, 3].map(v => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop View (Table) */}
+        <div className="hidden md:block table-container">
           <table className="meal-table">
             <thead>
               <tr>

@@ -203,7 +203,34 @@ const BazarManager = () => {
           </div>
         </div>
         
-        <div className="table-container">
+        {/* Mobile View (Cards) */}
+        <div className="block md:hidden space-y-4">
+          {bazarRecords.length === 0 ? (
+            <div className="text-center p-6 text-gray-500">কোন রেকর্ড পাওয়া যায়নি।</div>
+          ) : (
+            bazarRecords.map(r => (
+              <div key={r.id} className="bg-[var(--surface-color)] p-4 rounded-xl border border-[var(--border-color)] shadow-sm relative">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-[var(--text-secondary)]">{formatDisplayDate(r.date)}</span>
+                  <span className="font-bold text-[var(--accent-orange)] text-lg">৳{r.amount}</span>
+                </div>
+                <div className="font-medium text-[var(--text-primary)] mb-1">{r.itemName}</div>
+                <div className="text-sm text-[var(--text-secondary)] mb-4">ম্যানেজার: {r.managerName}</div>
+                <div className="flex gap-3 justify-end border-t border-[var(--border-color)] pt-3">
+                  <button className="flex items-center gap-1 text-sm bg-[var(--surface-hover)] px-3 py-1.5 rounded-lg" onClick={() => handleEdit(r)}>
+                    ✏️ এডিট
+                  </button>
+                  <button className="flex items-center gap-1 text-sm bg-red-500/10 text-red-500 px-3 py-1.5 rounded-lg" onClick={() => handleDelete(r.id)}>
+                    🗑️ ডিলিট
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Desktop View (Table) */}
+        <div className="hidden md:block table-container">
           <table>
             <thead>
               <tr>
