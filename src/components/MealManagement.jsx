@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   db, collection, doc, onSnapshot, query, where, writeBatch, setDoc, serverTimestamp, getDocs
-} from '../firebase';
+} from '../utils/firebase';
 import { getTodayDateString, formatDisplayDate } from '../utils/monthUtils';
 import { useToast } from '../hooks/useToast';
 import { ToastContainer } from './Toast';
@@ -129,13 +129,14 @@ const MealManagement = () => {
   const handleSaveAll = async () => {
     if (!db || saving) return;
     
-    // We proceed even if config is null, using current month as fallback
+    // Fallback month ID if config is missing
     const currentMonthId = config?.current_month_id || selectedDate.substring(0, 7);
 
     setSaving(true);
     const batch = writeBatch(db);
-
+    
     try {
+      const activeMembers = members.filter(m => m.status === 'active');
       let totalSum = 0;
 
       activeMembers.forEach(member => {
@@ -156,7 +157,7 @@ const MealManagement = () => {
         }, { merge: true });
       });
 
-      // Dashboard Sync: Update 'meal_summaries' for the 'docIdDate'
+      // Automated Dashboard Sync: Update 'meal_summaries' for the 'docIdDate'
       const summaryRef = doc(db, 'meal_summaries', docIdDate);
       batch.set(summaryRef, {
         date: docIdDate,
@@ -166,15 +167,10 @@ const MealManagement = () => {
 
       await batch.commit();
       
-      // Success Feedback
-      alert("তথ্য সেভ হয়েছে, বস!");
-      console.log(`Saved total ${totalSum} meals for ${selectedDate}`);
-      
-      // Refresh local state (already synced via handled inputs, but refetching ensures parity)
-      await fetchSavedMeals();
-      
+      showToast("তথ্য সেভ হয়েছে, বস!", "success");
+      // Local state is already updated via listeners, but we can re-fetch if needed
     } catch (error) {
-      console.error("Meal Save Failure:", error);
+      console.error("Batch Save Error:", error);
       alert("সেভ হয়নি! এরর: " + error.message);
     } finally {
       setSaving(false);
