@@ -1,7 +1,7 @@
 // Firestore Rules: set to 'allow read, write: if true;' for testing if you see permission errors.
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
-  db, collection, doc, onSnapshot, query, where, writeBatch, setDoc, serverTimestamp, getDocs
+  db, collection, doc, onSnapshot, query, where, writeBatch, serverTimestamp
 } from '../utils/firebase';
 import { getTodayDateString, formatDisplayDate } from '../utils/monthUtils';
 import { useToast } from '../hooks/useToast';
@@ -14,11 +14,10 @@ const MealManagement = () => {
   const [config, setConfig] = useState(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [lifetimeMeals, setLifetimeMeals] = useState({}); // Stores lifetime total per member
-  const [refreshKey, setRefreshKey] = useState(0); // Trigger for manual re-sync
+  const [lifetimeMeals, setLifetimeMeals] = useState({}); // Aggregated totals per member
   const { toasts, showToast, removeToast } = useToast();
 
-  // Format date to DD-MM-YYYY for Firestore Document IDs and fields
+  // 1. Uniform Date Handling (DD-MM-YYYY)
   const { docIdDate, monthYear } = useMemo(() => {
     if (!selectedDate) return { docIdDate: '', monthYear: '' };
     const [y, m, d] = selectedDate.split('-');
@@ -28,12 +27,49 @@ const MealManagement = () => {
     };
   }, [selectedDate]);
 
-  // 3. Real-time Persistence: Listen to saved meals for selected date
+  // 2. Real-time Listeners (Members, Config, Lifetime Totals)
   useEffect(() => {
-    if (!db || !docIdDate) return;
-
+    if (!db) return;
+    
     setLoading(true);
     const safetyTimeout = setTimeout(() => setLoading(false), 3000);
+
+    // Member List Sync
+    const unsubMembers = onSnapshot(collection(db, 'users'), (snap) => {
+      setMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setLoading(false);
+      clearTimeout(safetyTimeout);
+    });
+
+    // System Config Sync
+    const unsubConfig = onSnapshot(doc(db, 'config', 'settings'), (snap) => {
+      if (snap.exists()) setConfig(snap.data());
+    });
+
+    // Lifetime Meal Aggregation (Unified from daily_meals)
+    const unsubLifetime = onSnapshot(collection(db, 'daily_meals'), (snap) => {
+      const totals = snap.docs.reduce((acc, d) => {
+        const data = d.data();
+        if (data.memberId) {
+          const count = Number(data.count || 0);
+          acc[data.memberId] = (acc[data.memberId] || 0) + count;
+        }
+        return acc;
+      }, {});
+      setLifetimeMeals(totals);
+    });
+
+    return () => {
+      unsubMembers();
+      unsubConfig();
+      unsubLifetime();
+      clearTimeout(safetyTimeout);
+    };
+  }, []);
+
+  // 3. Real-time Date-specific Sync (Pre-fill dropdowns)
+  useEffect(() => {
+    if (!db || !docIdDate) return;
 
     const unsubSelectedDate = onSnapshot(
       query(collection(db, 'daily_meals'), where('date', '==', docIdDate)),
@@ -43,250 +79,151 @@ const MealManagement = () => {
           const data = d.data();
           if (data.memberId) mealsMap[data.memberId] = Number(data.count || 0);
         });
-        
-        console.log(`Synced ${snap.size} meal records for ${docIdDate}`);
         setInputMeals(mealsMap);
-        setLoading(false);
-        clearTimeout(safetyTimeout);
-      },
-      (error) => {
-        console.error("Selected Date Sync Error:", error);
-        setLoading(false);
-        clearTimeout(safetyTimeout);
       }
     );
 
-    return () => {
-      unsubSelectedDate();
-      clearTimeout(safetyTimeout);
-    };
+    return () => unsubSelectedDate();
   }, [docIdDate]);
 
-  useEffect(() => {
-    if (!db) return;
-    
-    setLoading(true);
-    // Timeout Safety: Force loading to false after 3 seconds
-    const safetyTimeout = setTimeout(() => setLoading(false), 3000);
-
-    const unsubMembers = onSnapshot(collection(db, 'users'), 
-      (snap) => {
-        if (snap.empty) {
-          console.warn("Users collection is empty!");
-          setMembers([]);
-        } else {
-          setMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-        }
-        setLoading(false);
-        clearTimeout(safetyTimeout);
-      },
-      (error) => {
-        console.error("Error fetching users:", error);
-        alert("ইউজার ডাটা লোড করতে সমস্যা হয়েছে। এরর: " + error.message);
-        setLoading(false);
-        clearTimeout(safetyTimeout);
-      }
-    );
-
-    const unsubConfig = onSnapshot(doc(db, 'config', 'settings'), 
-      (snap) => {
-        if (snap.exists()) setConfig(snap.data());
-      },
-      (error) => {
-        console.error("Error fetching config:", error);
-      }
-    );
-
-    // Lifetime Meal Aggregation Listener
-    const unsubLifetime = onSnapshot(collection(db, 'daily_meals'), 
-      (snap) => {
-        const totals = {};
-        snap.docs.forEach(d => {
-          const data = d.data();
-          if (data.memberId) {
-            const count = Number(data.count || 0);
-            totals[data.memberId] = (totals[data.memberId] || 0) + count;
-          }
-        });
-        setLifetimeMeals(totals);
-      },
-      (error) => {
-        console.error("Error fetching lifetime meals:", error);
-      }
-    );
-
-    return () => { 
-      unsubMembers(); 
-      unsubConfig(); 
-      unsubLifetime();
-      clearTimeout(safetyTimeout);
-    };
-  }, []);
-
   const activeMembers = useMemo(() => members.filter(m => m.status === 'active'), [members]);
-  
-  const currentTotal = useMemo(() => {
-    return Object.values(inputMeals).reduce((s, v) => s + v, 0);
-  }, [inputMeals]);
+  const currentTotal = useMemo(() => Object.values(inputMeals).reduce((s, v) => s + v, 0), [inputMeals]);
 
   const handleMealChange = (memberId, value) => {
     setInputMeals(prev => ({ ...prev, [memberId]: Number(value) }));
   };
 
-  // 1 & 2. Robust Batch Save & Sync System
+  // 4. Unified Save Operation
   const handleSaveAll = async () => {
     if (!db || saving) return;
-    
-    // Fallback month ID if config is missing
-    const currentMonthId = config?.current_month_id || selectedDate.substring(0, 7);
-
     setSaving(true);
     const batch = writeBatch(db);
     
     try {
-      const activeMembers = members.filter(m => m.status === 'active');
-      let totalSum = 0;
-
       activeMembers.forEach(member => {
-        const countValue = inputMeals[member.id] || 0;
-        const count = Number(countValue); // Ensure 'count' is saved as a Number
-        totalSum += count;
-
-        // NEW Document ID Format: ${memberId}_${date} (e.g. user123_15-05-2026)
+        const count = Number(inputMeals[member.id] || 0);
+        
+        // UNIFIED ID PATTERN: ${memberId}_${DD-MM-YYYY}
         const mealDocId = `${member.id}_${docIdDate}`;
         const mealRef = doc(db, 'daily_meals', mealDocId);
 
         batch.set(mealRef, {
           memberId: member.id,
-          date: docIdDate, // DD-MM-YYYY
-          monthYear: monthYear, // MM-YYYY for dashboard aggregation
+          date: docIdDate,      // DD-MM-YYYY
+          monthYear: monthYear, // MM-YYYY
           count: count,
           updatedAt: serverTimestamp()
         }, { merge: true });
       });
 
       await batch.commit();
-      
       showToast("তথ্য সেভ হয়েছে, বস!", "success");
-      setRefreshKey(prev => prev + 1); // Trigger re-sync for dashboard context
     } catch (error) {
-      console.error("Critical Save Error:", error);
-      alert("সেভ হয়নি! বস, এরর চেক করুন: " + error.message);
+      console.error("Save Error:", error);
+      alert("সেভ হয়নি! এরর: " + error.message);
     } finally {
       setSaving(false);
     }
   };
 
+  if (loading) return (
+    <div className="flex-center" style={{ height: '50vh', flexDirection: 'column', gap: '1rem' }}>
+      <div className="spinner" />
+      <p style={{ color: 'var(--text-secondary)' }}>মেম্বার ডাটা লোড হচ্ছে...</p>
+    </div>
+  );
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', fontFamily: "'Hind Siliguri', sans-serif" }}>
+    <div className="fade-in">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>🍽️ মিল ম্যানেজমেন্ট (Robust Sync)</h2>
-        <div className="form-group" style={{ margin: 0 }}>
-          <input 
-            type="date" 
-            className="form-control" 
-            value={selectedDate} 
-            onChange={(e) => setSelectedDate(e.target.value)} 
-            style={{ width: 'auto', background: '#111', color: '#fff', border: '1px solid #333' }}
-          />
+      <div className="card glass-card" style={{ marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h2 style={{ color: 'var(--accent-blue)', marginBottom: '0.25rem' }}>ম্যানেজ ডেইলি মিল</h2>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+              তারিখ: <span style={{ color: 'var(--accent-orange)', fontWeight: '600' }}>{formatDisplayDate(selectedDate)}</span>
+            </p>
+          </div>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <input 
+              type="date" 
+              className="form-control" 
+              value={selectedDate} 
+              onChange={(e) => setSelectedDate(e.target.value)}
+              style={{ width: '180px' }}
+            />
+          </div>
         </div>
       </div>
 
-      <div className="card glass-card" style={{ padding: '1.5rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <div>
-            <h3 style={{ margin: 0, color: 'var(--accent-blue)' }}>মেম্বার তালিকা ({formatDisplayDate(selectedDate)})</h3>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: '#888' }}>প্রতি মেম্বারের মিল ড্রপডাউন থেকে সিলেক্ট করুন</p>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '0.75rem', color: '#888' }}>ইনপুটকৃত মোট মিল</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--accent-blue)' }}>{currentTotal} টি</div>
-          </div>
+      <div className="card glass-card">
+        <div className="table-container">
+          <table className="meal-table">
+            <thead>
+              <tr>
+                <th>মেম্বার প্রোফাইল</th>
+                <th style={{ textAlign: 'center' }}>মোট মিল (লাইফটাইম)</th>
+                <th style={{ textAlign: 'right', width: '150px' }}>মিল ইনপুট</th>
+              </tr>
+            </thead>
+            <tbody>
+              {activeMembers.map(member => (
+                <tr key={member.id}>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <div className="avatar">{member.name[0]}</div>
+                      <div>
+                        <div style={{ fontWeight: '600' }}>{member.name}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>@{member.username}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td style={{ textAlign: 'center' }}>
+                    <span className="badge badge-blue">মোট: {lifetimeMeals[member.id] || 0}</span>
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <select 
+                      className="form-control" 
+                      value={inputMeals[member.id] || 0}
+                      onChange={(e) => handleMealChange(member.id, e.target.value)}
+                      style={{ width: '100px', marginLeft: 'auto' }}
+                    >
+                      {[0, 0.5, 1, 1.5, 2, 2.5, 3].map(v => (
+                        <option key={v} value={v}>{v}</option>
+                      ))}
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
 
-        {loading && activeMembers.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '4rem', color: '#666' }}>
-            লোড হচ্ছে...
+        <div style={{ 
+          marginTop: '2rem', 
+          padding: '1.5rem', 
+          background: 'rgba(255,255,255,0.03)', 
+          borderRadius: '12px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          border: '1px solid rgba(255,255,255,0.05)'
+        }}>
+          <div>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>নির্বাচিত তারিখের মোট মিল</p>
+            <span style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--accent-orange)' }}>{currentTotal} টি</span>
           </div>
-        ) : (
-          <div className="table-container" style={{ maxHeight: '500px', overflowY: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: '#000', color: '#888', fontSize: '0.9rem', textAlign: 'left' }}>
-                  <th style={{ padding: '1rem' }}>সদস্য</th>
-                  <th style={{ padding: '1rem', textAlign: 'center' }}>মিল (০-৫)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activeMembers.length === 0 ? (
-                  <tr>
-                    <td colSpan="2" style={{ padding: '4rem', textAlign: 'center', color: '#666' }}>
-                      কোন মেম্বার পাওয়া যায়নি
-                    </td>
-                  </tr>
-                ) : (
-                  activeMembers.map(member => (
-                    <tr key={member.id} style={{ borderBottom: '1px solid #1a1a1a' }}>
-                    <td style={{ padding: '1rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                          <div style={{ fontWeight: '600', color: '#fff' }}>{member.name}</div>
-                          <div style={{ fontSize: '0.8rem', color: '#666' }}>@{member.username}</div>
-                        </div>
-                        <div style={{ 
-                          padding: '0.25rem 0.6rem', background: 'rgba(30, 58, 138, 0.3)', 
-                          color: '#60a5fa', borderRadius: '6px', fontSize: '0.75rem', 
-                          fontWeight: '700', border: '1px solid rgba(96, 165, 250, 0.2)' 
-                        }}>
-                          মোট মিল: {lifetimeMeals[member.id] || 0}
-                        </div>
-                      </div>
-                    </td>
-                      <td style={{ padding: '1rem', textAlign: 'center' }}>
-                        <select 
-                          className="form-control"
-                          style={{ 
-                            width: '85px', margin: '0 auto', background: '#000', color: '#fff', 
-                            border: '1px solid #444', fontWeight: '800', textAlign: 'center'
-                          }}
-                          value={inputMeals[member.id] ?? 0}
-                          onChange={(e) => handleMealChange(member.id, e.target.value)}
-                        >
-                          {[0, 1, 2, 3, 4, 5].map(v => (
-                            <option key={v} value={v}>{v}</option>
-                          ))}
-                        </select>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'center' }}>
           <button 
-            className="btn btn-primary meal-save-btn"
-            disabled={saving || loading || activeMembers.length === 0}
+            className="btn btn-primary" 
             onClick={handleSaveAll}
-            style={{ 
-              width: '100%', maxWidth: '320px', padding: '1.1rem', borderRadius: '12px', fontSize: '1rem', 
-              fontWeight: '800', transition: 'all 0.15s ease', boxShadow: '0 4px 25px rgba(0,0,0,0.4)'
-            }}
+            disabled={saving}
+            style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}
           >
-            {saving ? 'সেভ হচ্ছে...' : '💾 আজকের সব মিল সেভ করুন'}
+            {saving ? 'সেভ হচ্ছে...' : 'সব মিল সেভ করুন'}
           </button>
         </div>
       </div>
-
-      <style dangerouslySetInnerHTML={{ __html: `
-        .meal-save-btn:active { transform: scale(0.96); }
-        .meal-save-btn:hover:not(:disabled) { background: #1d4ed8; box-shadow: 0 6px 30px rgba(29, 78, 216, 0.3); }
-        .glass-card { background: rgba(18, 18, 18, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
-      `}} />
     </div>
   );
 };
