@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
+import { db, doc, onSnapshot, collection, query, where, orderBy, limit, addDoc } from '../utils/firebase';
+import { getTodayDateString, getTodayDisplay } from '../utils/monthUtils';
 import Navbar from './Navbar';
 import BottomNav from './BottomNav';
 import { ToastContainer } from './Toast';
 import { useToast } from '../hooks/useToast';
-import { db, collection, doc, onSnapshot, setDoc, updateDoc, increment, query, where, orderBy, limit, addDoc } from '../firebase';
-import { getTodayDateString, getTodayDisplay } from '../utils/monthUtils';
 
 const MemberDashboard = () => {
   const [currentUser, setCurrentUser] = useState(null);
@@ -12,16 +12,12 @@ const MemberDashboard = () => {
   const [approvedExpenses, setApprovedExpenses] = useState([]);
   const [todayMeals, setTodayMeals] = useState({});
   const [mealLogs, setMealLogs] = useState([]);
-  const [details, setDetails] = useState('');
-  const [itemName, setItemName] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [cost, setCost] = useState('');
-  const [advance, setAdvance] = useState('');
   const { toasts, showToast, removeToast } = useToast();
 
   const userId = localStorage.getItem('hexamess-user-id');
   const today = getTodayDateString();
 
+  // Load config & user
   useEffect(() => {
     if (!db || !userId) return;
     const unsubUser = onSnapshot(doc(db, 'users', userId), snap => {
@@ -33,7 +29,7 @@ const MemberDashboard = () => {
     return () => { unsubUser(); unsubConfig(); };
   }, [userId]);
 
-  const [fixedBills, setFixedBills] = useState([]);
+  const [myFixedExpenses, setMyFixedExpenses] = useState([]);
 
   useEffect(() => {
     if (!db || !config || !currentUser) return;
@@ -47,7 +43,9 @@ const MemberDashboard = () => {
 
     const unsubLogs = onSnapshot(query(collection(db, 'daily_meals'), where('user_id', '==', currentUser.id), orderBy('date', 'desc'), limit(10)), snap => setMealLogs(snap.docs.map(d => ({ id:d.id, ...d.data() }))));
 
-    const unsubFixed = onSnapshot(query(collection(db, 'fixed_costs'), where('month_id', '==', mid)), snap => setFixedBills(snap.docs.map(d => ({ id:d.id, ...d.data() }))));
+    const unsubFixed = onSnapshot(query(collection(db, 'fixed_expenses'), where('memberId', '==', currentUser.id)), snap => {
+      setMyFixedExpenses(snap.docs.map(d => d.data()));
+    });
 
     return () => { unsubExp(); unsubToday(); unsubLogs(); unsubFixed(); };
   }, [config, currentUser, today]);
@@ -76,42 +74,63 @@ const MemberDashboard = () => {
 
   const deposit = currentUser?.total_deposit || 0;
   const myMeals = currentUser?.total_meals || 0;
-  const currentBalance = currentUser?.current_balance || 0;
-  const mealCost = useMemo(() => (myMeals * Number(liveMealRate)), [myMeals, liveMealRate]);
-  const effectiveBalance = useMemo(() => (currentBalance - mealCost).toFixed(0), [currentBalance, mealCost]);
+  const totalFixedCost = useMemo(() => {
+    return myFixedExpenses.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
+  }, [myFixedExpenses]);
+
+  const totalMealCost = useMemo(() => (myMeals * Number(liveMealRate)), [myMeals, liveMealRate]);
+  const netBalance = useMemo(() => (deposit - (totalMealCost + totalFixedCost)), [deposit, totalMealCost, totalFixedCost]);
 
   const handleMealToggle = async (mealType) => {
     if (!config || !currentUser) return;
     const prevVal = Number(todayMeals[mealType] || 0);
-    const mealValue = mealType === 'breakfast' ? 0.5 : 1;
-    const newVal = prevVal > 0 ? 0 : mealValue;
-    const delta = newVal - prevVal;
+    const newVal = prevVal > 0 ? 0 : (mealType === 'breakfast' ? 0.5 : 1);
     
-    const currentMeals = { ...todayMeals, [mealType]: newVal };
-    const newDayTotal = (Number(currentMeals.breakfast) || 0) + (Number(currentMeals.lunch) || 0) + (Number(currentMeals.dinner) || 0);
-
-    const mealDocId = `${config.current_month_id}_${today}_${currentUser.id}`;
-    
+    // In our simplified direct system, manager inputs it or user toggles on dashboard
+    // If you need direct updates, you can create/update the daily_meals document
     try {
-      await setDoc(doc(db, 'daily_meals', mealDocId), {
-        month_id: config.current_month_id, date: today, user_id: currentUser.id,
+      const mid = config.current_month_id;
+      const ref = doc(db, 'daily_meals', `${currentUser.id}_${today}`);
+      const payload = {
+        ...todayMeals,
+        user_id: currentUser.id,
+        userName: currentUser.name,
+        month_id: mid,
+        date: today,
         [mealType]: newVal,
-        total: newDayTotal,
-        ...(Object.keys(todayMeals).length === 0 ? { breakfast:0, lunch:0, dinner:0, [mealType]:newVal, total: newVal } : {}),
-      }, { merge: true });
-      await updateDoc(doc(db, 'users', currentUser.id), { total_meals: increment(delta) });
-    } catch (err) { console.error(err); showToast('মিল আপডেট ব্যর্থ।', 'error'); }
+        count: (Number(todayMeals.breakfast||0) - prevVal + newVal) + (Number(todayMeals.lunch||0)) + (Number(todayMeals.dinner||0))
+      };
+      // adjust logic for count correctly
+      let breakfastVal = mealType === 'breakfast' ? newVal : Number(todayMeals.breakfast || 0);
+      let lunchVal = mealType === 'lunch' ? newVal : Number(todayMeals.lunch || 0);
+      let dinnerVal = mealType === 'dinner' ? newVal : Number(todayMeals.dinner || 0);
+      payload.count = breakfastVal + lunchVal + dinnerVal;
+
+      const { setDoc } = await import('../utils/firebase');
+      await setDoc(ref, payload, { merge: true });
+      showToast('মিল স্ট্যাটাস আপডেট হয়েছে!', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('মিল সেভ করা যায়নি।', 'error');
+    }
   };
+
+  const [itemName, setItemName] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const [details, setDetails] = useState('');
+  const [cost, setCost] = useState('');
+  const [advance, setAdvance] = useState('');
 
   const handleMarketSubmit = async (e) => {
     e.preventDefault();
-    if (!itemName || !quantity || !cost || !config || !currentUser) { showToast('সব তথ্য পূরণ করুন।', 'error'); return; }
+    if (!currentUser || !config) return;
     try {
+      const mid = config.current_month_id;
       await addDoc(collection(db, 'expenses'), {
-        month_id: config.current_month_id,
-        date: new Date().toISOString().split('T')[0],
-        bazar_member_id: currentUser.id, shopper_name: currentUser.name,
-        details: itemName ? `${itemName} (${quantity})` : details,
+        user_id: currentUser.id,
+        userName: currentUser.name,
+        month_id: mid,
+        date: today,
         itemName,
         quantity,
         cost: Number(cost), advance: Number(advance)||0, status: 'pending',
@@ -130,18 +149,18 @@ const MemberDashboard = () => {
         <ToastContainer toasts={toasts} removeToast={removeToast} />
 
         <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {effectiveBalance < 0 && (
+          {netBalance < 0 && (
             <div className="alert-danger">
               <span style={{ fontWeight:'bold' }}>!</span> 
-              <span>ব্যালেন্স সতর্কতা: আপনার ব্যালেন্স নেগেটিভ (৳{effectiveBalance})। দয়া করে ফান্ড ডিপোজিট করুন।</span>
+              <span>ব্যালেন্স সতর্কতা: আপনার ব্যালেন্স নেগেটিভ (৳{netBalance.toFixed(0)})। দয়া করে ফান্ড ডিপোজিট করুন।</span>
             </div>
           )}
 
           <div className="stats-grid">
             <StatCard label="লাইভ মিল রেট" value={`৳${liveMealRate}`} color="var(--accent-orange)" glow />
             <StatCard label="মোট জমা" value={`৳${deposit.toLocaleString()}`} color="var(--accent-green)" />
-            <StatCard label="বকেয়া" value={effectiveBalance < 0 ? `৳${Math.abs(effectiveBalance).toLocaleString()}` : '৳০'} color="var(--accent-red)" />
-            <StatCard label="মেস থেকে পাওয়া" value={effectiveBalance > 0 ? `৳${Number(effectiveBalance).toLocaleString()}` : '৳০'} color="var(--accent-blue)" />
+            <StatCard label="মোট বকেয়া" value={netBalance < 0 ? `৳${Math.abs(netBalance).toFixed(0)}` : '৳০'} color="var(--accent-red)" />
+            <StatCard label="মেস থেকে পাওয়া" value={netBalance >= 0 ? `৳${netBalance.toFixed(0)}` : '৳০'} color="var(--accent-blue)" />
           </div>
 
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(320px, 1fr))', gap:'1.5rem' }}>
@@ -150,20 +169,21 @@ const MemberDashboard = () => {
               <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
                 <div style={{ display:'flex', justifyContent:'space-between' }}><span>মোট জমা:</span> <span style={{ fontWeight:'700' }}>৳{deposit.toLocaleString()}</span></div>
                 <div style={{ display:'flex', justifyContent:'space-between' }}><span>মোট মিল:</span> <span style={{ fontWeight:'700' }}>{myMeals}</span></div>
-                <div style={{ display:'flex', justifyContent:'space-between' }}><span>মিল খরচ:</span> <span style={{ fontWeight:'700' }}>৳{mealCost.toFixed(0)}</span></div>
-                <div style={{ display:'flex', justifyContent:'space-between' }}><span>নিট ব্যালেন্স:</span> <span style={{ fontWeight:'700', color: effectiveBalance < 0 ? 'var(--accent-red)' : 'var(--accent-green)' }}>৳{effectiveBalance}</span></div>
+                <div style={{ display:'flex', justifyContent:'space-between' }}><span>মিল খরচ:</span> <span style={{ fontWeight:'700' }}>৳{totalMealCost.toFixed(0)}</span></div>
+                <div style={{ display:'flex', justifyContent:'space-between' }}><span>ফিক্সড খরচ:</span> <span style={{ fontWeight:'700' }}>৳{totalFixedCost.toFixed(0)}</span></div>
+                <div style={{ display:'flex', justifyContent:'space-between' }}><span>নিট ব্যালেন্স:</span> <span style={{ fontWeight:'700', color: netBalance < 0 ? 'var(--accent-red)' : 'var(--accent-green)' }}>৳{netBalance.toFixed(0)}</span></div>
               </div>
             </div>
 
             <div className="card">
-              <h3 style={{ fontSize:'1.1rem', fontWeight:'600', marginBottom:'1.5rem' }}>🏠 ফিক্সড বিল সমূহ (১/{activeMemberCount})</h3>
+              <h3 style={{ fontSize:'1.1rem', fontWeight:'600', marginBottom:'1.5rem' }}>🏠 আমার ফিক্সড খরচ সমূহ</h3>
               <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
-                {fixedBills.length === 0 ? (
-                  <p style={{ color:'var(--text-secondary)', fontSize:'0.9rem' }}>এই মাসে কোনো ফিক্সড বিল নেই।</p>
-                ) : fixedBills.map(bill => (
-                  <div key={bill.id} style={{ display:'flex', justifyContent:'space-between', padding:'0.75rem', background:'var(--surface-hover)', borderRadius:'var(--radius-sm)' }}>
-                    <span>{bill.category}</span>
-                    <span style={{ fontWeight:'700' }}>৳{(bill.amount / activeMemberCount).toFixed(0)}</span>
+                {myFixedExpenses.length === 0 ? (
+                  <p style={{ color:'var(--text-secondary)', fontSize:'0.9rem' }}>কোনো ফিক্সড খরচ রেকর্ড নেই।</p>
+                ) : myFixedExpenses.map((exp, idx) => (
+                  <div key={idx} style={{ display:'flex', justifyContent:'space-between', padding:'0.75rem', background:'var(--surface-hover)', borderRadius:'var(--radius-sm)' }}>
+                    <span>{exp.category}</span>
+                    <span style={{ fontWeight:'700' }}>৳{Number(exp.amount || 0).toFixed(0)}</span>
                   </div>
                 ))}
               </div>

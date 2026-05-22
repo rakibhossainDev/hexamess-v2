@@ -50,21 +50,29 @@ const Sidebar = ({ isManager = false }) => {
             <span>{item.name}</span>
           </NavLink>
         ))}
-      </nav>
-
-      <div style={{ marginTop: 'auto', paddingTop: '2rem' }}>
         <button
           onClick={handleLogout}
-          className="btn"
+          className="sidebar-link"
           style={{
-            width: '100%', fontSize: '0.9rem',
-            background: 'rgba(239, 68, 68, 0.1)', color: 'var(--accent-red)',
-            border: '1px solid rgba(239, 68, 68, 0.2)', cursor: 'pointer'
+            background: 'none',
+            border: 'none',
+            width: '100%',
+            textAlign: 'left',
+            cursor: 'pointer',
+            fontFamily: "'Hind Siliguri', sans-serif",
+            color: 'var(--accent-red)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            padding: '0.75rem 1rem',
+            borderRadius: 'var(--radius-md)',
+            transition: 'all 0.2s ease',
           }}
         >
-          🚪 লগআউট
+          <span style={{ fontSize: '1.25rem' }}>🚪</span>
+          <span>লগআউট</span>
         </button>
-      </div>
+      </nav>
     </aside>
   );
 };

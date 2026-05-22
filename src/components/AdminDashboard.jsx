@@ -63,6 +63,11 @@ export const DashboardHome = () => {
   const [fetching, setFetching] = useState(false);
   const [selectedDateIso, setSelectedDateIso] = useState(getTodayDateString());
 
+  // Dynamic user tracking state
+  const [currentUser, setCurrentUser] = useState(null);
+  const [myFixedExpenses, setMyFixedExpenses] = useState([]);
+  const userId = localStorage.getItem('hexamess-user-id');
+
   // UNIFIED DATE HELPERS
   const { docIdKey, monthId } = useMemo(() => {
     if (!selectedDateIso) return { docIdKey: '', monthId: '' };
@@ -123,10 +128,37 @@ export const DashboardHome = () => {
     };
   }, [docIdKey, monthId]);
 
+  // Listener for dynamic user state and fixed expenses
+  useEffect(() => {
+    if (!db || !userId) return;
+    const unsubUser = onSnapshot(doc(db, 'users', userId), snap => {
+      if (snap.exists()) setCurrentUser(snap.data());
+    });
+    const q = query(collection(db, 'fixed_expenses'), where('memberId', '==', userId));
+    const unsubFixed = onSnapshot(q, snap => {
+      setMyFixedExpenses(snap.docs.map(d => d.data()));
+    });
+    return () => { unsubUser(); unsubFixed(); };
+  }, [userId]);
+
   const liveMealRate = useMemo(() => {
     if (monthTotalMeals === 0) return 0;
     return (totalBazarAmount / monthTotalMeals).toFixed(2);
   }, [totalBazarAmount, monthTotalMeals]);
+
+  const totalFixedCost = useMemo(() => {
+    return myFixedExpenses.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
+  }, [myFixedExpenses]);
+
+  const totalDeposit = currentUser?.total_deposit || 0;
+  const myMeals = currentUser?.total_meals || 0;
+  const totalMealCost = useMemo(() => {
+    return myMeals * Number(liveMealRate);
+  }, [myMeals, liveMealRate]);
+
+  const netBalance = useMemo(() => {
+    return totalDeposit - (totalMealCost + totalFixedCost);
+  }, [totalDeposit, totalMealCost, totalFixedCost]);
 
   return (
     <div className="fade-in">
@@ -143,24 +175,30 @@ export const DashboardHome = () => {
         </div>
       </div>
 
-      {/* Top Automated Cards */}
+      {/* Dynamic 4 Metric Cards */}
       <div className="stats-grid" style={{ marginBottom:'2rem' }}>
-        <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-blue)', opacity: fetching ? 0.6 : 1 }}>
-          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>আজকের মোট মিল <span className="live-icon" /></p>
-          <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-blue)' }}>
-            {fetching ? '...' : todaySavedMeals} টি
-          </span>
-        </div>
         <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-orange)' }}>
-          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>এই মাসের চলতি মোট মিল</p>
+          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>লাইভ মিল রেট</p>
           <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-orange)' }}>
-            {monthTotalMeals} টি
+            ৳{liveMealRate}
           </span>
         </div>
         <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-green)' }}>
-          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>লাইভ মিল রেট</p>
+          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>মোট জমা</p>
           <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-green)' }}>
-            ৳{liveMealRate}
+            ৳{totalDeposit.toLocaleString()}
+          </span>
+        </div>
+        <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-red)' }}>
+          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>মোট বকেয়া</p>
+          <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-red)' }}>
+            ৳{netBalance < 0 ? Math.abs(netBalance).toFixed(0) : '০'}
+          </span>
+        </div>
+        <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-blue)' }}>
+          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>মেস থেকে পাওনা</p>
+          <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-blue)' }}>
+            ৳{netBalance >= 0 ? netBalance.toFixed(0) : '০'}
           </span>
         </div>
       </div>
