@@ -42,17 +42,7 @@ const Login = () => {
     try {
       const lowerUsername = username.toLowerCase();
 
-      // 1. Emergency Super-Admin Access
-      if (lowerUsername === 'rakibhossain2k25@gmail.com' && password === 'supersecret2026') {
-        localStorage.setItem('hexamess-user-id', 'super-admin');
-        localStorage.setItem('hexamess-user-name', 'Super Admin');
-        localStorage.setItem('hexamess-user-role', 'manager');
-        localStorage.setItem('hexamess-admin', 'true');
-        navigate('/admin');
-        return;
-      }
-
-      // 2. Main Login Query
+      // 1. Main Login Query
       const uQ = query(
         collection(db, 'users'), 
         where('username', '==', lowerUsername)
@@ -74,26 +64,24 @@ const Login = () => {
 
         try {
           await signInWithEmailAndPassword(auth, emailToUse, password);
-          // If successful, onAuthStateChanged in App.jsx will handle redirection
-          // But we can also manually navigate here if we want to be explicit.
-          // App.jsx PublicGuard will automatically redirect us because auth state changes.
+          
+          // Role-Based Redirection
+          if (userData.role === 'admin' || userData.role === 'manager') {
+            navigate('/admin');
+          } else if (userData.role === 'member') {
+            navigate('/dashboard');
+          } else {
+            navigate('/dashboard');
+          }
         } catch (authErr) {
           console.error("Auth Error:", authErr);
-          setError('লগইন ব্যর্থ হয়েছে। ইমেইল বা পাসওয়ার্ড সঠিক নয়।');
+          setError('পাসওয়ার্ড সঠিক নয়!');
           return;
         }
 
       } else {
-        // Fallback for super-admin or hardcoded if needed, but Firebase Auth is preferred.
-        if (lowerUsername === 'admin' && password === '112233') {
-          // This fallback won't trigger Firebase Auth, so ProtectedRoute will fail.
-          // For Firebase Auth, you MUST log in with valid credentials.
-          setError('দয়া করে সঠিক ইউজারনেম দিয়ে লগইন করুন (Firebase Auth Required)।');
-          return;
-        }
-
         console.error(`Login failed for ${username}: User not found in Firestore.`);
-        setError('ইউজারনেম সঠিক নয়।');
+        setError('ইউজারনেম খুঁজে পাওয়া যায়নি!');
       }
     } catch (err) {
       console.error("Login Error:", err);

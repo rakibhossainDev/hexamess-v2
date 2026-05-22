@@ -15,11 +15,11 @@ const Sidebar = ({ isManager = false }) => {
   ];
 
   const memberItems = [
-    { name: 'ড্যাশবোর্ড', path: '/member', icon: '📊', end: true },
-    { name: 'মিল হিসেব', path: '/member/meals', icon: '🍽️' },
-    { name: 'বাজার এন্ট্রি', path: '/member/market', icon: '🛒' },
-    { name: 'হিস্টরি প্রিভিউ', path: '/member/history', icon: '📅' },
-    { name: 'প্রোফাইল', path: '/member/profile', icon: '👤' },
+    { name: 'ড্যাশবোর্ড', path: '/dashboard', icon: '📊', end: true },
+    { name: 'মিল হিসেব', path: '/dashboard/meals', icon: '🍽️' },
+    { name: 'বাজার এন্ট্রি', path: '/dashboard/market', icon: '🛒' },
+    { name: 'হিস্টরি প্রিভিউ', path: '/dashboard/history', icon: '📅' },
+    { name: 'প্রোফাইল', path: '/dashboard/profile', icon: '👤' },
   ];
 
   const menuItems = isManager ? adminItems : memberItems;

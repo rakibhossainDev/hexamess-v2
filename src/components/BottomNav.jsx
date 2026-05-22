@@ -8,10 +8,10 @@ const BottomNav = ({ isManager = false }) => {
     { name: 'মেম্বার', path: '/admin/members', icon: '👥' },
     { name: 'প্রোফাইল', path: '/admin/profile', icon: '👤' },
   ] : [
-    { name: 'ড্যাশবোর্ড', path: '/member', icon: '📊', end: true },
-    { name: 'মিল', path: '/member/meals', icon: '🍽️' },
-    { name: 'বাজার', path: '/member/market', icon: '🛒' },
-    { name: 'প্রোফাইল', path: '/member/profile', icon: '👤' },
+    { name: 'ড্যাশবোর্ড', path: '/dashboard', icon: '📊', end: true },
+    { name: 'মিল', path: '/dashboard/meals', icon: '🍽️' },
+    { name: 'বাজার', path: '/dashboard/market', icon: '🛒' },
+    { name: 'প্রোফাইল', path: '/dashboard/profile', icon: '👤' },
   ];
 
   return (

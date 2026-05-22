@@ -76,8 +76,8 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/" replace />;
   }
 
-  if (allowedRoles && userRole && !allowedRoles.includes(userRole)) {
-    return <Navigate to={userRole === 'manager' ? "/admin" : "/member"} replace />;
+  if (allowedRoles && (!userRole || !allowedRoles.includes(userRole))) {
+    return <Navigate to={userRole === 'manager' || userRole === 'admin' ? "/admin" : "/dashboard"} replace />;
   }
 
   return children;
@@ -91,7 +91,7 @@ const PublicGuard = ({ children }) => {
   if (currentUser) {
     // If we have a user but role is not loaded yet, wait.
     if (!userRole) return <LoadingFallback />;
-    return <Navigate to={userRole === 'manager' ? "/admin" : "/member"} replace />;
+    return <Navigate to={userRole === 'manager' || userRole === 'admin' ? "/admin" : "/dashboard"} replace />;
   }
 
   return children;
@@ -110,7 +110,7 @@ function App() {
             <Route
               path="/admin"
               element={
-                <ProtectedRoute allowedRoles={['manager']}>
+                <ProtectedRoute allowedRoles={['manager', 'admin']}>
                   <AdminDashboard />
                 </ProtectedRoute>
               }
@@ -128,17 +128,17 @@ function App() {
 
             {/* Protected Member Routes */}
             <Route
-              path="/member"
+              path="/dashboard"
               element={
                 <ProtectedRoute allowedRoles={['member', 'manager']}>
                   <MemberDashboard />
                 </ProtectedRoute>
               }
             />
-            <Route path="/member/profile" element={<ProtectedRoute allowedRoles={['member', 'manager']}><Profile /></ProtectedRoute>} />
-            <Route path="/member/meals" element={<ProtectedRoute allowedRoles={['member', 'manager']}><MemberDashboard /></ProtectedRoute>} />
-            <Route path="/member/market" element={<ProtectedRoute allowedRoles={['member', 'manager']}><MemberDashboard /></ProtectedRoute>} />
-            <Route path="/member/history" element={<ProtectedRoute allowedRoles={['member', 'manager']}><HistoryArchive /></ProtectedRoute>} />
+            <Route path="/dashboard/profile" element={<ProtectedRoute allowedRoles={['member', 'manager']}><Profile /></ProtectedRoute>} />
+            <Route path="/dashboard/meals" element={<ProtectedRoute allowedRoles={['member', 'manager']}><MemberDashboard /></ProtectedRoute>} />
+            <Route path="/dashboard/market" element={<ProtectedRoute allowedRoles={['member', 'manager']}><MemberDashboard /></ProtectedRoute>} />
+            <Route path="/dashboard/history" element={<ProtectedRoute allowedRoles={['member', 'manager']}><HistoryArchive /></ProtectedRoute>} />
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />
