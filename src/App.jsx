@@ -1,7 +1,5 @@
 import { lazy, Suspense, useState, useEffect, createContext, useContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { auth, db, doc, getDoc } from './utils/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
 
 // Lazy Load Components
 const Login = lazy(() => import('./components/Login'));
@@ -34,33 +32,28 @@ const AuthProvider = ({ children }) => {
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setCurrentUser(user);
-        // Fetch role from Firestore
+    const checkAuth = () => {
+      const savedUserJson = localStorage.getItem('hexa_user');
+      if (savedUserJson) {
         try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            const role = userDoc.data().role;
-            setUserRole(role);
-            localStorage.setItem('hexamess-user-role', role);
-          } else {
-            const cachedRole = localStorage.getItem('hexamess-user-role');
-            setUserRole(cachedRole || 'member'); // Default fallback
-          }
-        } catch (error) {
-          console.error("Error fetching user role:", error);
-          const cachedRole = localStorage.getItem('hexamess-user-role');
-          setUserRole(cachedRole || 'member');
+          const user = JSON.parse(savedUserJson);
+          setCurrentUser(user);
+          setUserRole(user.role || 'member');
+        } catch (e) {
+          console.error("Auth Parsing Error:", e);
+          setCurrentUser(null);
+          setUserRole(null);
         }
       } else {
         setCurrentUser(null);
         setUserRole(null);
       }
       setAuthLoading(false);
-    });
+    };
 
-    return unsubscribe;
+    checkAuth();
+    window.addEventListener('storage', checkAuth);
+    return () => window.removeEventListener('storage', checkAuth);
   }, []);
 
   return (
@@ -72,13 +65,24 @@ const AuthProvider = ({ children }) => {
 
 /* ─── Route Guards ─── */
 const ProtectedRoute = ({ children, allowedRoles }) => {
-  const { currentUser, userRole, authLoading } = useAuth();
-
-  if (authLoading) return <LoadingFallback />;
-
-  if (!currentUser) {
+  const savedUserJson = localStorage.getItem('hexa_user');
+  
+  if (!savedUserJson) {
     return <Navigate to="/" replace />;
   }
+
+  let user = null;
+  try {
+    user = JSON.parse(savedUserJson);
+  } catch (e) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
+
+  const userRole = user.role;
 
   if (allowedRoles && (!userRole || !allowedRoles.includes(userRole))) {
     return <Navigate to={userRole === 'manager' || userRole === 'admin' ? "/admin" : "/dashboard"} replace />;
@@ -88,14 +92,18 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 };
 
 const PublicGuard = ({ children }) => {
-  const { currentUser, userRole, authLoading } = useAuth();
+  const savedUserJson = localStorage.getItem('hexa_user');
 
-  if (authLoading) return <LoadingFallback />;
+  if (savedUserJson) {
+    let user = null;
+    try {
+      user = JSON.parse(savedUserJson);
+    } catch (e) {}
 
-  if (currentUser) {
-    // If we have a user but role is not loaded yet, wait.
-    if (!userRole) return <LoadingFallback />;
-    return <Navigate to={userRole === 'manager' || userRole === 'admin' ? "/admin" : "/dashboard"} replace />;
+    if (user) {
+      const userRole = user.role;
+      return <Navigate to={userRole === 'manager' || userRole === 'admin' ? "/admin" : "/dashboard"} replace />;
+    }
   }
 
   return children;

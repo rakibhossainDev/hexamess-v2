@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db, collection, getDocs, query, where } from '../utils/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { db, collection, getDocs, query, where } from '../utils/firebase';
 import '../Dashboard.css';
 
 const Login = () => {
@@ -42,7 +41,7 @@ const Login = () => {
     try {
       const lowerUsername = username.toLowerCase();
 
-      // 1. Query the 'users' collection in Firestore
+      // Query the 'users' collection in Firestore by username
       const uQ = query(
         collection(db, 'users'), 
         where('username', '==', lowerUsername)
@@ -51,8 +50,8 @@ const Login = () => {
       const snap = await getDocs(uQ);
 
       if (snap.empty) {
-        alert("ইউজারনেমটি খুঁজে পাওয়া যায়নি, বস!");
-        setError("ইউজারনেমটি খুঁজে পাওয়া যায়নি, বস!");
+        alert("এই ইউজারনেমটি রেজিস্টার্ড নয়, বস!");
+        setError("এই ইউজারনেমটি রেজিস্টার্ড নয়, বস!");
         setLoading(false);
         return;
       }
@@ -66,35 +65,33 @@ const Login = () => {
         return;
       }
 
-      const emailToUse = userData.email || lowerUsername;
+      // Direct comparison of the 'password' field from Firestore
+      if (userData.password === password) {
+        const fullUserData = { id: userDoc.id, ...userData };
 
-      try {
-        await signInWithEmailAndPassword(auth, emailToUse, password);
-        
-        // Save user details & role in LocalStorage
+        // Save complete user info as hexa_user
+        localStorage.setItem('hexa_user', JSON.stringify(fullUserData));
+
+        // Maintain legacy keys for 100% backward compatibility
         localStorage.setItem('hexamess-user-id', userDoc.id);
         localStorage.setItem('hexamess-user-role', userData.role || 'member');
         localStorage.setItem('hexamess-user-name', userData.name || '');
 
-        // Role-Based Redirection
+        // Redirect based on role
         if (userData.role === 'admin' || userData.role === 'manager') {
           navigate('/admin');
-        } else if (userData.role === 'member') {
-          navigate('/dashboard');
         } else {
           navigate('/dashboard');
         }
-      } catch (authErr) {
-        console.error("Auth Error:", authErr);
-        alert("পাসওয়ার্ড সঠিক নয় অথবা সার্ভার ত্রুটি!");
-        setError("পাসওয়ার্ড সঠিক নয় অথবা সার্ভার ত্রুটি!");
-        return;
+      } else {
+        alert("পাসওয়ার্ড সঠিক নয়!");
+        setError("পাসওয়ার্ড সঠিক নয়!");
       }
 
     } catch (err) {
-      console.error("Login Error:", err);
-      alert("পাসওয়ার্ড সঠিক নয় অথবা সার্ভার ত্রুটি!");
-      setError("পাসওয়ার্ড সঠিক নয় অথবা সার্ভার ত্রুটি!");
+      console.error("Direct Auth Error:", err);
+      alert("লগইন প্রক্রিয়ায় সমস্যা হয়েছে। আবার চেষ্টা করুন।");
+      setError("লগইন প্রক্রিয়ায় সমস্যা হয়েছে। আবার চেষ্টা করুন।");
     } finally {
       setLoading(false);
     }
