@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import {
   db, collection, doc, onSnapshot, query, where
@@ -63,10 +63,9 @@ export const DashboardHome = () => {
   const [fetching, setFetching] = useState(false);
   const [selectedDateIso, setSelectedDateIso] = useState(getTodayDateString());
 
-  // Dynamic user tracking state
-  const [currentUser, setCurrentUser] = useState(null);
-  const [myFixedExpenses, setMyFixedExpenses] = useState([]);
-  const userId = localStorage.getItem('hexamess-user-id');
+  // Dynamic state for aggregated admin overview
+  const [allUsers, setAllUsers] = useState([]);
+  const [allFixedExpenses, setAllFixedExpenses] = useState([]);
 
   // UNIFIED DATE HELPERS
   const { docIdKey, monthId } = useMemo(() => {
@@ -128,37 +127,44 @@ export const DashboardHome = () => {
     };
   }, [docIdKey, monthId]);
 
-  // Listener for dynamic user state and fixed expenses
+  // Listener for dynamic users list and all fixed expenses
   useEffect(() => {
-    if (!db || !userId) return;
-    const unsubUser = onSnapshot(doc(db, 'users', userId), snap => {
-      if (snap.exists()) setCurrentUser(snap.data());
+    if (!db) return;
+    const unsubUsers = onSnapshot(collection(db, 'users'), snap => {
+      setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
-    const q = query(collection(db, 'fixed_expenses'), where('memberId', '==', userId));
-    const unsubFixed = onSnapshot(q, snap => {
-      setMyFixedExpenses(snap.docs.map(d => d.data()));
+    const unsubFixed = onSnapshot(collection(db, 'fixed_expenses'), snap => {
+      setAllFixedExpenses(snap.docs.map(d => d.data()));
     });
-    return () => { unsubUser(); unsubFixed(); };
-  }, [userId]);
+    return () => { unsubUsers(); unsubFixed(); };
+  }, []);
 
   const liveMealRate = useMemo(() => {
     if (monthTotalMeals === 0) return 0;
     return (totalBazarAmount / monthTotalMeals).toFixed(2);
   }, [totalBazarAmount, monthTotalMeals]);
 
-  const totalFixedCost = useMemo(() => {
-    return myFixedExpenses.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
-  }, [myFixedExpenses]);
+  const currentTotalMeals = monthTotalMeals; // Total of all users combined for the current month
 
-  const totalDeposit = currentUser?.total_deposit || 0;
-  const myMeals = currentUser?.total_meals || 0;
-  const totalMealCost = useMemo(() => {
-    return myMeals * Number(liveMealRate);
-  }, [myMeals, liveMealRate]);
+  const totalDeposit = useMemo(() => {
+    return allUsers.reduce((sum, u) => sum + Number(u.total_deposit || 0), 0);
+  }, [allUsers]);
+
+  const totalLifetimeMeals = useMemo(() => {
+    return allUsers.reduce((sum, u) => sum + Number(u.total_meals || 0), 0);
+  }, [allUsers]);
+
+  const totalFixedCost = useMemo(() => {
+    return allFixedExpenses.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
+  }, [allFixedExpenses]);
+
+  const totalCost = useMemo(() => {
+    return (totalLifetimeMeals * Number(liveMealRate)) + totalFixedCost;
+  }, [totalLifetimeMeals, liveMealRate, totalFixedCost]);
 
   const netBalance = useMemo(() => {
-    return totalDeposit - (totalMealCost + totalFixedCost);
-  }, [totalDeposit, totalMealCost, totalFixedCost]);
+    return totalDeposit - totalCost;
+  }, [totalDeposit, totalCost]);
 
   return (
     <div className="fade-in">
@@ -175,12 +181,18 @@ export const DashboardHome = () => {
         </div>
       </div>
 
-      {/* Dynamic 4 Metric Cards */}
-      <div className="stats-grid" style={{ marginBottom:'2rem' }}>
+      {/* Dynamic 5 Metric Cards (Aggregated Mess overview) */}
+      <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
         <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-orange)' }}>
           <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>লাইভ মিল রেট</p>
           <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-orange)' }}>
             ৳{liveMealRate}
+          </span>
+        </div>
+        <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-blue)' }}>
+          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>চলতি মোট মিল</p>
+          <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-blue)' }}>
+            {currentTotalMeals} টি
           </span>
         </div>
         <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-green)' }}>
@@ -189,16 +201,18 @@ export const DashboardHome = () => {
             ৳{totalDeposit.toLocaleString()}
           </span>
         </div>
-        <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-red)' }}>
-          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>মোট বকেয়া</p>
-          <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-red)' }}>
-            ৳{netBalance < 0 ? Math.abs(netBalance).toFixed(0) : '০'}
+        <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-purple)' }}>
+          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>মোট খরচ</p>
+          <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-purple)' }}>
+            ৳{totalCost.toFixed(0)}
           </span>
         </div>
-        <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-blue)' }}>
-          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>মেস থেকে পাওনা</p>
-          <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-blue)' }}>
-            ৳{netBalance >= 0 ? netBalance.toFixed(0) : '০'}
+        <div className="card glass-card" style={{ borderLeft: `5px solid ${netBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}` }}>
+          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>
+            {netBalance >= 0 ? 'মেস থেকে পাওনা' : 'মোট বকেয়া'}
+          </p>
+          <span style={{ fontSize:'2.5rem', fontWeight:'900', color: netBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
+            ৳{Math.abs(netBalance).toFixed(0)}
           </span>
         </div>
       </div>
