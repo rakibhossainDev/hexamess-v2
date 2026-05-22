@@ -41,13 +41,17 @@ const AuthProvider = ({ children }) => {
         try {
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (userDoc.exists()) {
-            setUserRole(userDoc.data().role);
+            const role = userDoc.data().role;
+            setUserRole(role);
+            localStorage.setItem('hexamess-user-role', role);
           } else {
-            setUserRole('member'); // Default fallback
+            const cachedRole = localStorage.getItem('hexamess-user-role');
+            setUserRole(cachedRole || 'member'); // Default fallback
           }
         } catch (error) {
           console.error("Error fetching user role:", error);
-          setUserRole('member');
+          const cachedRole = localStorage.getItem('hexamess-user-role');
+          setUserRole(cachedRole || 'member');
         }
       } else {
         setCurrentUser(null);

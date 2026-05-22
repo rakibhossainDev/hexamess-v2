@@ -42,7 +42,7 @@ const Login = () => {
     try {
       const lowerUsername = username.toLowerCase();
 
-      // 1. Main Login Query
+      // 1. Query the 'users' collection in Firestore
       const uQ = query(
         collection(db, 'users'), 
         where('username', '==', lowerUsername)
@@ -50,42 +50,51 @@ const Login = () => {
       
       const snap = await getDocs(uQ);
 
-      if (!snap.empty) {
-        const userDoc = snap.docs[0];
-        const userData = userDoc.data();
-
-        if (userData.status === 'inactive') {
-          setError('আপনার একাউন্টটি বর্তমানে নিষ্ক্রিয়। ম্যানেজারের সাথে যোগাযোগ করুন।');
-          return;
-        }
-
-        // Determine email (fallback to username if it's already an email)
-        const emailToUse = userData.email || lowerUsername;
-
-        try {
-          await signInWithEmailAndPassword(auth, emailToUse, password);
-          
-          // Role-Based Redirection
-          if (userData.role === 'admin' || userData.role === 'manager') {
-            navigate('/admin');
-          } else if (userData.role === 'member') {
-            navigate('/dashboard');
-          } else {
-            navigate('/dashboard');
-          }
-        } catch (authErr) {
-          console.error("Auth Error:", authErr);
-          setError('পাসওয়ার্ড সঠিক নয়!');
-          return;
-        }
-
-      } else {
-        console.error(`Login failed for ${username}: User not found in Firestore.`);
-        setError('ইউজারনেম খুঁজে পাওয়া যায়নি!');
+      if (snap.empty) {
+        alert("ইউজারনেমটি খুঁজে পাওয়া যায়নি, বস!");
+        setError("ইউজারনেমটি খুঁজে পাওয়া যায়নি, বস!");
+        setLoading(false);
+        return;
       }
+
+      const userDoc = snap.docs[0];
+      const userData = userDoc.data();
+
+      if (userData.status === 'inactive') {
+        setError('আপনার একাউন্টটি বর্তমানে নিষ্ক্রিয়। ম্যানেজারের সাথে যোগাযোগ করুন।');
+        setLoading(false);
+        return;
+      }
+
+      const emailToUse = userData.email || lowerUsername;
+
+      try {
+        await signInWithEmailAndPassword(auth, emailToUse, password);
+        
+        // Save user details & role in LocalStorage
+        localStorage.setItem('hexamess-user-id', userDoc.id);
+        localStorage.setItem('hexamess-user-role', userData.role || 'member');
+        localStorage.setItem('hexamess-user-name', userData.name || '');
+
+        // Role-Based Redirection
+        if (userData.role === 'admin' || userData.role === 'manager') {
+          navigate('/admin');
+        } else if (userData.role === 'member') {
+          navigate('/dashboard');
+        } else {
+          navigate('/dashboard');
+        }
+      } catch (authErr) {
+        console.error("Auth Error:", authErr);
+        alert("পাসওয়ার্ড সঠিক নয় অথবা সার্ভার ত্রুটি!");
+        setError("পাসওয়ার্ড সঠিক নয় অথবা সার্ভার ত্রুটি!");
+        return;
+      }
+
     } catch (err) {
       console.error("Login Error:", err);
-      setError('লগইন প্রক্রিয়ায় সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+      alert("পাসওয়ার্ড সঠিক নয় অথবা সার্ভার ত্রুটি!");
+      setError("পাসওয়ার্ড সঠিক নয় অথবা সার্ভার ত্রুটি!");
     } finally {
       setLoading(false);
     }

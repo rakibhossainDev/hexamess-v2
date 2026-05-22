@@ -14,14 +14,31 @@ import { getTodayDateString } from '../utils/monthUtils';
 const AdminDashboard = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const userId = localStorage.getItem('hexamess-user-id');
+  const navigate = useNavigate();
+
+  // Instant local storage check to prevent flicker
+  useEffect(() => {
+    const cachedRole = localStorage.getItem('hexamess-user-role');
+    if (cachedRole && cachedRole !== 'manager' && cachedRole !== 'admin') {
+      alert("আপনার এই পেজে ঢোকার অনুমতি নেই!");
+      navigate('/dashboard');
+    }
+  }, [navigate]);
 
   useEffect(() => {
     if (!db || !userId) return;
     const unsub = onSnapshot(doc(db, 'users', userId), snap => {
-      if (snap.exists()) setCurrentUser(snap.data());
+      if (snap.exists()) {
+        const data = snap.data();
+        setCurrentUser(data);
+        if (data.role !== 'manager' && data.role !== 'admin') {
+          alert("আপনার এই পেজে ঢোকার অনুমতি নেই!");
+          navigate('/dashboard');
+        }
+      }
     });
     return () => unsub();
-  }, [userId]);
+  }, [userId, navigate]);
 
   return (
     <div className="app-layout" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
