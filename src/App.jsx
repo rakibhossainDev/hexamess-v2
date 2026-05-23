@@ -5,7 +5,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 const Login = lazy(() => import('./components/Login'));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 const DashboardHome = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.DashboardHome })));
-const MemberDashboard = lazy(() => import('./components/MemberDashboard'));
+const MemberDashboard = lazy(() => import('./components/UserDashboard'));
 const MealManagement = lazy(() => import('./components/MealManagement'));
 const MarketExpense = lazy(() => import('./components/MarketExpense'));
 const MemberList = lazy(() => import('./components/MemberList'));
