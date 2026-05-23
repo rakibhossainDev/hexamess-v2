@@ -70,6 +70,7 @@ export const DashboardHome = () => {
   // Dynamic state for aggregated admin overview
   const [allUsers, setAllUsers] = useState([]);
   const [allFixedExpenses, setAllFixedExpenses] = useState([]);
+  const [allDeposits, setAllDeposits] = useState([]);
 
   // UNIFIED DATE HELPERS
   const { docIdKey, monthId } = useMemo(() => {
@@ -131,7 +132,7 @@ export const DashboardHome = () => {
     };
   }, [docIdKey, monthId]);
 
-  // Listener for dynamic users list and all fixed expenses
+  // Listener for dynamic users list, all fixed expenses, and deposits
   useEffect(() => {
     if (!db) return;
     const unsubUsers = onSnapshot(collection(db, 'users'), snap => {
@@ -140,7 +141,10 @@ export const DashboardHome = () => {
     const unsubFixed = onSnapshot(collection(db, 'fixed_expenses'), snap => {
       setAllFixedExpenses(snap.docs.map(d => d.data()));
     });
-    return () => { unsubUsers(); unsubFixed(); };
+    const unsubDeposits = onSnapshot(collection(db, 'deposits'), snap => {
+      setAllDeposits(snap.docs.map(d => d.data()));
+    });
+    return () => { unsubUsers(); unsubFixed(); unsubDeposits(); };
   }, []);
 
   const liveMealRate = useMemo(() => {
@@ -151,8 +155,8 @@ export const DashboardHome = () => {
   const currentTotalMeals = monthTotalMeals; // Total of all users combined for the current month
 
   const totalDeposit = useMemo(() => {
-    return allUsers.reduce((sum, u) => sum + Number(u.total_deposit || 0), 0);
-  }, [allUsers]);
+    return allDeposits.reduce((sum, d) => sum + Number(d.amount || 0), 0);
+  }, [allDeposits]);
 
   const totalFixedCost = useMemo(() => {
     return allFixedExpenses.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
@@ -209,7 +213,9 @@ export const DashboardHome = () => {
           </span>
         </div>
         <div className="card glass-card" style={{ borderLeft: `5px solid ${netBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}` }}>
-          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>ক্যাশ ব্যালেন্স</p>
+          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>
+            {netBalance >= 0 ? 'মেস থেকে পাবে' : 'মোট বকেয়া / মেস পাবে'}
+          </p>
           <span style={{ fontSize:'2.5rem', fontWeight:'900', color: netBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
             ৳{Math.abs(netBalance).toFixed(0)}
           </span>

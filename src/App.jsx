@@ -13,6 +13,7 @@ const BazarManager = lazy(() => import('./components/BazarManager'));
 const HistoryArchive = lazy(() => import('./components/HistoryArchive'));
 const Settings = lazy(() => import('./components/Settings'));
 const Profile = lazy(() => import('./components/Profile'));
+const DepositManager = lazy(() => import('./components/DepositManager'));
 
 // Loading Placeholder
 const LoadingFallback = () => (
@@ -131,6 +132,7 @@ function App() {
               <Route path="meals" element={<MealManagement />} />
               <Route path="market" element={<BazarManager />} />
               <Route path="expenses" element={<MarketExpense />} />
+              <Route path="deposits" element={<DepositManager />} />
               <Route path="members" element={<MemberList />} />
               <Route path="members/:id" element={<Profile isAdminView={true} />} />
               <Route path="history" element={<HistoryArchive />} />

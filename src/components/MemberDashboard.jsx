@@ -36,6 +36,7 @@ const MemberDashboard = () => {
   }, [userId]);
 
   const [myFixedExpenses, setMyFixedExpenses] = useState([]);
+  const [myDeposits, setMyDeposits] = useState([]);
   const [monthTotalMeals, setMonthTotalMeals] = useState(0);
   const [totalBazarAmount, setTotalBazarAmount] = useState(0);
   const [userMonthTotalMeals, setUserMonthTotalMeals] = useState(0);
@@ -57,6 +58,11 @@ const MemberDashboard = () => {
     // Listen to personal fixed expenses
     const unsubFixed = onSnapshot(query(collection(db, 'fixed_expenses'), where('memberId', '==', currentUser.id)), snap => {
       setMyFixedExpenses(snap.docs.map(d => d.data()));
+    });
+
+    // Listen to personal deposits
+    const unsubDeposits = onSnapshot(query(collection(db, 'deposits'), where('memberId', '==', currentUser.id)), snap => {
+      setMyDeposits(snap.docs.map(d => d.data()));
     });
 
     // Monthly Bazar amount for the current month
@@ -86,6 +92,7 @@ const MemberDashboard = () => {
       unsubToday();
       unsubLogs();
       unsubFixed();
+      unsubDeposits();
       unsubBazar();
       unsubMeals();
     };
@@ -98,7 +105,9 @@ const MemberDashboard = () => {
 
   const currentTotalMeals = userMonthTotalMeals; // Logged in user's meals for the current month
 
-  const totalDeposit = currentUser?.total_deposit || 0;
+  const totalDeposit = useMemo(() => {
+    return myDeposits.reduce((sum, d) => sum + Number(d.amount || 0), 0);
+  }, [myDeposits]);
 
   const totalFixedCost = useMemo(() => {
     return myFixedExpenses.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
@@ -194,7 +203,7 @@ const MemberDashboard = () => {
             </div>
             <div className="card glass-card" style={{ borderLeft: `5px solid ${netBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}` }}>
               <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>
-                {netBalance >= 0 ? 'মেস থেকে পাবে' : 'মেস পাবে / বকেয়া'}
+                {netBalance >= 0 ? 'মেস থেকে পাবে' : 'মোট বকেয়া / মেস পাবে'}
               </p>
               <span style={{ fontSize:'2.5rem', fontWeight:'900', color: netBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
                 ৳{Math.abs(netBalance).toFixed(0)}

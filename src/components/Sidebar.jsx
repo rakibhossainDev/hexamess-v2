@@ -8,6 +8,7 @@ const Sidebar = ({ isManager = false }) => {
     { name: 'মিল ম্যানেজমেন্ট', path: '/admin/meals', icon: '🍽️' },
     { name: 'বাজার ম্যানেজার', path: '/admin/market', icon: '💰' },
     { name: 'ফিক্সড খরচ', path: '/admin/expenses', icon: '🏠' },
+    { name: 'টাকা জমা', path: '/admin/deposits', icon: '💸' },
     { name: 'মেম্বার লিস্ট', path: '/admin/members', icon: '👥' },
     { name: 'হিস্ট্রি', path: '/admin/history', icon: '📅' },
     { name: 'সেটিংস', path: '/admin/settings', icon: '⚙️' },
