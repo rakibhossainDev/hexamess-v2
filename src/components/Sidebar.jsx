@@ -6,9 +6,10 @@ const Sidebar = ({ isManager = false }) => {
   const adminItems = [
     { name: 'ড্যাশবোর্ড', path: '/admin', icon: '📊', end: true },
     { name: 'মিল ম্যানেজমেন্ট', path: '/admin/meals', icon: '🍽️' },
-    { name: 'ফিক্সড খরচ', path: '/admin/market', icon: '💰' },
+    { name: 'বাজার ম্যানেজার', path: '/admin/market', icon: '💰' },
+    { name: 'ফিক্সড খরচ', path: '/admin/expenses', icon: '🏠' },
     { name: 'মেম্বার লিস্ট', path: '/admin/members', icon: '👥' },
-    { name: 'হিস্টরি', path: '/admin/history', icon: '📅' },
+    { name: 'হিস্ট্রি', path: '/admin/history', icon: '📅' },
     { name: 'সেটিংস', path: '/admin/settings', icon: '⚙️' },
     { name: 'প্রোফাইল', path: '/admin/profile', icon: '👤' },
   ];
