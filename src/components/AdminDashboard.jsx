@@ -27,6 +27,10 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     if (!db || !userId) return;
+    if (userId === 'manager') {
+      setCurrentUser({ name: 'মেস ম্যানেজার', role: 'manager' });
+      return;
+    }
     const unsub = onSnapshot(doc(db, 'users', userId), snap => {
       if (snap.exists()) {
         const data = snap.data();

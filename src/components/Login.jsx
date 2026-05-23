@@ -41,6 +41,17 @@ const Login = () => {
     try {
       const lowerUsername = username.toLowerCase();
 
+      // Manager bypass check
+      if (lowerUsername === 'manager' && password === '123456') {
+        const managerSession = { id: 'manager', username: 'manager', role: 'manager', name: 'মেস ম্যানেজার' };
+        localStorage.setItem('hexa_user', JSON.stringify(managerSession));
+        localStorage.setItem('hexamess-user-id', 'manager');
+        localStorage.setItem('hexamess-user-role', 'manager');
+        localStorage.setItem('hexamess-user-name', 'মেস ম্যানেজার');
+        navigate('/admin');
+        return;
+      }
+
       // Query the 'users' collection in Firestore by username
       const uQ = query(
         collection(db, 'users'), 
@@ -50,8 +61,8 @@ const Login = () => {
       const snap = await getDocs(uQ);
 
       if (snap.empty) {
-        alert("এই ইউজারনেমটি রেজিস্টার্ড নয়, বস!");
-        setError("এই ইউজারনেমটি রেজিস্টার্ড নয়, বস!");
+        alert("ইউজারনেম বা পাসওয়ার্ড সঠিক নয়!");
+        setError("ইউজারনেম বা পাসওয়ার্ড সঠিক নয়!");
         setLoading(false);
         return;
       }
@@ -84,14 +95,14 @@ const Login = () => {
           navigate('/dashboard');
         }
       } else {
-        alert("পাসওয়ার্ড সঠিক নয়!");
-        setError("পাসওয়ার্ড সঠিক নয়!");
+        alert("ইউজারনেম বা পাসওয়ার্ড সঠিক নয়!");
+        setError("ইউজারনেম বা পাসওয়ার্ড সঠিক নয়!");
       }
 
     } catch (err) {
       console.error("Direct Auth Error:", err);
-      alert("লগইন প্রক্রিয়ায় সমস্যা হয়েছে। আবার চেষ্টা করুন।");
-      setError("লগইন প্রক্রিয়ায় সমস্যা হয়েছে। আবার চেষ্টা করুন।");
+      alert("ইউজারনেম বা পাসওয়ার্ড সঠিক নয়!");
+      setError("ইউজারনেম বা পাসওয়ার্ড সঠিক নয়!");
     } finally {
       setLoading(false);
     }
