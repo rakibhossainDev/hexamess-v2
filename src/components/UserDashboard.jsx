@@ -214,12 +214,12 @@ const UserDashboard = () => {
             </div>
           )}
 
-          {/* Dynamic 4 Metric Cards */}
-          <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
-            <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-green)' }}>
-              <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>মোট জমা</p>
-              <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-green)' }}>
-                ৳{totalDeposit.toLocaleString()}
+          {/* Dynamic 5 Metric Cards */}
+          <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
+            <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-orange)' }}>
+              <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>লাইভ মিল রেট</p>
+              <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-orange)' }}>
+                ৳{liveMealRate}
               </span>
             </div>
             <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-blue)' }}>
@@ -228,15 +228,21 @@ const UserDashboard = () => {
                 {currentTotalMeals} টি
               </span>
             </div>
+            <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-green)' }}>
+              <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>মোট জমা</p>
+              <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-green)' }}>
+                ৳{totalDeposit.toLocaleString()}
+              </span>
+            </div>
             <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-purple)' }}>
-              <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>নিজস্ব মোট খরচ</p>
+              <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>চলতি মিল খরচ</p>
               <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-purple)' }}>
                 ৳{totalCost.toFixed(0)}
               </span>
             </div>
             <div className="card glass-card" style={{ borderLeft: `5px solid ${netBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}` }}>
               <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>
-                {netBalance >= 0 ? 'মেস থেকে পাবে' : 'ম্যানেজার পাবে'}
+                {netBalance >= 0 ? 'ক্যাশ ব্যালেন্স' : 'ম্যানেজার পাবে'}
               </p>
               <span style={{ fontSize:'2.5rem', fontWeight:'900', color: netBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
                 ৳{Math.abs(netBalance).toFixed(0)}
@@ -245,17 +251,6 @@ const UserDashboard = () => {
           </div>
 
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(320px, 1fr))', gap:'1.5rem' }}>
-            <div className="card">
-              <h3 style={{ fontSize:'1.1rem', fontWeight:'600', marginBottom:'1rem' }}>📊 আর্থিক অবস্থা</h3>
-              <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
-                <div style={{ display:'flex', justifyContent:'space-between' }}><span>মোট জমা:</span> <span style={{ fontWeight:'700' }}>৳{totalDeposit.toLocaleString()}</span></div>
-                <div style={{ display:'flex', justifyContent:'space-between' }}><span>চলতি মাসের মিল খরচ:</span> <span style={{ fontWeight:'700' }}>৳{(Number(currentTotalMeals) * Number(liveMealRate)).toFixed(0)}</span></div>
-                <div style={{ display:'flex', justifyContent:'space-between' }}><span>ফিক্সড খরচ:</span> <span style={{ fontWeight:'700' }}>৳{totalFixedCost.toFixed(0)}</span></div>
-                <div style={{ display:'flex', justifyContent:'space-between' }}><span>মোট খরচ:</span> <span style={{ fontWeight:'700' }}>৳{totalCost.toFixed(0)}</span></div>
-                <div style={{ display:'flex', justifyContent:'space-between' }}><span>নিট ব্যালেন্স:</span> <span style={{ fontWeight:'700', color: netBalance < 0 ? 'var(--accent-red)' : 'var(--accent-green)' }}>৳{netBalance.toFixed(0)}</span></div>
-              </div>
-            </div>
-
             <div className="card">
               <h3 style={{ fontSize:'1.1rem', fontWeight:'600', marginBottom:'1.5rem' }}>🏠 আমার ফিক্সড খরচ সমূহ</h3>
               <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
