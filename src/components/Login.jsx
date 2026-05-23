@@ -78,18 +78,19 @@ const Login = () => {
 
       // Direct comparison of the 'password' field from Firestore
       if (userData.password === password) {
-        const fullUserData = { id: userDoc.id, ...userData };
+        const userRole = lowerUsername === 'manager' ? 'manager' : 'member';
+        const fullUserData = { id: userDoc.id, ...userData, role: userRole };
 
         // Save complete user info as hexa_user
         localStorage.setItem('hexa_user', JSON.stringify(fullUserData));
 
         // Maintain legacy keys for 100% backward compatibility
         localStorage.setItem('hexamess-user-id', userDoc.id);
-        localStorage.setItem('hexamess-user-role', userData.role || 'member');
+        localStorage.setItem('hexamess-user-role', userRole);
         localStorage.setItem('hexamess-user-name', userData.name || '');
 
-        // Redirect based on role
-        if (userData.role === 'admin' || userData.role === 'manager') {
+        // Redirect strictly based on username
+        if (lowerUsername === 'manager') {
           navigate('/admin');
         } else {
           navigate('/dashboard');

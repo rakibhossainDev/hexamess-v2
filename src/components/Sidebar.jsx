@@ -27,7 +27,7 @@ const Sidebar = ({ isManager = false }) => {
   const handleLogout = () => {
     localStorage.removeItem('hexa_user');
     localStorage.clear();
-    navigate('/');
+    navigate('/login');
   };
 
   return (

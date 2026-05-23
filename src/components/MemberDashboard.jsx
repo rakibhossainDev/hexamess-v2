@@ -3,6 +3,7 @@ import { db, doc, onSnapshot, collection, query, where, orderBy, limit } from '.
 import { getTodayDateString, getTodayDisplay } from '../utils/monthUtils';
 import Navbar from './Navbar';
 import BottomNav from './BottomNav';
+import Sidebar from './Sidebar';
 import { ToastContainer } from './Toast';
 import { useToast } from '../hooks/useToast';
 
@@ -162,8 +163,9 @@ const MemberDashboard = () => {
   if (!currentUser) return <div className="loading">লোড হচ্ছে...</div>;
 
   return (
-    <div className="app-layout">
-      <main className="main-content" style={{ padding: '0 0 80px 0' }}>
+    <div className="app-layout" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
+      <Sidebar isManager={false} />
+      <main className="main-content" style={{ padding: '0 0 80px 0', flex: 1 }}>
         <Navbar userName={currentUser?.name} userRole={currentUser?.role === 'manager' ? 'ম্যানেজার' : 'সদস্য'} photoURL={currentUser?.photoURL} />
         <ToastContainer toasts={toasts} removeToast={removeToast} />
 
@@ -175,12 +177,12 @@ const MemberDashboard = () => {
             </div>
           )}
 
-          {/* Dynamic 5 Metric Cards (Identical Cards UI to Admin) */}
-          <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
-            <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-orange)' }}>
-              <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>লাইভ মিল রেট</p>
-              <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-orange)' }}>
-                ৳{liveMealRate}
+          {/* Dynamic 4 Metric Cards */}
+          <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
+            <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-green)' }}>
+              <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>মোট জমা</p>
+              <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-green)' }}>
+                ৳{totalDeposit.toLocaleString()}
               </span>
             </div>
             <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-blue)' }}>
@@ -189,21 +191,15 @@ const MemberDashboard = () => {
                 {currentTotalMeals} টি
               </span>
             </div>
-            <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-green)' }}>
-              <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>মোট জমা</p>
-              <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-green)' }}>
-                ৳{totalDeposit.toLocaleString()}
-              </span>
-            </div>
             <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-purple)' }}>
-              <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>মোট খরচ</p>
+              <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>নিজস্ব মোট খরচ</p>
               <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-purple)' }}>
                 ৳{totalCost.toFixed(0)}
               </span>
             </div>
             <div className="card glass-card" style={{ borderLeft: `5px solid ${netBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}` }}>
               <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>
-                {netBalance >= 0 ? 'ক্যাশ ব্যালেন্স' : 'ম্যানেজার পাবে'}
+                {netBalance >= 0 ? 'মেস থেকে পাবে' : 'ম্যানেজার পাবে'}
               </p>
               <span style={{ fontSize:'2.5rem', fontWeight:'900', color: netBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
                 ৳{Math.abs(netBalance).toFixed(0)}

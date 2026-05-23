@@ -28,7 +28,7 @@ const Navbar = ({ userName = 'ব্যবহারকারী', userRole = '�
   const handleLogout = () => {
     localStorage.removeItem('hexa_user');
     localStorage.clear();
-    navigate('/');
+    navigate('/login');
   };
 
   return (

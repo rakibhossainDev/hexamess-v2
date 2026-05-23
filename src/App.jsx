@@ -83,10 +83,10 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/" replace />;
   }
 
-  const userRole = user.role;
+  const userRole = user.username === 'manager' ? 'manager' : 'member';
 
   if (allowedRoles && (!userRole || !allowedRoles.includes(userRole))) {
-    return <Navigate to={userRole === 'manager' || userRole === 'admin' ? "/admin" : "/dashboard"} replace />;
+    return <Navigate to={userRole === 'manager' ? "/admin" : "/dashboard"} replace />;
   }
 
   return children;
@@ -102,8 +102,8 @@ const PublicGuard = ({ children }) => {
     } catch (e) {}
 
     if (user) {
-      const userRole = user.role;
-      return <Navigate to={userRole === 'manager' || userRole === 'admin' ? "/admin" : "/dashboard"} replace />;
+      const userRole = user.username === 'manager' ? 'manager' : 'member';
+      return <Navigate to={userRole === 'manager' ? "/admin" : "/dashboard"} replace />;
     }
   }
 
@@ -118,6 +118,7 @@ function App() {
           <Routes>
             {/* Public */}
             <Route path="/" element={<PublicGuard><Login /></PublicGuard>} />
+            <Route path="/login" element={<PublicGuard><Login /></PublicGuard>} />
 
             {/* Protected Admin Routes */}
             <Route
