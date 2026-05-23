@@ -8,13 +8,16 @@ import { ToastContainer } from './Toast';
 import { useToast } from '../hooks/useToast';
 
 const MemberDashboard = () => {
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(() => {
+    const saved = localStorage.getItem('hexa_user');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [config, setConfig] = useState(null);
   const [todayMeals, setTodayMeals] = useState({});
   const [mealLogs, setMealLogs] = useState([]);
   const { toasts, showToast, removeToast } = useToast();
 
-  const userId = localStorage.getItem('hexamess-user-id');
+  const userId = currentUser?.id || localStorage.getItem('hexamess-user-id');
   const today = getTodayDateString();
 
   // Unified monthYear key (e.g. "05-2026")
@@ -28,7 +31,11 @@ const MemberDashboard = () => {
   useEffect(() => {
     if (!db || !userId) return;
     const unsubUser = onSnapshot(doc(db, 'users', userId), snap => {
-      if (snap.exists()) setCurrentUser({ id: snap.id, ...snap.data() });
+      if (snap.exists()) {
+        const uData = { id: snap.id, ...snap.data() };
+        setCurrentUser(uData);
+        localStorage.setItem('hexa_user', JSON.stringify(uData));
+      }
     });
     const unsubConfig = onSnapshot(doc(db, 'config', 'settings'), snap => {
       if (snap.exists()) setConfig(snap.data());
@@ -46,14 +53,21 @@ const MemberDashboard = () => {
     if (!db || !config || !currentUser || !monthId) return;
     const mid = config.current_month_id;
 
-    // Listen to current member's today meals
-    const unsubToday = onSnapshot(query(collection(db, 'daily_meals'), where('month_id', '==', mid), where('date', '==', today), where('user_id', '==', currentUser.id)), snap => {
-      setTodayMeals(snap.docs.length > 0 ? snap.docs[0].data() : {});
+    // Create proper formatted date (DD-MM-YYYY) for search alignment
+    const [y, m, d] = today.split('-');
+    const formattedDate = `${d}-${m}-${y}`;
+
+    // Listen to current member's today meals directly by document path
+    const unsubToday = onSnapshot(doc(db, 'daily_meals', `${currentUser.id}_${formattedDate}`), snap => {
+      setTodayMeals(snap.exists() ? snap.data() : {});
     });
 
     // Recent logs
-    const unsubLogs = onSnapshot(query(collection(db, 'daily_meals'), where('user_id', '==', currentUser.id), orderBy('date', 'desc'), limit(10)), snap => {
-      setMealLogs(snap.docs.map(d => ({ id:d.id, ...d.data() })));
+    const unsubLogs = onSnapshot(query(collection(db, 'daily_meals'), where('memberId', '==', currentUser.id), limit(30)), snap => {
+      const logs = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+      // Sort in JS to avoid index errors on date/memberId mismatch
+      logs.sort((a, b) => b.date.localeCompare(a.date));
+      setMealLogs(logs.slice(0, 10));
     });
 
     // Listen to personal fixed expenses
@@ -81,7 +95,7 @@ const MemberDashboard = () => {
 
       const sumUser = snap.docs.reduce((s, d) => {
         const data = d.data();
-        if (data.user_id === currentUser.id) {
+        if (data.memberId === currentUser.id || data.user_id === currentUser.id) {
           return s + Number(data.count || 0);
         }
         return s;
@@ -130,19 +144,18 @@ const MemberDashboard = () => {
     
     try {
       const mid = config.current_month_id;
-      const ref = doc(db, 'daily_meals', `${currentUser.id}_${today}`);
+      const [y, m, d] = today.split('-');
+      const formattedDate = `${d}-${m}-${y}`;
+      const ref = doc(db, 'daily_meals', `${currentUser.id}_${formattedDate}`);
       
       let breakfastVal = mealType === 'breakfast' ? newVal : Number(todayMeals.breakfast || 0);
       let lunchVal = mealType === 'lunch' ? newVal : Number(todayMeals.lunch || 0);
       let dinnerVal = mealType === 'dinner' ? newVal : Number(todayMeals.dinner || 0);
 
-      // Create proper formatted date (DD-MM-YYYY) for search alignment
-      const [y, m, d] = today.split('-');
-      const formattedDate = `${d}-${m}-${y}`;
-
       const payload = {
         ...todayMeals,
         user_id: currentUser.id,
+        memberId: currentUser.id,
         userName: currentUser.name,
         month_id: mid,
         date: formattedDate,
