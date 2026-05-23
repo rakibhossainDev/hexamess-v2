@@ -13,7 +13,7 @@ const UserDashboard = () => {
     return saved ? JSON.parse(saved) : null;
   });
 
-  // Debug Console Log as requested
+  // Debug Log
   console.log("Logged In User Details:", currentUser);
 
   const [config, setConfig] = useState(null);
@@ -77,7 +77,8 @@ const UserDashboard = () => {
     });
 
     // Recent logs
-    const unsubLogs = onSnapshot(collection(db, 'daily_meals'), snap => {
+    const qLogs = query(collection(db, 'daily_meals'), where('memberId', '==', currentUser.id));
+    const unsubLogs = onSnapshot(qLogs, snap => {
       const logs = snap.docs
         .map(dSnap => ({ id: dSnap.id, ...dSnap.data() }))
         .filter(data => {
@@ -92,24 +93,22 @@ const UserDashboard = () => {
       setMealLogs(logs.slice(0, 10));
     });
 
-    // Listen to personal fixed expenses
-    const unsubFixed = onSnapshot(collection(db, 'fixed_expenses'), snap => {
+    // Listen to personal fixed expenses strictly querying by unique Firestore Document ID
+    const qFixed = query(collection(db, 'fixed_expenses'), where('memberId', '==', currentUser.id));
+    const unsubFixed = onSnapshot(qFixed, snap => {
       const filtered = snap.docs.filter(dSnap => {
         const data = dSnap.data();
-        return data.memberId === currentUser.id || 
-               data.memberId === currentUser.username ||
-               data.username === currentUser.username;
+        return data.memberId === currentUser.id || data.memberId === currentUser.username;
       });
       setMyFixedExpenses(filtered.map(dSnap => dSnap.data()));
     });
 
-    // Listen to personal deposits
-    const unsubDeposits = onSnapshot(collection(db, 'deposits'), snap => {
+    // Listen to personal deposits strictly querying by unique Firestore Document ID
+    const qDeposits = query(collection(db, 'deposits'), where('memberId', '==', currentUser.id));
+    const unsubDeposits = onSnapshot(qDeposits, snap => {
       const filtered = snap.docs.filter(dSnap => {
         const data = dSnap.data();
-        return data.memberId === currentUser.id || 
-               data.memberId === currentUser.username ||
-               data.username === currentUser.username;
+        return data.memberId === currentUser.id || data.memberId === currentUser.username;
       });
       setMyDeposits(filtered.map(dSnap => dSnap.data()));
     });
@@ -121,20 +120,22 @@ const UserDashboard = () => {
       setTotalBazarAmount(sum);
     });
 
-    // Monthly Daily meals for the current month
-    const qMeals = query(collection(db, 'daily_meals'), where('monthYear', '==', monthId));
-    const unsubMeals = onSnapshot(qMeals, snap => {
+    // Monthly Daily meals for the current month (Global + User filtering)
+    const qMealsGlobal = query(collection(db, 'daily_meals'), where('monthYear', '==', monthId));
+    const unsubMealsGlobal = onSnapshot(qMealsGlobal, snap => {
       const sumAll = snap.docs.reduce((s, dSnap) => s + Number(dSnap.data().count || 0), 0);
       setMonthTotalMeals(sumAll);
+    });
 
+    const qMealsPersonal = query(collection(db, 'daily_meals'), where('memberId', '==', currentUser.id));
+    const unsubMealsPersonal = onSnapshot(qMealsPersonal, snap => {
       const sumUser = snap.docs.reduce((s, dSnap) => {
         const data = dSnap.data();
+        if (data.monthYear !== monthId) return s;
         if (data.memberId === currentUser.id || 
             data.user_id === currentUser.id || 
             data.memberId === currentUser.username || 
-            data.user_id === currentUser.username ||
-            data.username === currentUser.username ||
-            data.userName === currentUser.name) {
+            data.user_id === currentUser.username) {
           return s + Number(data.count || 0);
         }
         return s;
@@ -148,7 +149,8 @@ const UserDashboard = () => {
       unsubFixed();
       unsubDeposits();
       unsubBazar();
-      unsubMeals();
+      unsubMealsGlobal();
+      unsubMealsPersonal();
     };
   }, [config, currentUser, today, monthId]);
 
