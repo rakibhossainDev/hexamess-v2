@@ -209,9 +209,7 @@ export const DashboardHome = () => {
           </span>
         </div>
         <div className="card glass-card" style={{ borderLeft: `5px solid ${netBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}` }}>
-          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>
-            {netBalance >= 0 ? 'মেস থেকে পাবে' : 'মেস পাবে / বকেয়া'}
-          </p>
+          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>ক্যাশ ব্যালেন্স</p>
           <span style={{ fontSize:'2.5rem', fontWeight:'900', color: netBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
             ৳{Math.abs(netBalance).toFixed(0)}
           </span>

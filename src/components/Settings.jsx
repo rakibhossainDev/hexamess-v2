@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { db, collection, doc, onSnapshot, writeBatch, query, where, getDocs, addDoc } from '../firebase';
+import { db, collection, doc, onSnapshot, writeBatch, query, where, getDocs, addDoc } from '../utils/firebase';
 import { ToastContainer } from './Toast';
 import { useToast } from '../hooks/useToast';
 import { getMonthLabel } from '../utils/monthUtils';
@@ -20,34 +20,6 @@ const Settings = () => {
     });
     return () => { unsub1(); unsub2(); };
   }, []);
-
-  const currentManager = members.find(m => m.role === 'manager');
-
-  const handleChangeManager = async (newManagerId) => {
-    if (!newManagerId) return;
-    const confirmChange = window.confirm("আপনি কি নিশ্চিতভাবে ম্যানেজার পরিবর্তন করতে চান?");
-    if (!confirmChange) return;
-
-    setIsProcessing(true);
-    try {
-      const batch = writeBatch(db);
-      
-      // 1. Demote current manager
-      if (currentManager) {
-        batch.update(doc(db, 'users', currentManager.id), { role: 'member' });
-      }
-      
-      // 2. Promote new manager
-      batch.update(doc(db, 'users', newManagerId), { role: 'manager' });
-      
-      await batch.commit();
-      showToast('ম্যানেজার সফলভাবে পরিবর্তন করা হয়েছে!', 'success');
-    } catch (err) {
-      console.error('Manager change error:', err);
-      showToast('পরিবর্তন ব্যর্থ।', 'error');
-    }
-    setIsProcessing(false);
-  };
 
   const handleStartNewMonth = async () => {
     if (!config) return;
@@ -90,7 +62,7 @@ const Settings = () => {
         batch.update(doc(db, 'users', m.id), {
           total_meals: 0,
           total_deposit: 0,
-          current_balance: 0 // Resetting balance for new month, or keep it? User didn't specify.
+          current_balance: 0
         });
       });
 
@@ -106,49 +78,27 @@ const Settings = () => {
     } catch (err) {
       console.error('New month error:', err);
       showToast('ব্যর্থ।', 'error');
+    } finally {
+      setIsProcessing(false);
     }
-    setIsProcessing(false);
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', fontFamily: "'Hind Siliguri', sans-serif" }}>
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       
-      <div className="card">
+      <div className="card glass-card">
         <h2 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1.5rem' }}>⚙️ সিস্টেম সেটিংস</h2>
-        
-        {/* Manager Management */}
-        <div style={{ marginBottom: '2rem', padding: '1rem', background: 'rgba(255, 215, 0, 0.05)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(255, 215, 0, 0.2)' }}>
-          <h3 style={{ fontSize: '1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            👑 ম্যানেজার পরিবর্তন
-          </h3>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-            বর্তমান ম্যানেজার: <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{currentManager?.name || 'নেই'}</span>
-          </p>
-          <div className="form-group">
-            <select 
-              className="form-control" 
-              value="" 
-              onChange={(e) => handleChangeManager(e.target.value)}
-              disabled={isProcessing}
-            >
-              <option value="">নতুন ম্যানেজার নির্বাচন করুন...</option>
-              {members.filter(m => m.role !== 'manager').map(m => (
-                <option key={m.id} value={m.id}>{m.name} (@{m.username})</option>
-              ))}
-            </select>
-          </div>
-        </div>
 
         {/* New Month */}
         <div style={{ padding: '1rem', background: 'rgba(0, 209, 255, 0.05)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(0, 209, 255, 0.2)' }}>
-          <h3 style={{ fontSize: '1rem', marginBottom: '1rem' }}>📅 নতুন মাস শুরু করুন</h3>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+          <h3 style={{ fontSize: '1rem', marginBottom: '1rem', color: 'var(--accent-blue)' }}>📅 নতুন মাস শুরু করুন</h3>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: '1.6' }}>
             নতুন মাস শুরু করলে বর্তমান মাসের সকল তথ্য হিস্টরি আর্কাইভে চলে যাবে এবং মেম্বারদের মিল ও ডিপোজিট শূন্য হয়ে যাবে।
           </p>
           <button 
             className="btn btn-primary" 
-            style={{ width: '100%', background: 'var(--accent-blue)', color: '#000' }}
+            style={{ width: '100%', background: 'var(--accent-blue)', color: '#000', padding: '0.875rem' }}
             onClick={handleStartNewMonth}
             disabled={isProcessing}
           >
