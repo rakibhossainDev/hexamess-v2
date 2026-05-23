@@ -6,8 +6,7 @@ const Sidebar = ({ isManager = false }) => {
   const adminItems = [
     { name: 'ড্যাশবোর্ড', path: '/admin', icon: '📊', end: true },
     { name: 'মিল ম্যানেজমেন্ট', path: '/admin/meals', icon: '🍽️' },
-    { name: 'বাজার ম্যানেজার', path: '/admin/market', icon: '💰' },
-    { name: 'বাজার ও খরচ', path: '/admin/expenses', icon: '🛒' },
+    { name: 'ফিক্সড খরচ', path: '/admin/market', icon: '💰' },
     { name: 'মেম্বার লিস্ট', path: '/admin/members', icon: '👥' },
     { name: 'হিস্টরি', path: '/admin/history', icon: '📅' },
     { name: 'সেটিংস', path: '/admin/settings', icon: '⚙️' },
@@ -17,7 +16,6 @@ const Sidebar = ({ isManager = false }) => {
   const memberItems = [
     { name: 'ড্যাশবোর্ড', path: '/dashboard', icon: '📊', end: true },
     { name: 'মিল হিসেব', path: '/dashboard/meals', icon: '🍽️' },
-    { name: 'বাজার এন্ট্রি', path: '/dashboard/market', icon: '🛒' },
     { name: 'হিস্টরি প্রিভিউ', path: '/dashboard/history', icon: '📅' },
     { name: 'প্রোফাইল', path: '/dashboard/profile', icon: '👤' },
   ];
@@ -31,14 +29,14 @@ const Sidebar = ({ isManager = false }) => {
   };
 
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
       <div style={{ marginBottom: '1rem' }}>
         <h2 style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: '700' }}>
           মেনু অপশন
         </h2>
       </div>
 
-      <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
+      <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
         {menuItems.map((item, index) => (
           <NavLink
             key={index}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { db, doc, onSnapshot, collection, query, where, orderBy, limit, addDoc } from '../utils/firebase';
+import { db, doc, onSnapshot, collection, query, where, orderBy, limit } from '../utils/firebase';
 import { getTodayDateString, getTodayDisplay } from '../utils/monthUtils';
 import Navbar from './Navbar';
 import BottomNav from './BottomNav';
@@ -99,15 +99,15 @@ const MemberDashboard = () => {
   const currentTotalMeals = userMonthTotalMeals; // Logged in user's meals for the current month
 
   const totalDeposit = currentUser?.total_deposit || 0;
-  const myMeals = currentUser?.total_meals || 0;
 
   const totalFixedCost = useMemo(() => {
     return myFixedExpenses.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
   }, [myFixedExpenses]);
 
+  // Current Month Total Bazar Cost (meals * rate) + User's assigned Fixed Expenses
   const totalCost = useMemo(() => {
-    return (myMeals * Number(liveMealRate)) + totalFixedCost;
-  }, [myMeals, liveMealRate, totalFixedCost]);
+    return (Number(currentTotalMeals) * Number(liveMealRate)) + totalFixedCost;
+  }, [currentTotalMeals, liveMealRate, totalFixedCost]);
 
   const netBalance = useMemo(() => {
     return totalDeposit - totalCost;
@@ -148,31 +148,6 @@ const MemberDashboard = () => {
       console.error(err);
       showToast('মিল সেভ করা যায়নি।', 'error');
     }
-  };
-
-  const [itemName, setItemName] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [details, setDetails] = useState('');
-  const [cost, setCost] = useState('');
-  const [advance, setAdvance] = useState('');
-
-  const handleMarketSubmit = async (e) => {
-    e.preventDefault();
-    if (!currentUser || !config) return;
-    try {
-      const mid = config.current_month_id;
-      await addDoc(collection(db, 'expenses'), {
-        user_id: currentUser.id,
-        userName: currentUser.name,
-        month_id: mid,
-        date: today,
-        itemName,
-        quantity,
-        cost: Number(cost), advance: Number(advance)||0, status: 'pending',
-      });
-      showToast('বাজারের হিসাব সাবমিট হয়েছে, অনুমোদনের অপেক্ষায়!', 'success');
-      setDetails(''); setItemName(''); setQuantity(''); setCost(''); setAdvance('');
-    } catch (err) { console.error(err); showToast('সাবমিট ব্যর্থ।', 'error'); }
   };
 
   if (!currentUser) return <div className="loading">লোড হচ্ছে...</div>;
@@ -219,7 +194,7 @@ const MemberDashboard = () => {
             </div>
             <div className="card glass-card" style={{ borderLeft: `5px solid ${netBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}` }}>
               <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>
-                {netBalance >= 0 ? 'মেস থেকে পাওনা' : 'মোট বকেয়া'}
+                {netBalance >= 0 ? 'মেস থেকে পাবে' : 'মেস পাবে / বকেয়া'}
               </p>
               <span style={{ fontSize:'2.5rem', fontWeight:'900', color: netBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
                 ৳{Math.abs(netBalance).toFixed(0)}
@@ -232,9 +207,9 @@ const MemberDashboard = () => {
               <h3 style={{ fontSize:'1.1rem', fontWeight:'600', marginBottom:'1rem' }}>📊 আর্থিক অবস্থা</h3>
               <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
                 <div style={{ display:'flex', justifyContent:'space-between' }}><span>মোট জমা:</span> <span style={{ fontWeight:'700' }}>৳{totalDeposit.toLocaleString()}</span></div>
-                <div style={{ display:'flex', justifyContent:'space-between' }}><span>মোট মিল (লাইফটাইম):</span> <span style={{ fontWeight:'700' }}>{myMeals}</span></div>
-                <div style={{ display:'flex', justifyContent:'space-between' }}><span>মিল খরচ:</span> <span style={{ fontWeight:'700' }}>৳{(myMeals * Number(liveMealRate)).toFixed(0)}</span></div>
+                <div style={{ display:'flex', justifyContent:'space-between' }}><span>চলতি মাসের মিল খরচ:</span> <span style={{ fontWeight:'700' }}>৳{(Number(currentTotalMeals) * Number(liveMealRate)).toFixed(0)}</span></div>
                 <div style={{ display:'flex', justifyContent:'space-between' }}><span>ফিক্সড খরচ:</span> <span style={{ fontWeight:'700' }}>৳{totalFixedCost.toFixed(0)}</span></div>
+                <div style={{ display:'flex', justifyContent:'space-between' }}><span>মোট খরচ:</span> <span style={{ fontWeight:'700' }}>৳{totalCost.toFixed(0)}</span></div>
                 <div style={{ display:'flex', justifyContent:'space-between' }}><span>নিট ব্যালেন্স:</span> <span style={{ fontWeight:'700', color: netBalance < 0 ? 'var(--accent-red)' : 'var(--accent-green)' }}>৳{netBalance.toFixed(0)}</span></div>
               </div>
             </div>
@@ -263,37 +238,6 @@ const MemberDashboard = () => {
                 <MealItem label={<span>দুপুর <b style={{ color:'var(--accent-orange)' }}>(১.০)</b></span>} checked={Number(todayMeals.lunch) > 0} onToggle={() => handleMealToggle('lunch')} />
                 <MealItem label={<span>রাত <b style={{ color:'var(--accent-orange)' }}>(১.০)</b></span>} checked={Number(todayMeals.dinner) > 0} onToggle={() => handleMealToggle('dinner')} />
               </div>
-            </div>
-
-            <div className="card">
-              <h3 style={{ fontSize:'1.1rem', fontWeight:'600', marginBottom:'1.5rem' }}>🛒 বাজার এন্ট্রি পাঠান</h3>
-              <form onSubmit={handleMarketSubmit}>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem', marginBottom:'1rem' }}>
-                  <div className="form-group" style={{ marginBottom:0 }}>
-                    <label>পণ্যের নাম</label>
-                    <input className="form-control" placeholder="যেমন: চাল" value={itemName} onChange={e => setItemName(e.target.value)} required />
-                  </div>
-                  <div className="form-group" style={{ marginBottom:0 }}>
-                    <label>পরিমাণ</label>
-                    <input className="form-control" placeholder="যেমন: ৫ কেজি" value={quantity} onChange={e => setQuantity(e.target.value)} required />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label>বাজারের বিবরণ (ঐচ্ছিক)</label>
-                  <input className="form-control" placeholder="অন্যান্য তথ্য..." value={details} onChange={e => setDetails(e.target.value)} />
-                </div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem', marginBottom:'1.25rem' }}>
-                  <div className="form-group" style={{ marginBottom:0 }}>
-                    <label>খরচ (৳)</label>
-                    <input type="number" className="form-control" value={cost} onChange={e => setCost(e.target.value)} required />
-                  </div>
-                  <div className="form-group" style={{ marginBottom:0 }}>
-                    <label>এডভান্স (৳)</label>
-                    <input type="number" className="form-control" value={advance} onChange={e => setAdvance(e.target.value)} />
-                  </div>
-                </div>
-                <button type="submit" className="btn btn-primary" style={{ width:'100%' }}>সাবমিট করুন</button>
-              </form>
             </div>
           </div>
 
@@ -335,14 +279,6 @@ const MemberDashboard = () => {
     </div>
   );
 };
-
-const StatCard = ({ label, value, color, glow }) => (
-  <div className="card" style={{ position:'relative', overflow:'hidden' }}>
-    {glow && <div style={{ position:'absolute', top:'-20px', right:'-20px', width:'80px', height:'80px', background:color, filter:'blur(40px)', opacity:'0.1', borderRadius:'50%' }} />}
-    <p style={{ color:'var(--text-secondary)', fontSize:'0.8rem', fontWeight:'500', marginBottom:'0.5rem' }}>{label}</p>
-    <p style={{ fontSize:'1.75rem', fontWeight:'700', color }}>{value}</p>
-  </div>
-);
 
 const MealItem = ({ label, checked, onToggle }) => (
   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'1rem', background:'var(--surface-hover)', borderRadius:'var(--radius-md)', border:'1px solid var(--border-color)' }}>

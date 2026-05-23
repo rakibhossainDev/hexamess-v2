@@ -150,17 +150,14 @@ export const DashboardHome = () => {
     return allUsers.reduce((sum, u) => sum + Number(u.total_deposit || 0), 0);
   }, [allUsers]);
 
-  const totalLifetimeMeals = useMemo(() => {
-    return allUsers.reduce((sum, u) => sum + Number(u.total_meals || 0), 0);
-  }, [allUsers]);
-
   const totalFixedCost = useMemo(() => {
     return allFixedExpenses.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
   }, [allFixedExpenses]);
 
+  // Aggregated Cost for Admin = Current Month Total Bazar Cost + All Fixed Expenses
   const totalCost = useMemo(() => {
-    return (totalLifetimeMeals * Number(liveMealRate)) + totalFixedCost;
-  }, [totalLifetimeMeals, liveMealRate, totalFixedCost]);
+    return Number(totalBazarAmount) + Number(totalFixedCost);
+  }, [totalBazarAmount, totalFixedCost]);
 
   const netBalance = useMemo(() => {
     return totalDeposit - totalCost;
@@ -209,7 +206,7 @@ export const DashboardHome = () => {
         </div>
         <div className="card glass-card" style={{ borderLeft: `5px solid ${netBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}` }}>
           <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>
-            {netBalance >= 0 ? 'মেস থেকে পাওনা' : 'মোট বকেয়া'}
+            {netBalance >= 0 ? 'মেস থেকে পাবে' : 'মেস পাবে / বকেয়া'}
           </p>
           <span style={{ fontSize:'2.5rem', fontWeight:'900', color: netBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
             ৳{Math.abs(netBalance).toFixed(0)}
@@ -222,7 +219,7 @@ export const DashboardHome = () => {
         <ul style={{ color: 'var(--text-secondary)', lineHeight: '1.8' }}>
           <li>মেম্বারদের মিল প্রতিদিন <strong>Meal Management</strong> থেকে ইনপুট করুন।</li>
           <li>প্রতিটি সেভ করার পর ড্যাশবোর্ড অটোমেটিক আপডেট হবে।</li>
-          <li>বিলের হিসাব মাসের শেষে <strong>Settings</strong> থেকে জেনারেট করুন।</li>
+          <li>ফিক্সড খরচ মাসের শেষে <strong>ফিক্সড খরচ</strong> থেকে এন্ট্রি ও ভাগ করে দিন।</li>
           <li>কোন সমস্যা হলে সিস্টেম অ্যাডমিনের সাথে যোগাযোগ করুন।</li>
         </ul>
       </div>
