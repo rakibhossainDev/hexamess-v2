@@ -12,6 +12,10 @@ const UserDashboard = () => {
     const saved = localStorage.getItem('hexa_user');
     return saved ? JSON.parse(saved) : null;
   });
+
+  // Debug Console Log as requested
+  console.log("Logged In User Details:", currentUser);
+
   const [config, setConfig] = useState(null);
   const [todayMeals, setTodayMeals] = useState({});
   const [mealLogs, setMealLogs] = useState([]);
@@ -58,13 +62,16 @@ const UserDashboard = () => {
     const formattedDate = `${d}-${m}-${y}`;
 
     // Listen to current member's today meals
-    const unsubToday = onSnapshot(query(collection(db, 'daily_meals'), where('date', '==', formattedDate)), snap => {
+    const unsubToday = onSnapshot(collection(db, 'daily_meals'), snap => {
       const match = snap.docs.find(docSnap => {
         const data = docSnap.data();
+        if (data.date !== formattedDate) return false;
         return data.memberId === currentUser.id || 
                data.user_id === currentUser.id || 
                data.memberId === currentUser.username || 
-               data.user_id === currentUser.username;
+               data.user_id === currentUser.username ||
+               data.username === currentUser.username ||
+               data.userName === currentUser.name;
       });
       setTodayMeals(match ? match.data() : {});
     });
@@ -77,7 +84,9 @@ const UserDashboard = () => {
           return data.memberId === currentUser.id || 
                  data.user_id === currentUser.id || 
                  data.memberId === currentUser.username || 
-                 data.user_id === currentUser.username;
+                 data.user_id === currentUser.username ||
+                 data.username === currentUser.username ||
+                 data.userName === currentUser.name;
         });
       logs.sort((a, b) => b.date.localeCompare(a.date));
       setMealLogs(logs.slice(0, 10));
@@ -87,7 +96,9 @@ const UserDashboard = () => {
     const unsubFixed = onSnapshot(collection(db, 'fixed_expenses'), snap => {
       const filtered = snap.docs.filter(dSnap => {
         const data = dSnap.data();
-        return data.memberId === currentUser.id || data.memberId === currentUser.username;
+        return data.memberId === currentUser.id || 
+               data.memberId === currentUser.username ||
+               data.username === currentUser.username;
       });
       setMyFixedExpenses(filtered.map(dSnap => dSnap.data()));
     });
@@ -96,7 +107,9 @@ const UserDashboard = () => {
     const unsubDeposits = onSnapshot(collection(db, 'deposits'), snap => {
       const filtered = snap.docs.filter(dSnap => {
         const data = dSnap.data();
-        return data.memberId === currentUser.id || data.memberId === currentUser.username;
+        return data.memberId === currentUser.id || 
+               data.memberId === currentUser.username ||
+               data.username === currentUser.username;
       });
       setMyDeposits(filtered.map(dSnap => dSnap.data()));
     });
@@ -119,7 +132,9 @@ const UserDashboard = () => {
         if (data.memberId === currentUser.id || 
             data.user_id === currentUser.id || 
             data.memberId === currentUser.username || 
-            data.user_id === currentUser.username) {
+            data.user_id === currentUser.username ||
+            data.username === currentUser.username ||
+            data.userName === currentUser.name) {
           return s + Number(data.count || 0);
         }
         return s;

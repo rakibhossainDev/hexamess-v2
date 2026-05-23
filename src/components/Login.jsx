@@ -79,10 +79,10 @@ const Login = () => {
       // Direct comparison of the 'password' field from Firestore
       if (userData.password === password) {
         const userRole = lowerUsername === 'manager' ? 'manager' : 'member';
-        const fullUserData = { id: userDoc.id, username: userData.username || lowerUsername, ...userData, role: userRole };
+        const userDataMapped = { id: userDoc.id, username: userData.username, ...userData, role: userRole };
 
         // Save complete user info as hexa_user
-        localStorage.setItem('hexa_user', JSON.stringify(fullUserData));
+        localStorage.setItem('hexa_user', JSON.stringify(userDataMapped));
 
         // Maintain legacy keys for 100% backward compatibility
         localStorage.setItem('hexamess-user-id', userDoc.id);
