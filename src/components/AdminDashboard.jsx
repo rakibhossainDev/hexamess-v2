@@ -64,7 +64,6 @@ export const DashboardHome = () => {
   const [selectedDateIso, setSelectedDateIso] = useState(getTodayDateString());
 
   // Dynamic state for aggregated admin overview
-  const [allFixedExpenses, setAllFixedExpenses] = useState([]);
   const [allDeposits, setAllDeposits] = useState([]);
 
   // UNIFIED DATE HELPERS
@@ -105,16 +104,13 @@ export const DashboardHome = () => {
     };
   }, [docIdKey, monthId]);
 
-  // Listener for all fixed expenses and deposits
+  // Listener for all deposits (fixed_expenses excluded from dashboard metrics)
   useEffect(() => {
     if (!db) return;
-    const unsubFixed = onSnapshot(collection(db, 'fixed_expenses'), snap => {
-      setAllFixedExpenses(snap.docs.map(d => d.data()));
-    });
     const unsubDeposits = onSnapshot(collection(db, 'deposits'), snap => {
       setAllDeposits(snap.docs.map(d => d.data()));
     });
-    return () => { unsubFixed(); unsubDeposits(); };
+    return () => { unsubDeposits(); };
   }, []);
 
   const liveMealRate = useMemo(() => {
@@ -128,15 +124,12 @@ export const DashboardHome = () => {
     return allDeposits.reduce((sum, d) => sum + Number(d.amount || 0), 0);
   }, [allDeposits]);
 
-  const totalFixedCost = useMemo(() => {
-    return allFixedExpenses.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
-  }, [allFixedExpenses]);
-
-  // Aggregated Cost for Admin = Current Month Total Bazar Cost + All Fixed Expenses
+  // মোট খরচ = exclusively bazar_records sum (fixed_expenses excluded)
   const totalCost = useMemo(() => {
-    return Number(totalBazarAmount) + Number(totalFixedCost);
-  }, [totalBazarAmount, totalFixedCost]);
+    return Number(totalBazarAmount);
+  }, [totalBazarAmount]);
 
+  // ক্যাশ ব্যালেন্স = মোট জমা - মোট বাজার খরচ
   const netBalance = useMemo(() => {
     return totalDeposit - totalCost;
   }, [totalDeposit, totalCost]);
