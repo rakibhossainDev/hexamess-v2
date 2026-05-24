@@ -18,6 +18,7 @@ const Sidebar = ({ isManager = false }) => {
   const memberItems = [
     { name: 'ড্যাশবোর্ড', path: '/dashboard', icon: '📊', end: true },
     { name: 'মিল হিসেব', path: '/dashboard/meals', icon: '🍽️' },
+    { name: 'বাজার ম্যানেজার', path: '/dashboard/market', icon: '💰' },
     { name: 'হিস্টরি প্রিভিউ', path: '/dashboard/history', icon: '📅' },
     { name: 'প্রোফাইল', path: '/dashboard/profile', icon: '👤' },
   ];

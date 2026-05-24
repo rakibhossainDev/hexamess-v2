@@ -49,13 +49,15 @@ const UserDashboard = () => {
 
   const [myFixedExpenses, setMyFixedExpenses] = useState([]);
   const [myDeposits, setMyDeposits] = useState([]);
+  const [globalDeposits, setGlobalDeposits] = useState([]);
+  const [globalFixedExpenses, setGlobalFixedExpenses] = useState([]);
   const [monthTotalMeals, setMonthTotalMeals] = useState(0);
   const [totalBazarAmount, setTotalBazarAmount] = useState(0);
   const [userMonthTotalMeals, setUserMonthTotalMeals] = useState(0);
 
   useEffect(() => {
-    if (!db || !config || !currentUser || !monthId) return;
-    const mid = config.current_month_id;
+    if (!db || !currentUser || !monthId) return;
+    const mid = config?.current_month_id || monthId;
 
     // Create proper formatted date (DD-MM-YYYY) for search alignment
     const [y, m, d] = today.split('-');
@@ -113,6 +115,16 @@ const UserDashboard = () => {
       setMyDeposits(filtered.map(dSnap => dSnap.data()));
     });
 
+    // Listen to global deposits
+    const unsubGlobalDeposits = onSnapshot(collection(db, 'deposits'), snap => {
+      setGlobalDeposits(snap.docs.map(dSnap => dSnap.data()));
+    });
+
+    // Listen to global fixed expenses
+    const unsubGlobalFixed = onSnapshot(collection(db, 'fixed_expenses'), snap => {
+      setGlobalFixedExpenses(snap.docs.map(dSnap => dSnap.data()));
+    });
+
     // Monthly Bazar amount for the current month
     const qBazar = query(collection(db, 'bazar_records'), where('monthYear', '==', monthId));
     const unsubBazar = onSnapshot(qBazar, snap => {
@@ -148,35 +160,52 @@ const UserDashboard = () => {
       unsubLogs();
       unsubFixed();
       unsubDeposits();
+      unsubGlobalDeposits();
+      unsubGlobalFixed();
       unsubBazar();
       unsubMealsGlobal();
       unsubMealsPersonal();
     };
-  }, [config, currentUser, today, monthId]);
+  }, [currentUser, today, monthId]);
 
   const liveMealRate = useMemo(() => {
     if (monthTotalMeals === 0) return 0;
     return (totalBazarAmount / monthTotalMeals).toFixed(2);
   }, [totalBazarAmount, monthTotalMeals]);
 
-  const currentTotalMeals = userMonthTotalMeals; // Logged in user's meals for the current month
+  // Global calculations for the 5 metric cards
+  const globalDepositSum = useMemo(() => {
+    return globalDeposits.reduce((sum, d) => sum + Number(d.amount || 0), 0);
+  }, [globalDeposits]);
 
-  const totalDeposit = useMemo(() => {
+  const globalFixedCostSum = useMemo(() => {
+    return globalFixedExpenses.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
+  }, [globalFixedExpenses]);
+
+  const globalTotalCost = useMemo(() => {
+    return Number(totalBazarAmount) + Number(globalFixedCostSum);
+  }, [totalBazarAmount, globalFixedCostSum]);
+
+  const globalNetBalance = useMemo(() => {
+    return globalDepositSum - globalTotalCost;
+  }, [globalDepositSum, globalTotalCost]);
+
+  // Personal calculations (for warning alert strictly)
+  const personalTotalDeposit = useMemo(() => {
     return myDeposits.reduce((sum, dSnap) => sum + Number(dSnap.amount || 0), 0);
   }, [myDeposits]);
 
-  const totalFixedCost = useMemo(() => {
+  const personalFixedCost = useMemo(() => {
     return myFixedExpenses.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
   }, [myFixedExpenses]);
 
-  // Current Month Total Bazar Cost (meals * rate) + User's assigned Fixed Expenses
-  const totalCost = useMemo(() => {
-    return (Number(currentTotalMeals) * Number(liveMealRate)) + totalFixedCost;
-  }, [currentTotalMeals, liveMealRate, totalFixedCost]);
+  const personalTotalCost = useMemo(() => {
+    return (Number(userMonthTotalMeals) * Number(liveMealRate)) + personalFixedCost;
+  }, [userMonthTotalMeals, liveMealRate, personalFixedCost]);
 
-  const netBalance = useMemo(() => {
-    return totalDeposit - totalCost;
-  }, [totalDeposit, totalCost]);
+  const personalNetBalance = useMemo(() => {
+    return personalTotalDeposit - personalTotalCost;
+  }, [personalTotalDeposit, personalTotalCost]);
 
   const handleMealToggle = async (mealType) => {
     if (!config || !currentUser) return;
@@ -224,10 +253,10 @@ const UserDashboard = () => {
         <ToastContainer toasts={toasts} removeToast={removeToast} />
 
         <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {netBalance < 0 && (
+          {personalNetBalance < 0 && (
             <div className="alert-danger">
               <span style={{ fontWeight:'bold' }}>!</span> 
-              <span>ব্যালেন্স সতর্কতা: আপনার ব্যালেন্স নেগেটিভ (৳{netBalance.toFixed(0)})। দয়া করে ফান্ড ডিপোজিট করুন।</span>
+              <span>ব্যালেন্স সতর্কতা: আপনার ব্যালেন্স নেগেটিভ (৳{personalNetBalance.toFixed(0)})। দয়া করে ফান্ড ডিপোজিট করুন।</span>
             </div>
           )}
 
@@ -242,27 +271,27 @@ const UserDashboard = () => {
             <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-blue)' }}>
               <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>চলতি মোট মিল</p>
               <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-blue)' }}>
-                {currentTotalMeals} টি
+                {monthTotalMeals} টি
               </span>
             </div>
             <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-green)' }}>
               <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>মোট জমা</p>
               <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-green)' }}>
-                ৳{totalDeposit.toLocaleString()}
+                ৳{globalDepositSum.toLocaleString()}
               </span>
             </div>
             <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-purple)' }}>
-              <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>চলতি মিল খরচ</p>
+              <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>মোট খরচ</p>
               <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-purple)' }}>
-                ৳{totalCost.toFixed(0)}
+                ৳{globalTotalCost.toFixed(0)}
               </span>
             </div>
-            <div className="card glass-card" style={{ borderLeft: `5px solid ${netBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}` }}>
+            <div className="card glass-card" style={{ borderLeft: `5px solid ${globalNetBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}` }}>
               <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>
-                {netBalance >= 0 ? 'ক্যাশ ব্যালেন্স' : 'ম্যানেজার পাবে'}
+                {globalNetBalance >= 0 ? 'ক্যাশ ব্যালেন্স' : 'ম্যানেজার পাবে'}
               </p>
-              <span style={{ fontSize:'2.5rem', fontWeight:'900', color: netBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
-                ৳{Math.abs(netBalance).toFixed(0)}
+              <span style={{ fontSize:'2.5rem', fontWeight:'900', color: globalNetBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
+                ৳{Math.abs(globalNetBalance).toFixed(0)}
               </span>
             </div>
           </div>

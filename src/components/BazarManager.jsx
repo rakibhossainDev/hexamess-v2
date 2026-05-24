@@ -1,8 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { db, collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, serverTimestamp, query, where } from '../utils/firebase';
 import { ToastContainer } from './Toast';
 import { useToast } from '../hooks/useToast';
 import { getTodayDateString, formatDisplayDate } from '../utils/monthUtils';
+import Sidebar from './Sidebar';
+import Navbar from './Navbar';
+import BottomNav from './BottomNav';
 
 const BazarManager = () => {
   const [members, setMembers] = useState([]);
@@ -124,9 +128,14 @@ const BazarManager = () => {
     setSelectedManager('');
   };
 
+  const currentUser = JSON.parse(localStorage.getItem('hexa_user') || '{}');
+  const isManagerUser = currentUser?.username === 'manager';
+  const location = useLocation();
+  const isAdminPath = location.pathname.startsWith('/admin');
+
   const totalBazar = bazarRecords.reduce((s, r) => s + (Number(r.amount) || 0), 0);
 
-  return (
+  const content = (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', fontFamily: "'Hind Siliguri', sans-serif" }}>
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       
@@ -136,75 +145,77 @@ const BazarManager = () => {
       </div>
 
       {/* Bazar Expense Form */}
-      <div className="card glass-card">
-        <h3 style={{ marginBottom: '1.5rem', color: 'var(--accent-orange)' }}>🛒 বাজার খরচ ইস্যু করুন</h3>
-        <form onSubmit={handleIssueBazar} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem', alignItems: 'end' }}>
-          <div className="form-group">
-            <label>বাজারের নাম/আইটেম</label>
-            <input 
-              type="text" 
-              className="form-control" 
-              value={itemName} 
-              onChange={e => setItemName(e.target.value)} 
-              placeholder="যেমন: আলু, পেঁয়াজ, মাংস" 
-              required 
-            />
-          </div>
-          <div className="form-group">
-            <label>পরিমাণ (৳)</label>
-            <input 
-              type="number" 
-              className="form-control" 
-              value={amount} 
-              onChange={e => setAmount(e.target.value)} 
-              placeholder="৳০০.০০" 
-              required 
-            />
-          </div>
-          <div className="form-group">
-            <label>তারিখ</label>
-            <input 
-              type="date" 
-              className="form-control" 
-              value={bazarDate} 
-              onChange={e => setBazarDate(e.target.value)} 
-              required 
-            />
-          </div>
-          <div className="form-group">
-            <label>বাজারকারী (সদস্য)</label>
-            <select 
-              className="form-control" 
-              value={selectedManager} 
-              onChange={e => setSelectedManager(e.target.value)} 
-              required
-            >
-              <option value="">নির্বাচন করুন</option>
-              {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-            </select>
-          </div>
-          <div style={{ display: 'flex', gap: '0.75rem', gridColumn: 'span 1' }}>
-            <button 
-              type="submit" 
-              className={`btn ${editingId ? 'btn-success' : 'btn-primary'}`} 
-              disabled={saving}
-              style={{ flex: 2, height: 'fit-content', padding: '0.875rem 1rem' }}
-            >
-              {saving ? 'সেভ হচ্ছে...' : (editingId ? 'আপডেট করুন' : 'ইস্যু করুন')}
-            </button>
-            {editingId && (
-              <button 
-                type="button" 
-                className="btn" 
-                onClick={resetForm}
-                style={{ flex: 1, background: 'var(--surface-hover)', padding: '0.875rem 1rem' }}
+      {isManagerUser && (
+        <div className="card glass-card">
+          <h3 style={{ marginBottom: '1.5rem', color: 'var(--accent-orange)' }}>🛒 বাজার খরচ ইস্যু করুন</h3>
+          <form onSubmit={handleIssueBazar} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem', alignItems: 'end' }}>
+            <div className="form-group">
+              <label>বাজারের নাম/আইটেম</label>
+              <input 
+                type="text" 
+                className="form-control" 
+                value={itemName} 
+                onChange={e => setItemName(e.target.value)} 
+                placeholder="যেমন: আলু, পেঁয়াজ, মাংস" 
+                required 
+              />
+            </div>
+            <div className="form-group">
+              <label>পরিমাণ (৳)</label>
+              <input 
+                type="number" 
+                className="form-control" 
+                value={amount} 
+                onChange={e => setAmount(e.target.value)} 
+                placeholder="৳০০.০০" 
+                required 
+              />
+            </div>
+            <div className="form-group">
+              <label>তারিখ</label>
+              <input 
+                type="date" 
+                className="form-control" 
+                value={bazarDate} 
+                onChange={e => setBazarDate(e.target.value)} 
+                required 
+              />
+            </div>
+            <div className="form-group">
+              <label>বাজারকারী (সদস্য)</label>
+              <select 
+                className="form-control" 
+                value={selectedManager} 
+                onChange={e => setSelectedManager(e.target.value)} 
+                required
               >
-                বাতিল
+                <option value="">নির্বাচন করুন</option>
+                {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem', gridColumn: 'span 1' }}>
+              <button 
+                type="submit" 
+                className={`btn ${editingId ? 'btn-success' : 'btn-primary'}`} 
+                disabled={saving}
+                style={{ flex: 2, height: 'fit-content', padding: '0.875rem 1rem' }}
+              >
+                {saving ? 'সেভ হচ্ছে...' : (editingId ? 'আপডেট করুন' : 'ইস্যু করুন')}
               </button>
-            )}
-          </div>
-        </form>
-      </div>
+              {editingId && (
+                <button 
+                  type="button" 
+                  className="btn" 
+                  onClick={resetForm}
+                  style={{ flex: 1, background: 'var(--surface-hover)', padding: '0.875rem 1rem' }}
+                >
+                  বাতিল
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Bazar list */}
       <div className="card glass-card">
@@ -229,14 +240,16 @@ const BazarManager = () => {
                 </div>
                 <div className="font-medium text-[var(--text-primary)] mb-1">{r.itemName}</div>
                 <div className="text-sm text-[var(--text-secondary)] mb-4">বাজারকারী: {r.managerName}</div>
-                <div className="flex gap-3 justify-end border-t border-[var(--border-color)] pt-3">
-                  <button className="flex items-center gap-1 text-sm bg-[var(--surface-hover)] px-3 py-1.5 rounded-lg" onClick={() => handleEdit(r)}>
-                    ✏️ এডিট
-                  </button>
-                  <button className="flex items-center gap-1 text-sm bg-red-500/10 text-red-500 px-3 py-1.5 rounded-lg" onClick={() => handleDelete(r.id)}>
-                    🗑️ ডিলিট
-                  </button>
-                </div>
+                {isManagerUser && (
+                  <div className="flex gap-3 justify-end border-t border-[var(--border-color)] pt-3">
+                    <button className="flex items-center gap-1 text-sm bg-[var(--surface-hover)] px-3 py-1.5 rounded-lg" onClick={() => handleEdit(r)}>
+                      ✏️ এডিট
+                    </button>
+                    <button className="flex items-center gap-1 text-sm bg-red-500/10 text-red-500 px-3 py-1.5 rounded-lg" onClick={() => handleDelete(r.id)}>
+                      🗑️ ডিলিট
+                    </button>
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -251,12 +264,16 @@ const BazarManager = () => {
                 <th>আইটেম</th>
                 <th>বাজারকারী</th>
                 <th style={{ textAlign: 'right' }}>পরিমাণ</th>
-                <th style={{ textAlign: 'right' }}>অ্যাকশন</th>
+                {isManagerUser && <th style={{ textAlign: 'right' }}>অ্যাকশন</th>}
               </tr>
             </thead>
             <tbody>
               {bazarRecords.length === 0 ? (
-                <tr><td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>কোন রেকর্ড পাওয়া যায়নি।</td></tr>
+                <tr>
+                  <td colSpan={isManagerUser ? 5 : 4} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+                    কোন রেকর্ড পাওয়া যায়নি।
+                  </td>
+                </tr>
               ) : (
                 bazarRecords.map(r => (
                   <tr key={r.id} style={{ background: editingId === r.id ? 'rgba(0, 150, 255, 0.1)' : 'transparent' }}>
@@ -264,12 +281,14 @@ const BazarManager = () => {
                     <td style={{ fontWeight: '500' }}>{r.itemName}</td>
                     <td>{r.managerName}</td>
                     <td style={{ textAlign: 'right', fontWeight: '700', color: 'var(--accent-orange)' }}>৳{r.amount}</td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                        <button className="icon-btn" onClick={() => handleEdit(r)} title="Edit">✏️</button>
-                        <button className="icon-btn" onClick={() => handleDelete(r.id)} title="Delete" style={{ color: 'var(--accent-red)' }}>🗑️</button>
-                      </div>
-                    </td>
+                    {isManagerUser && (
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                          <button className="icon-btn" onClick={() => handleEdit(r)} title="Edit">✏️</button>
+                          <button className="icon-btn" onClick={() => handleDelete(r.id)} title="Delete" style={{ color: 'var(--accent-red)' }}>🗑️</button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))
               )}
@@ -277,6 +296,23 @@ const BazarManager = () => {
           </table>
         </div>
       </div>
+    </div>
+  );
+
+  if (isAdminPath) {
+    return content;
+  }
+
+  return (
+    <div className="app-layout" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
+      <Sidebar isManager={isManagerUser} />
+      <main className="main-content" style={{ padding: '0 0 80px 0', flex: 1 }}>
+        <Navbar userName={currentUser?.name} userRole={isManagerUser ? 'ম্যানেজার' : 'সদস্য'} photoURL={currentUser?.photoURL} />
+        <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {content}
+        </div>
+      </main>
+      <BottomNav isManager={isManagerUser} />
     </div>
   );
 };
