@@ -7,7 +7,7 @@ const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 const DashboardHome = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.DashboardHome })));
 const MemberDashboard = lazy(() => import('./components/UserDashboard'));
 const MealManagement = lazy(() => import('./components/MealManagement'));
-const MarketExpense = lazy(() => import('./components/MarketExpense'));
+const FixedExpenses = lazy(() => import('./components/FixedExpenses'));
 const MemberList = lazy(() => import('./components/MemberList'));
 const BazarManager = lazy(() => import('./components/BazarManager'));
 const HistoryArchive = lazy(() => import('./components/HistoryArchive'));
@@ -132,7 +132,7 @@ function App() {
               <Route index element={<DashboardHome />} />
               <Route path="meals" element={<MealManagement />} />
               <Route path="market" element={<BazarManager />} />
-              <Route path="expenses" element={<MarketExpense />} />
+              <Route path="expenses" element={<FixedExpenses />} />
               <Route path="deposits" element={<DepositManager />} />
               <Route path="members" element={<MemberList />} />
               <Route path="members/:id" element={<Profile isAdminView={true} />} />
@@ -151,8 +151,9 @@ function App() {
               }
             />
             <Route path="/dashboard/profile" element={<ProtectedRoute allowedRoles={['member', 'manager']}><Profile /></ProtectedRoute>} />
-            <Route path="/dashboard/meals" element={<ProtectedRoute allowedRoles={['member', 'manager']}><MemberDashboard /></ProtectedRoute>} />
+            <Route path="/dashboard/meals" element={<ProtectedRoute allowedRoles={['member', 'manager']}><MealManagement /></ProtectedRoute>} />
             <Route path="/dashboard/market" element={<ProtectedRoute allowedRoles={['member', 'manager']}><BazarManager /></ProtectedRoute>} />
+            <Route path="/dashboard/expenses" element={<ProtectedRoute allowedRoles={['member', 'manager']}><FixedExpenses /></ProtectedRoute>} />
             <Route path="/dashboard/history" element={<ProtectedRoute allowedRoles={['member', 'manager']}><HistoryArchive /></ProtectedRoute>} />
 
             {/* Fallback */}

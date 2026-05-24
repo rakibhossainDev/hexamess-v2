@@ -142,8 +142,8 @@ const MemberDashboard = () => {
   }, [globalFixedExpenses]);
 
   const globalTotalCost = useMemo(() => {
-    return Number(totalBazarAmount) + Number(globalFixedCostSum);
-  }, [totalBazarAmount, globalFixedCostSum]);
+    return Number(totalBazarAmount);
+  }, [totalBazarAmount]);
 
   const globalNetBalance = useMemo(() => {
     return globalDepositSum - globalTotalCost;
@@ -165,42 +165,6 @@ const MemberDashboard = () => {
   const personalNetBalance = useMemo(() => {
     return personalTotalDeposit - personalTotalCost;
   }, [personalTotalDeposit, personalTotalCost]);
-
-  const handleMealToggle = async (mealType) => {
-    if (!config || !currentUser) return;
-    const prevVal = Number(todayMeals[mealType] || 0);
-    const newVal = prevVal > 0 ? 0 : (mealType === 'breakfast' ? 0.5 : 1);
-    
-    try {
-      const mid = config.current_month_id;
-      const [y, m, d] = today.split('-');
-      const formattedDate = `${d}-${m}-${y}`;
-      const ref = doc(db, 'daily_meals', `${currentUser.id}_${formattedDate}`);
-      
-      let breakfastVal = mealType === 'breakfast' ? newVal : Number(todayMeals.breakfast || 0);
-      let lunchVal = mealType === 'lunch' ? newVal : Number(todayMeals.lunch || 0);
-      let dinnerVal = mealType === 'dinner' ? newVal : Number(todayMeals.dinner || 0);
-
-      const payload = {
-        ...todayMeals,
-        user_id: currentUser.id,
-        memberId: currentUser.id,
-        userName: currentUser.name,
-        month_id: mid,
-        date: formattedDate,
-        monthYear: `${m}-${y}`,
-        [mealType]: newVal,
-        count: breakfastVal + lunchVal + dinnerVal
-      };
-
-      const { setDoc } = await import('../utils/firebase');
-      await setDoc(ref, payload, { merge: true });
-      showToast('মিল স্ট্যাটাস আপডেট হয়েছে!', 'success');
-    } catch (err) {
-      console.error(err);
-      showToast('মিল সেভ করা যায়নি।', 'error');
-    }
-  };
 
   if (!currentUser) return <div className="loading">লোড হচ্ছে...</div>;
 
@@ -286,10 +250,11 @@ const MemberDashboard = () => {
                 <h3 style={{ fontSize:'1.1rem', fontWeight:'600' }}>🍽️ আজকের মিল</h3>
                 <span className="badge badge-manager" style={{ fontSize:'0.75rem' }}>{getTodayDisplay()}</span>
               </div>
-              <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
-                <MealItem label={<span>সকাল (০.৫)</span>} checked={Number(todayMeals.breakfast) > 0} onToggle={() => handleMealToggle('breakfast')} />
-                <MealItem label={<span>দুপুর <b style={{ color:'var(--accent-orange)' }}>(১.০)</b></span>} checked={Number(todayMeals.lunch) > 0} onToggle={() => handleMealToggle('lunch')} />
-                <MealItem label={<span>রাত <b style={{ color:'var(--accent-orange)' }}>(১.০)</b></span>} checked={Number(todayMeals.dinner) > 0} onToggle={() => handleMealToggle('dinner')} />
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'2rem', background:'var(--surface-hover)', borderRadius:'var(--radius-md)', border:'1px solid var(--border-color)', textAlign:'center', minHeight:'120px' }}>
+                <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem', marginBottom:'0.5rem' }}>আজকের মোট মিল সংখ্যা</p>
+                <span style={{ fontSize:'3.5rem', fontWeight:'900', color:'var(--accent-orange)' }}>
+                  {Number(todayMeals.count || 0)} টি
+                </span>
               </div>
             </div>
           </div>
@@ -301,24 +266,21 @@ const MemberDashboard = () => {
                 <thead>
                   <tr>
                     <th>তারিখ</th>
-                    <th style={{ textAlign:'center' }}>সকাল</th>
-                    <th style={{ textAlign:'center' }}>দুপুর</th>
-                    <th style={{ textAlign:'center' }}>রাত</th>
-                    <th style={{ textAlign:'right' }}>মোট</th>
+                    <th style={{ textAlign:'right' }}>মিল সংখ্যা</th>
                   </tr>
                 </thead>
                 <tbody>
                   {mealLogs.length === 0 ? (
-                    <tr><td colSpan="5" style={{ textAlign:'center', color:'var(--text-secondary)', padding:'2rem' }}>কোনো রেকর্ড পাওয়া যায়নি।</td></tr>
+                    <tr><td colSpan="2" style={{ textAlign:'center', color:'var(--text-secondary)', padding:'2rem' }}>কোনো রেকর্ড পাওয়া যায়নি।</td></tr>
                   ) : mealLogs.map(log => {
-                    const total = (Number(log.breakfast)||0) + (Number(log.lunch)||0) + (Number(log.dinner)||0);
                     return (
                       <tr key={log.id}>
                         <td>{log.date}</td>
-                        <td style={{ textAlign:'center' }}>{Number(log.breakfast) > 0 ? (log.breakfast === 0.5 ? '✅ ০.৫' : `✅ ${log.breakfast}`) : '—'}</td>
-                        <td style={{ textAlign:'center' }}>{Number(log.lunch) > 0 ? (log.lunch === 1 ? '✅ ১.০' : `✅ ${log.lunch}`) : '—'}</td>
-                        <td style={{ textAlign:'center' }}>{Number(log.dinner) > 0 ? (log.dinner === 1 ? '✅ ১.০' : `✅ ${log.dinner}`) : '—'}</td>
-                        <td style={{ textAlign:'right', fontWeight:'700', color:'var(--accent-blue)' }}>{total}</td>
+                        <td style={{ textAlign:'right', fontWeight:'700', color:'var(--accent-blue)' }}>
+                          <span className="badge badge-blue" style={{ fontSize: '0.9rem' }}>
+                            {Number(log.count || 0)} টি
+                          </span>
+                        </td>
                       </tr>
                     );
                   })}
@@ -332,15 +294,5 @@ const MemberDashboard = () => {
     </div>
   );
 };
-
-const MealItem = ({ label, checked, onToggle }) => (
-  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'1rem', background:'var(--surface-hover)', borderRadius:'var(--radius-md)', border:'1px solid var(--border-color)' }}>
-    <span style={{ fontWeight:'500' }}>{label}</span>
-    <label className="toggle-switch">
-      <input type="checkbox" checked={checked} onChange={onToggle} />
-      <span className="slider"></span>
-    </label>
-  </div>
-);
 
 export default MemberDashboard;

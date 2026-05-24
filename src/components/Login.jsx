@@ -78,7 +78,10 @@ const Login = () => {
 
       // Direct comparison of the 'password' field from Firestore
       if (userData.password === password) {
-        const userRole = lowerUsername === 'manager' ? 'manager' : 'member';
+        let userRole = lowerUsername === 'manager' ? 'manager' : 'member';
+        if (lowerUsername === 'rakib') {
+          userRole = 'member';
+        }
         const userDataMapped = { id: userDoc.id, username: userData.username, ...userData, role: userRole };
 
         // Save complete user info as hexa_user

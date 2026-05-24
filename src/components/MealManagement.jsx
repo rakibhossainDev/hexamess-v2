@@ -1,13 +1,22 @@
 // Firestore Rules: set to 'allow read, write: if true;' for testing if you see permission errors.
 import { useState, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   db, collection, doc, onSnapshot, query, where, writeBatch, serverTimestamp
 } from '../utils/firebase';
 import { getTodayDateString, formatDisplayDate } from '../utils/monthUtils';
 import { useToast } from '../hooks/useToast';
 import { ToastContainer } from './Toast';
+import Sidebar from './Sidebar';
+import Navbar from './Navbar';
+import BottomNav from './BottomNav';
 
 const MealManagement = () => {
+  const currentUser = JSON.parse(localStorage.getItem('hexa_user') || '{}');
+  const isManagerUser = currentUser?.username === 'manager';
+  const location = useLocation();
+  const isAdminPath = location.pathname.startsWith('/admin');
+
   const [members, setMembers] = useState([]);
   const [inputMeals, setInputMeals] = useState({}); 
   const [selectedDate, setSelectedDate] = useState(getTodayDateString());
@@ -126,21 +135,16 @@ const MealManagement = () => {
     }
   };
 
-  if (loading) return (
-    <div className="flex-center" style={{ height: '50vh', flexDirection: 'column', gap: '1rem' }}>
-      <div className="spinner" />
-      <p style={{ color: 'var(--text-secondary)' }}>মেম্বার ডাটা লোড হচ্ছে...</p>
-    </div>
-  );
-
-  return (
+  const renderContent = () => (
     <div className="fade-in">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       
       <div className="card glass-card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <h2 style={{ color: 'var(--accent-blue)', marginBottom: '0.25rem' }}>ম্যানেজ ডেইলি মিল</h2>
+            <h2 style={{ color: 'var(--accent-blue)', marginBottom: '0.25rem' }}>
+              {isManagerUser ? 'ম্যানেজ ডেইলি মিল' : 'মিল হিসেব ও ইতিহাস'}
+            </h2>
             <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
               তারিখ: <span style={{ color: 'var(--accent-orange)', fontWeight: '600' }}>{formatDisplayDate(selectedDate)}</span>
             </p>
@@ -172,16 +176,22 @@ const MealManagement = () => {
               </div>
               <div className="flex justify-between items-center border-t border-[var(--border-color)] pt-3 mt-1">
                 <span className="text-sm font-medium">আজকের মিল:</span>
-                <select 
-                  className="form-control" 
-                  value={inputMeals[member.id] || 0}
-                  onChange={(e) => handleMealChange(member.id, e.target.value)}
-                  style={{ width: '80px', minHeight: '36px', padding: '0.25rem 0.5rem' }}
-                >
-                  {[0, 0.5, 1, 1.5, 2, 2.5, 3].map(v => (
-                    <option key={v} value={v}>{v}</option>
-                  ))}
-                </select>
+                {isManagerUser ? (
+                  <select 
+                    className="form-control" 
+                    value={inputMeals[member.id] || 0}
+                    onChange={(e) => handleMealChange(member.id, e.target.value)}
+                    style={{ width: '80px', minHeight: '36px', padding: '0.25rem 0.5rem' }}
+                  >
+                    {[0, 1, 2, 3, 4, 5].map(v => (
+                      <option key={v} value={v}>{v}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="badge badge-orange" style={{ fontSize: '0.9rem', padding: '0.25rem 0.75rem', fontWeight: 'bold' }}>
+                    {inputMeals[member.id] || 0} টি
+                  </span>
+                )}
               </div>
             </div>
           ))}
@@ -213,16 +223,22 @@ const MealManagement = () => {
                     <span className="badge badge-blue">মোট: {lifetimeMeals[member.id] || 0}</span>
                   </td>
                   <td style={{ textAlign: 'right' }}>
-                    <select 
-                      className="form-control" 
-                      value={inputMeals[member.id] || 0}
-                      onChange={(e) => handleMealChange(member.id, e.target.value)}
-                      style={{ width: '100px', marginLeft: 'auto' }}
-                    >
-                      {[0, 0.5, 1, 1.5, 2, 2.5, 3].map(v => (
-                        <option key={v} value={v}>{v}</option>
-                      ))}
-                    </select>
+                    {isManagerUser ? (
+                      <select 
+                        className="form-control" 
+                        value={inputMeals[member.id] || 0}
+                        onChange={(e) => handleMealChange(member.id, e.target.value)}
+                        style={{ width: '100px', marginLeft: 'auto' }}
+                      >
+                        {[0, 1, 2, 3, 4, 5].map(v => (
+                          <option key={v} value={v}>{v}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="badge badge-orange" style={{ fontSize: '0.9rem', padding: '0.25rem 0.75rem', fontWeight: 'bold' }}>
+                        {inputMeals[member.id] || 0} টি
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -244,16 +260,44 @@ const MealManagement = () => {
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>নির্বাচিত তারিখের মোট মিল</p>
             <span style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--accent-orange)' }}>{currentTotal} টি</span>
           </div>
-          <button 
-            className="btn btn-primary" 
-            onClick={handleSaveAll}
-            disabled={saving}
-            style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}
-          >
-            {saving ? 'সেভ হচ্ছে...' : 'সব মিল সেভ করুন'}
-          </button>
+          {isManagerUser && (
+            <button 
+              className="btn btn-primary" 
+              onClick={handleSaveAll}
+              disabled={saving}
+              style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}
+            >
+              {saving ? 'সেভ হচ্ছে...' : 'সব মিল সেভ করুন'}
+            </button>
+          )}
         </div>
       </div>
+    </div>
+  );
+
+  if (loading) {
+    return (
+      <div className="flex-center" style={{ height: '50vh', flexDirection: 'column', gap: '1rem' }}>
+        <div className="spinner" />
+        <p style={{ color: 'var(--text-secondary)' }}>মেম্বার ডাটা লোড হচ্ছে...</p>
+      </div>
+    );
+  }
+
+  if (isAdminPath) {
+    return renderContent();
+  }
+
+  return (
+    <div className="app-layout" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
+      <Sidebar isManager={isManagerUser} />
+      <main className="main-content" style={{ padding: '0 0 80px 0', flex: 1 }}>
+        <Navbar userName={currentUser?.name} userRole={isManagerUser ? 'ম্যানেজার' : 'সদস্য'} photoURL={currentUser?.photoURL} />
+        <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {renderContent()}
+        </div>
+      </main>
+      <BottomNav isManager={isManagerUser} />
     </div>
   );
 };
