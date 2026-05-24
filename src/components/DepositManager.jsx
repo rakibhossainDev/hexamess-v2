@@ -80,8 +80,6 @@ const DepositManager = () => {
     }
   };
 
-  };
-
   const renderContent = () => (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', fontFamily: "'Hind Siliguri', sans-serif" }}>
       <ToastContainer toasts={toasts} removeToast={removeToast} />

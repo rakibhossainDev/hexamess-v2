@@ -22,7 +22,7 @@ const BazarManager = () => {
   // Unified monthYear for aggregation (e.g., "05-2026")
   const monthYear = useMemo(() => {
     if (!bazarDate) return '';
-    const [y, m, d] = bazarDate.split('-');
+    const [y, m] = bazarDate.split('-');
     return `${m}-${y}`;
   }, [bazarDate]);
 
@@ -31,12 +31,12 @@ const BazarManager = () => {
     
     // Listen to members
     const unsubMembers = onSnapshot(collection(db, 'users'), snap => {
-      setMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setMembers(snap.docs.map(dSnap => ({ id: dSnap.id, ...dSnap.data() })));
     });
 
     // Listen to bazar records for the current month
     const todayStr = getTodayDateString();
-    const [y, m, d] = todayStr.split('-');
+    const [y, m] = todayStr.split('-');
     const currentMonthId = `${m}-${y}`;
     
     const q = query(collection(db, 'bazar_records'), where('monthYear', '==', currentMonthId));

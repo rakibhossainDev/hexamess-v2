@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { db, doc, onSnapshot, collection, query, where, orderBy, limit } from '../utils/firebase';
+import { db, doc, onSnapshot, collection, query, where, limit } from '../utils/firebase';
 import { getTodayDateString, getTodayDisplay } from '../utils/monthUtils';
 import Navbar from './Navbar';
 import BottomNav from './BottomNav';
@@ -12,10 +12,9 @@ const MemberDashboard = () => {
     const saved = localStorage.getItem('hexa_user');
     return saved ? JSON.parse(saved) : null;
   });
-  const [config, setConfig] = useState(null);
   const [todayMeals, setTodayMeals] = useState({});
   const [mealLogs, setMealLogs] = useState([]);
-  const { toasts, showToast, removeToast } = useToast();
+  const { toasts, removeToast } = useToast();
 
   const userId = currentUser?.id || localStorage.getItem('hexamess-user-id');
   const today = getTodayDateString();
@@ -23,7 +22,7 @@ const MemberDashboard = () => {
   // Unified monthYear key (e.g. "05-2026")
   const monthId = useMemo(() => {
     if (!today) return '';
-    const [y, m, d] = today.split('-');
+    const [y, m] = today.split('-');
     return `${m}-${y}`;
   }, [today]);
 
@@ -37,23 +36,18 @@ const MemberDashboard = () => {
         localStorage.setItem('hexa_user', JSON.stringify(uData));
       }
     });
-    const unsubConfig = onSnapshot(doc(db, 'config', 'settings'), snap => {
-      if (snap.exists()) setConfig(snap.data());
-    });
-    return () => { unsubUser(); unsubConfig(); };
+    return () => { unsubUser(); };
   }, [userId]);
 
   const [myFixedExpenses, setMyFixedExpenses] = useState([]);
   const [myDeposits, setMyDeposits] = useState([]);
   const [globalDeposits, setGlobalDeposits] = useState([]);
-  const [globalFixedExpenses, setGlobalFixedExpenses] = useState([]);
   const [monthTotalMeals, setMonthTotalMeals] = useState(0);
   const [totalBazarAmount, setTotalBazarAmount] = useState(0);
   const [userMonthTotalMeals, setUserMonthTotalMeals] = useState(0);
 
   useEffect(() => {
     if (!db || !currentUser || !monthId) return;
-    const mid = config?.current_month_id || monthId;
 
     // Create proper formatted date (DD-MM-YYYY) for search alignment
     const [y, m, d] = today.split('-');
@@ -66,7 +60,7 @@ const MemberDashboard = () => {
 
     // Recent logs
     const unsubLogs = onSnapshot(query(collection(db, 'daily_meals'), where('memberId', '==', currentUser.id), limit(30)), snap => {
-      const logs = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+      const logs = snap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
       // Sort in JS to avoid index errors on date/memberId mismatch
       logs.sort((a, b) => b.date.localeCompare(a.date));
       setMealLogs(logs.slice(0, 10));
@@ -74,12 +68,12 @@ const MemberDashboard = () => {
 
     // Listen to personal fixed expenses
     const unsubFixed = onSnapshot(query(collection(db, 'fixed_expenses'), where('memberId', '==', currentUser.id)), snap => {
-      setMyFixedExpenses(snap.docs.map(d => d.data()));
+      setMyFixedExpenses(snap.docs.map(docSnap => docSnap.data()));
     });
 
     // Listen to personal deposits
     const unsubDeposits = onSnapshot(query(collection(db, 'deposits'), where('memberId', '==', currentUser.id)), snap => {
-      setMyDeposits(snap.docs.map(d => d.data()));
+      setMyDeposits(snap.docs.map(docSnap => docSnap.data()));
     });
 
     // Listen to global deposits
@@ -87,26 +81,21 @@ const MemberDashboard = () => {
       setGlobalDeposits(snap.docs.map(dSnap => dSnap.data()));
     });
 
-    // Listen to global fixed expenses
-    const unsubGlobalFixed = onSnapshot(collection(db, 'fixed_expenses'), snap => {
-      setGlobalFixedExpenses(snap.docs.map(dSnap => dSnap.data()));
-    });
-
     // Monthly Bazar amount for the current month
     const qBazar = query(collection(db, 'bazar_records'), where('monthYear', '==', monthId));
     const unsubBazar = onSnapshot(qBazar, snap => {
-      const sum = snap.docs.reduce((s, d) => s + Number(d.data().amount || 0), 0);
+      const sum = snap.docs.reduce((s, docSnap) => s + Number(docSnap.data().amount || 0), 0);
       setTotalBazarAmount(sum);
     });
 
     // Monthly Daily meals for the current month
     const qMeals = query(collection(db, 'daily_meals'), where('monthYear', '==', monthId));
     const unsubMeals = onSnapshot(qMeals, snap => {
-      const sumAll = snap.docs.reduce((s, d) => s + Number(d.data().count || 0), 0);
+      const sumAll = snap.docs.reduce((s, docSnap) => s + Number(docSnap.data().count || 0), 0);
       setMonthTotalMeals(sumAll);
 
-      const sumUser = snap.docs.reduce((s, d) => {
-        const data = d.data();
+      const sumUser = snap.docs.reduce((s, docSnap) => {
+        const data = docSnap.data();
         if (data.memberId === currentUser.id || data.user_id === currentUser.id) {
           return s + Number(data.count || 0);
         }
@@ -121,7 +110,6 @@ const MemberDashboard = () => {
       unsubFixed();
       unsubDeposits();
       unsubGlobalDeposits();
-      unsubGlobalFixed();
       unsubBazar();
       unsubMeals();
     };
@@ -134,12 +122,8 @@ const MemberDashboard = () => {
 
   // Global calculations for the 5 metric cards
   const globalDepositSum = useMemo(() => {
-    return globalDeposits.reduce((sum, d) => sum + Number(d.amount || 0), 0);
+    return globalDeposits.reduce((sum, docSnap) => sum + Number(docSnap.amount || 0), 0);
   }, [globalDeposits]);
-
-  const globalFixedCostSum = useMemo(() => {
-    return globalFixedExpenses.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
-  }, [globalFixedExpenses]);
 
   const globalTotalCost = useMemo(() => {
     return Number(totalBazarAmount);

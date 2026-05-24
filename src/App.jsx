@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect, createContext, useContext } from 'react';
+import { lazy, Suspense, useState, useEffect, createContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 // Lazy Load Components
@@ -24,8 +24,6 @@ const LoadingFallback = () => (
 
 /* ─── Auth Context & Provider ─── */
 const AuthContext = createContext();
-
-export const useAuth = () => useContext(AuthContext);
 
 const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
@@ -72,10 +70,11 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/" replace />;
   }
 
-  let user = null;
+  let user;
   try {
     user = JSON.parse(savedUserJson);
-  } catch (e) {
+  } catch (error) {
+    console.error(error);
     return <Navigate to="/" replace />;
   }
 
@@ -96,10 +95,12 @@ const PublicGuard = ({ children }) => {
   const savedUserJson = localStorage.getItem('hexa_user');
 
   if (savedUserJson) {
-    let user = null;
+    let user;
     try {
       user = JSON.parse(savedUserJson);
-    } catch (e) {}
+    } catch (error) {
+      console.error(error);
+    }
 
     if (user) {
       const userRole = user.username === 'manager' ? 'manager' : 'member';

@@ -45,6 +45,7 @@ const MemberList = () => {
       await updateDoc(userRef, { status: currentStatus === 'active' ? 'inactive' : 'active' });
       showToast("ইউজার স্ট্যাটাস আপডেট হয়েছে।", "success");
     } catch (err) {
+      console.error(err);
       showToast("আপডেট ব্যর্থ হয়েছে।", "error");
     }
   };

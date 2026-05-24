@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { db, collection, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, query, where } from '../utils/firebase';
+import { db, collection, onSnapshot, deleteDoc, doc, serverTimestamp, query, where } from '../utils/firebase';
 import { ToastContainer } from './Toast';
 import { useToast } from '../hooks/useToast';
 import { getTodayDateString, formatDisplayDate } from '../utils/monthUtils';
@@ -25,7 +25,6 @@ const FixedExpenses = () => {
 
   useEffect(() => {
     if (!db) return;
-    setLoading(true);
 
     // Listen to members
     const unsubMembers = onSnapshot(collection(db, 'users'), snap => {

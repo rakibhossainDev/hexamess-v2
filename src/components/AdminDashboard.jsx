@@ -6,14 +6,15 @@ import {
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 import BottomNav from './BottomNav';
-import { ToastContainer } from './Toast';
-import { useToast } from '../hooks/useToast';
 import { getTodayDateString } from '../utils/monthUtils';
 
 // This component handles the layout for all admin pages
 const AdminDashboard = () => {
-  const [currentUser, setCurrentUser] = useState(null);
   const userId = localStorage.getItem('hexamess-user-id');
+  const [currentUser, setCurrentUser] = useState(() => {
+    if (userId === 'manager') return { name: 'মেস ম্যানেজার', role: 'manager' };
+    return null;
+  });
   const navigate = useNavigate();
 
   // Instant local storage check to prevent flicker
@@ -27,10 +28,8 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     if (!db || !userId) return;
-    if (userId === 'manager') {
-      setCurrentUser({ name: 'মেস ম্যানেজার', role: 'manager' });
-      return;
-    }
+    if (userId === 'manager') return;
+    
     const unsub = onSnapshot(doc(db, 'users', userId), snap => {
       if (snap.exists()) {
         const data = snap.data();
@@ -60,15 +59,11 @@ const AdminDashboard = () => {
 
 // This is the actual Dashboard Home View
 export const DashboardHome = () => {
-  const [config, setConfig] = useState(null);
-  const [todaySavedMeals, setTodaySavedMeals] = useState(0);
   const [monthTotalMeals, setMonthTotalMeals] = useState(0);
   const [totalBazarAmount, setTotalBazarAmount] = useState(0);
-  const [fetching, setFetching] = useState(false);
   const [selectedDateIso, setSelectedDateIso] = useState(getTodayDateString());
 
   // Dynamic state for aggregated admin overview
-  const [allUsers, setAllUsers] = useState([]);
   const [allFixedExpenses, setAllFixedExpenses] = useState([]);
   const [allDeposits, setAllDeposits] = useState([]);
 
@@ -82,31 +77,10 @@ export const DashboardHome = () => {
     };
   }, [selectedDateIso]);
 
-  useEffect(() => {
-    if (!db) return;
-    // Config listener
-    const unsubConfig = onSnapshot(doc(db, 'config', 'settings'), snap => {
-      if (snap.exists()) setConfig(snap.data());
-    });
-    return () => unsubConfig();
-  }, []);
-
   // 3. Automated Dashboard Calculations (Unified from daily_meals)
   useEffect(() => {
     if (!db || !docIdKey) return;
     
-    setFetching(true);
-
-    // A. Today's Total Listener (DD-MM-YYYY)
-    const unsubToday = onSnapshot(
-      query(collection(db, 'daily_meals'), where('date', '==', docIdKey)),
-      (snap) => {
-        const total = snap.docs.reduce((sum, d) => sum + Number(d.data().count || 0), 0);
-        setTodaySavedMeals(total);
-        setFetching(false);
-      }
-    );
-
     // B. Monthly Total Listener (MM-YYYY)
     const unsubMonth = onSnapshot(
       query(collection(db, 'daily_meals'), where('monthYear', '==', monthId)),
@@ -126,25 +100,21 @@ export const DashboardHome = () => {
     );
 
     return () => {
-      unsubToday();
       unsubMonth();
       unsubBazar();
     };
   }, [docIdKey, monthId]);
 
-  // Listener for dynamic users list, all fixed expenses, and deposits
+  // Listener for all fixed expenses and deposits
   useEffect(() => {
     if (!db) return;
-    const unsubUsers = onSnapshot(collection(db, 'users'), snap => {
-      setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
     const unsubFixed = onSnapshot(collection(db, 'fixed_expenses'), snap => {
       setAllFixedExpenses(snap.docs.map(d => d.data()));
     });
     const unsubDeposits = onSnapshot(collection(db, 'deposits'), snap => {
       setAllDeposits(snap.docs.map(d => d.data()));
     });
-    return () => { unsubUsers(); unsubFixed(); unsubDeposits(); };
+    return () => { unsubFixed(); unsubDeposits(); };
   }, []);
 
   const liveMealRate = useMemo(() => {

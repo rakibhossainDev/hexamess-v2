@@ -20,7 +20,6 @@ const MealManagement = () => {
   const [members, setMembers] = useState([]);
   const [inputMeals, setInputMeals] = useState({}); 
   const [selectedDate, setSelectedDate] = useState(getTodayDateString());
-  const [config, setConfig] = useState(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [lifetimeMeals, setLifetimeMeals] = useState({}); // Aggregated totals per member
@@ -40,7 +39,6 @@ const MealManagement = () => {
   useEffect(() => {
     if (!db) return;
     
-    setLoading(true);
     const safetyTimeout = setTimeout(() => setLoading(false), 3000);
 
     // Member List Sync
@@ -48,11 +46,6 @@ const MealManagement = () => {
       setMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setLoading(false);
       clearTimeout(safetyTimeout);
-    });
-
-    // System Config Sync
-    const unsubConfig = onSnapshot(doc(db, 'config', 'settings'), (snap) => {
-      if (snap.exists()) setConfig(snap.data());
     });
 
     // Lifetime Meal Aggregation (Unified from daily_meals)
@@ -70,7 +63,6 @@ const MealManagement = () => {
 
     return () => {
       unsubMembers();
-      unsubConfig();
       unsubLifetime();
       clearTimeout(safetyTimeout);
     };
