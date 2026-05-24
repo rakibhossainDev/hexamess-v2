@@ -154,6 +154,7 @@ function App() {
             <Route path="/dashboard/meals" element={<ProtectedRoute allowedRoles={['member', 'manager']}><MealManagement /></ProtectedRoute>} />
             <Route path="/dashboard/market" element={<ProtectedRoute allowedRoles={['member', 'manager']}><BazarManager /></ProtectedRoute>} />
             <Route path="/dashboard/expenses" element={<ProtectedRoute allowedRoles={['member', 'manager']}><FixedExpenses /></ProtectedRoute>} />
+            <Route path="/dashboard/deposits" element={<ProtectedRoute allowedRoles={['member', 'manager']}><DepositManager /></ProtectedRoute>} />
             <Route path="/dashboard/history" element={<ProtectedRoute allowedRoles={['member', 'manager']}><HistoryArchive /></ProtectedRoute>} />
 
             {/* Fallback */}

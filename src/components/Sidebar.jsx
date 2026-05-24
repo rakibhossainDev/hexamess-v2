@@ -20,6 +20,7 @@ const Sidebar = ({ isManager = false }) => {
     { name: 'মিল ম্যানেজমেন্ট', path: '/dashboard/meals', icon: '🍽️' },
     { name: 'বাজার ম্যানেজার', path: '/dashboard/market', icon: '💰' },
     { name: 'ফিক্সড খরচ', path: '/dashboard/expenses', icon: '🏠' },
+    { name: 'টাকা জমা', path: '/dashboard/deposits', icon: '💸' },
     { name: 'হিস্টরি প্রিভিউ', path: '/dashboard/history', icon: '📅' },
     { name: 'প্রোফাইল', path: '/dashboard/profile', icon: '👤' },
   ];

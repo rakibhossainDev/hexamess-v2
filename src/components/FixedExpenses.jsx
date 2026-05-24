@@ -16,8 +16,7 @@ const FixedExpenses = () => {
 
   const [members, setMembers] = useState([]);
   const [fixedExpenses, setFixedExpenses] = useState([]);
-  const [fixedCategory, setFixedCategory] = useState('');
-  const [fixedAmount, setFixedAmount] = useState('');
+  const [expenseRows, setExpenseRows] = useState([{ category: '', amount: '' }]);
   const [fixedDate, setFixedDate] = useState(getTodayDateString());
   const [selectedMember, setSelectedMember] = useState('');
   const [savingFixed, setSavingFixed] = useState(false);
@@ -55,50 +54,79 @@ const FixedExpenses = () => {
     return () => { unsubMembers(); unsubFixed(); };
   }, [isManagerUser, currentUser.id]);
 
+  const handleAddRow = () => {
+    setExpenseRows([...expenseRows, { category: '', amount: '' }]);
+  };
+
+  const handleRemoveRow = (index) => {
+    if (expenseRows.length === 1) return;
+    setExpenseRows(expenseRows.filter((_, i) => i !== index));
+  };
+
+  const handleRowChange = (index, field, value) => {
+    const updated = [...expenseRows];
+    updated[index][field] = value;
+    setExpenseRows(updated);
+  };
+
   const handleIssueFixedExpense = async (e) => {
     e.preventDefault();
     if (savingFixed) return;
 
-    const amt = Number(fixedAmount);
-    if (!fixedCategory || !fixedAmount || amt <= 0 || !selectedMember) {
-      showToast('সবগুলো ঘর সঠিকভাবে পূরণ করুন।', 'error');
+    // Validate all rows
+    for (let i = 0; i < expenseRows.length; i++) {
+      const row = expenseRows[i];
+      const amt = Number(row.amount);
+      if (!row.category || !row.amount || amt <= 0) {
+        showToast(`অনুগ্রহ করে ${i + 1} নং লাইনের ক্যাটেগরি ও সঠিক পরিমাণ দিন।`, 'error');
+        return;
+      }
+    }
+    if (!selectedMember || !fixedDate) {
+      showToast('মেম্বার এবং তারিখ নির্বাচন করুন।', 'error');
       return;
     }
 
     setSavingFixed(true);
     try {
-      if (selectedMember === 'all') {
-        // Divide equally among all users
-        const dividedAmt = amt / members.length;
-        for (const m of members) {
-          await addDoc(collection(db, 'fixed_expenses'), {
-            memberId: m.id,
-            memberName: m.name,
-            category: fixedCategory,
-            amount: dividedAmt,
+      const { writeBatch, collection, doc } = await import('../utils/firebase');
+      const batch = writeBatch(db);
+
+      for (const row of expenseRows) {
+        const amt = Number(row.amount);
+        if (selectedMember === 'all') {
+          const dividedAmt = amt / members.length;
+          for (const m of members) {
+            const newDocRef = doc(collection(db, 'fixed_expenses'));
+            batch.set(newDocRef, {
+              memberId: m.id,
+              memberName: m.name,
+              category: row.category,
+              amount: dividedAmt,
+              date: fixedDate,
+              timestamp: serverTimestamp()
+            });
+          }
+        } else {
+          const member = members.find(m => m.id === selectedMember);
+          const newDocRef = doc(collection(db, 'fixed_expenses'));
+          batch.set(newDocRef, {
+            memberId: selectedMember,
+            memberName: member ? member.name : '',
+            category: row.category,
+            amount: amt,
             date: fixedDate,
             timestamp: serverTimestamp()
           });
         }
-        showToast('সকল মেম্বারদের জন্য ফিক্সড খরচ বিভক্ত করে যোগ করা হয়েছে!', 'success');
-      } else {
-        const member = members.find(m => m.id === selectedMember);
-        await addDoc(collection(db, 'fixed_expenses'), {
-          memberId: selectedMember,
-          memberName: member ? member.name : '',
-          category: fixedCategory,
-          amount: amt,
-          date: fixedDate,
-          timestamp: serverTimestamp()
-        });
-        showToast('মেম্বারের ফিক্সড খরচ সফলভাবে যোগ করা হয়েছে!', 'success');
       }
 
-      setFixedCategory('');
-      setFixedAmount('');
+      await batch.commit();
+      showToast('সবগুলো ফিক্সড খরচ সফলভাবে ব্যাচ-আপডেট করা হয়েছে!', 'success');
+      setExpenseRows([{ category: '', amount: '' }]);
       setSelectedMember('');
     } catch (err) {
-      console.error('Fixed Expense Save Error:', err);
+      console.error('Batch Fixed Expense Save Error:', err);
       showToast('সেভ করতে সমস্যা হয়েছে।', 'error');
     } finally {
       setSavingFixed(false);
@@ -130,65 +158,99 @@ const FixedExpenses = () => {
       {/* Fixed Expenses Form (Manager Only) */}
       {isManagerUser && (
         <div className="card glass-card">
-          <h3 style={{ marginBottom: '1.5rem', color: 'var(--accent-green)' }}>🏠 ফিক্সড খরচ ইস্যু করুন</h3>
-          <form onSubmit={handleIssueFixedExpense} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem', alignItems: 'end' }}>
-            <div className="form-group">
-              <label>ক্যাটেগরি</label>
-              <select 
-                className="form-control" 
-                value={fixedCategory} 
-                onChange={e => setFixedCategory(e.target.value)} 
-                required
-              >
-                <option value="">নির্বাচন করুন</option>
-                <option value="বাসা ভাড়া">বাসা ভাড়া</option>
-                <option value="বিদ্যুৎ বিল">বিদ্যুৎ বিল</option>
-                <option value="ওয়াইফাই বিল">ওয়াইফাই বিল</option>
-                <option value="গ্যাস বিল">গ্যাস বিল</option>
-                <option value="আসবাবপত্র">আসবাবপত্র</option>
-                <option value="অন্যান্য">অন্যান্য</option>
-              </select>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
+            <h3 style={{ margin: 0, color: 'var(--accent-green)' }}>🏠 ফিক্সড খরচ ইস্যু করুন</h3>
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>তারিখ</label>
+                <input 
+                  type="date" 
+                  className="form-control" 
+                  value={fixedDate} 
+                  onChange={e => setFixedDate(e.target.value)} 
+                  style={{ width: '160px', minHeight: '36px', padding: '0.25rem 0.5rem' }}
+                  required 
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>মেম্বার নির্বাচন</label>
+                <select 
+                  className="form-control" 
+                  value={selectedMember} 
+                  onChange={e => setSelectedMember(e.target.value)} 
+                  style={{ width: '180px', minHeight: '36px', padding: '0.25rem 0.5rem' }}
+                  required
+                >
+                  <option value="">নির্বাচন করুন</option>
+                  <option value="all">All Members (সমান ভাগে বিভক্ত)</option>
+                  {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+              </div>
             </div>
-            <div className="form-group">
-              <label>পরিমাণ (৳)</label>
-              <input 
-                type="number" 
-                className="form-control" 
-                value={fixedAmount} 
-                onChange={e => setFixedAmount(e.target.value)} 
-                placeholder="৳০০.০০" 
-                required 
-              />
+          </div>
+
+          <form onSubmit={handleIssueFixedExpense}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+              {expenseRows.map((row, index) => (
+                <div key={index} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto auto', gap: '1rem', alignItems: 'end' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    {index === 0 && <label style={{ fontSize: '0.85rem' }}>ক্যাটেগরি</label>}
+                    <select 
+                      className="form-control" 
+                      value={row.category} 
+                      onChange={e => handleRowChange(index, 'category', e.target.value)} 
+                      required
+                    >
+                      <option value="">নির্বাচন করুন</option>
+                      <option value="বাসা ভাড়া">বাসা ভাড়া</option>
+                      <option value="বিদ্যুৎ বিল">বিদ্যুৎ বিল</option>
+                      <option value="ওয়াইফাই বিল">ওয়াইফাই বিল</option>
+                      <option value="গ্যাস বিল">গ্যাস বিল</option>
+                      <option value="আসবাবপত্র খরচ">আসবাবপত্র খরচ</option>
+                      <option value="অন্যান্য">অন্যান্য</option>
+                    </select>
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    {index === 0 && <label style={{ fontSize: '0.85rem' }}>পরিমাণ (৳)</label>}
+                    <input 
+                      type="number" 
+                      className="form-control" 
+                      value={row.amount} 
+                      onChange={e => handleRowChange(index, 'amount', e.target.value)} 
+                      placeholder="৳০০.০০" 
+                      required 
+                    />
+                  </div>
+                  <button 
+                    type="button" 
+                    className="btn btn-primary" 
+                    onClick={handleAddRow}
+                    style={{ height: '42px', width: '42px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem' }}
+                    title="নতুন রো যোগ করুন"
+                  >
+                    +
+                  </button>
+                  {expenseRows.length > 1 && (
+                    <button 
+                      type="button" 
+                      className="btn btn-danger" 
+                      onClick={() => handleRemoveRow(index)}
+                      style={{ height: '42px', width: '42px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem' }}
+                      title="রো ডিলিট করুন"
+                    >
+                      🗑️
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
-            <div className="form-group">
-              <label>তারিখ</label>
-              <input 
-                type="date" 
-                className="form-control" 
-                value={fixedDate} 
-                onChange={e => setFixedDate(e.target.value)} 
-                required 
-              />
-            </div>
-            <div className="form-group">
-              <label>মেম্বার নির্বাচন</label>
-              <select 
-                className="form-control" 
-                value={selectedMember} 
-                onChange={e => setSelectedMember(e.target.value)} 
-                required
-              >
-                <option value="">নির্বাচন করুন</option>
-                <option value="all">All Members (সমান ভাগে বিভক্ত)</option>
-                {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-              </select>
-            </div>
-            <div style={{ display: 'flex', gap: '0.75rem', gridColumn: 'span 1' }}>
+
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
               <button 
                 type="submit" 
                 className="btn btn-success" 
                 disabled={savingFixed}
-                style={{ flex: 1, height: 'fit-content', padding: '0.875rem 1rem' }}
+                style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}
               >
                 {savingFixed ? 'সেভ হচ্ছে...' : 'ফিক্সড খরচ যোগ করুন'}
               </button>
