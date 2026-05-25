@@ -86,7 +86,7 @@ const UserDashboard = () => {
                  data.userName === currentUser.name;
         });
       logs.sort((a, b) => b.date.localeCompare(a.date));
-      setMealLogs(logs.slice(0, 10));
+      setMealLogs(logs.slice(0, 31));
     });
 
     // Listen to personal fixed expenses strictly querying by unique Firestore Document ID
@@ -277,18 +277,18 @@ const UserDashboard = () => {
             <h3 style={{ fontSize:'1.1rem', fontWeight:'600', marginBottom:'1.5rem' }}>📅 আমার সাম্প্রতিক মিল রেকর্ড</h3>
             <div className="w-full">
               {/* Header Row */}
-              <div className="flex justify-between items-center w-full pb-2 border-b border-[var(--border-color)] text-xs uppercase tracking-wider text-[var(--text-secondary)] font-semibold">
+              <div className="flex justify-between items-center w-full pb-2 border-b border-[var(--border-color)] text-xs uppercase tracking-wider text-[var(--text-secondary)] font-semibold mb-2">
                 <span>তারিখ</span>
                 <span>মিল সংখ্যা</span>
               </div>
               
-              {/* Body Rows */}
-              <div className="divide-y divide-[var(--border-color)]">
+              {/* Scrollable Body Rows */}
+              <div className="max-h-[280px] overflow-y-auto pr-1 css-scrollbar scrollbar-thin scrollbar-thumb-gray-800 divide-y divide-gray-800">
                 {mealLogs.length === 0 ? (
                   <div className="text-center text-[var(--text-secondary)] py-8">কোনো রেকর্ড পাওয়া যায়নি।</div>
                 ) : mealLogs.map(log => {
                   return (
-                    <div key={log.id} className="flex justify-between items-center w-full py-3 text-sm md:text-base text-[var(--text-primary)]">
+                    <div key={log.id} className="w-full flex justify-between items-center py-2.5 border-b border-gray-800 text-sm md:text-base text-[var(--text-primary)]">
                       <span className="font-medium">{log.date}</span>
                       <span style={{ fontWeight:'700', color:'var(--accent-blue)' }}>
                         <span className="badge badge-success" style={{ fontSize: '0.9rem', backgroundColor: 'rgba(0, 209, 255, 0.1)', color: 'var(--accent-blue)', border: 'none' }}>

@@ -430,4 +430,20 @@ td {
   color: var(--accent-blue) !important;
 }
 
+/* Custom scrollbar utility */
+.css-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.css-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.css-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+.css-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+
 
