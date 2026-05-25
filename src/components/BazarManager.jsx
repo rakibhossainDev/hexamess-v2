@@ -8,40 +8,67 @@ import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 import BottomNav from './BottomNav';
 
-const renderBazarItem = (rawText) => {
+const renderBazarItems = (rawText) => {
   try {
-    if (!rawText) return "";
+    if (!rawText || typeof rawText !== 'string') return "";
     
+    let formattedText = rawText;
+    const bengaliDigits = ['১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯', '১০'];
+    const englishDigits = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
+    
+    bengaliDigits.forEach(digit => {
+      // Delimiter with space
+      formattedText = formattedText.replaceAll(` ${digit}।`, `|${digit}।`);
+      formattedText = formattedText.replaceAll(` ${digit}.`, `|${digit}.`);
+      formattedText = formattedText.replaceAll(` ${digit})`, `|${digit})`);
+      // Delimiter without space at the start
+      if (!formattedText.startsWith(`${digit}।`)) {
+        formattedText = formattedText.replaceAll(`${digit}।`, `|${digit}।`);
+      }
+      if (!formattedText.startsWith(`${digit}.`)) {
+        formattedText = formattedText.replaceAll(`${digit}.`, `|${digit}.`);
+      }
+      if (!formattedText.startsWith(`${digit})`)) {
+        formattedText = formattedText.replaceAll(`${digit})`, `|${digit})`);
+      }
+    });
+
+    englishDigits.forEach(digit => {
+      // Delimiter with space
+      formattedText = formattedText.replaceAll(` ${digit}।`, `|${digit}।`);
+      formattedText = formattedText.replaceAll(` ${digit}.`, `|${digit}.`);
+      formattedText = formattedText.replaceAll(` ${digit})`, `|${digit})`);
+      // Delimiter without space at the start
+      if (!formattedText.startsWith(`${digit}।`)) {
+        formattedText = formattedText.replaceAll(`${digit}।`, `|${digit}।`);
+      }
+      if (!formattedText.startsWith(`${digit}.`)) {
+        formattedText = formattedText.replaceAll(`${digit}.`, `|${digit}.`);
+      }
+      if (!formattedText.startsWith(`${digit})`)) {
+        formattedText = formattedText.replaceAll(`${digit})`, `|${digit})`);
+      }
+    });
+
     let lines;
-    const hasNumbers = /[১-৯০-৯\d]+[।.)]/.test(rawText);
-    
-    if (hasNumbers) {
-      lines = rawText.split(/(?=[১-৯০-৯\d]+[।.)])/) || [rawText];
-    } else if (/[,|]/.test(rawText)) {
-      lines = rawText.split(/[,|]/) || [rawText];
+    if (formattedText.includes('|')) {
+      lines = formattedText.split('|');
+    } else if (rawText.includes(',')) {
+      lines = rawText.split(',');
+    } else if (rawText.includes('|')) {
+      lines = rawText.split('|');
     } else {
       lines = [rawText];
     }
     
-    return (
-      <div className="bazar-item-tiro">
-        {lines.map((line, index) => {
-          if (!line) return null;
-          return (
-            <div 
-              key={index} 
-              className="block py-0.5 text-gray-200 whitespace-pre-line" 
-              style={{ fontFamily: "'Tiro Bangla', serif" }}
-            >
-              {line.trim()}
-            </div>
-          );
-        })}
+    return lines.map((line, index) => (
+      <div key={index} className="block py-0.5 text-gray-200" style={{ fontFamily: "'Tiro Bangla', serif", display: 'block' }}>
+        {line.trim()}
       </div>
-    );
+    ));
   } catch (error) {
     console.error("Error rendering bazar items:", error);
-    return <span className="bazar-item-tiro">{String(rawText || "")}</span>;
+    return <div className="block py-0.5 text-gray-200" style={{ fontFamily: "'Tiro Bangla', serif", display: 'block' }}>{String(rawText || "")}</div>;
   }
 };
 
@@ -275,7 +302,7 @@ const BazarManager = () => {
                   <span className="text-sm text-[var(--text-secondary)]">{formatDisplayDate(r.date)}</span>
                   <span className="font-bold text-[var(--accent-orange)] text-lg">৳{r.amount}</span>
                 </div>
-                <div className="font-medium text-[var(--text-primary)] mb-1">{renderBazarItem(r?.itemName)}</div>
+                <div className="font-medium text-[var(--text-primary)] mb-1">{renderBazarItems(r?.itemName || r?.item || r?.items || "")}</div>
                 <div className="text-sm text-[var(--text-secondary)] mb-4">বাজারকারী: {r.managerName}</div>
                 {isManagerUser && (
                   <div className="flex gap-3 justify-end border-t border-[var(--border-color)] pt-3">
@@ -315,7 +342,7 @@ const BazarManager = () => {
                 bazarRecords.map(r => (
                   <tr key={r.id} style={{ background: editingId === r.id ? 'rgba(0, 150, 255, 0.1)' : 'transparent' }}>
                     <td>{formatDisplayDate(r.date)}</td>
-                    <td style={{ fontWeight: '500' }}>{renderBazarItem(r?.itemName)}</td>
+                    <td style={{ fontWeight: '500' }}>{renderBazarItems(r?.itemName || r?.item || r?.items || "")}</td>
                     <td>{r.managerName}</td>
                     <td style={{ textAlign: 'right', fontWeight: '700', color: 'var(--accent-orange)' }}>৳{r.amount}</td>
                     {isManagerUser && (
