@@ -275,31 +275,30 @@ const UserDashboard = () => {
 
           <div className="card">
             <h3 style={{ fontSize:'1.1rem', fontWeight:'600', marginBottom:'1.5rem' }}>📅 আমার সাম্প্রতিক মিল রেকর্ড</h3>
-            <div className="table-container">
-              <table>
-                <thead>
-                  <tr>
-                    <th>তারিখ</th>
-                    <th style={{ textAlign:'right' }}>মিল সংখ্যা</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {mealLogs.length === 0 ? (
-                    <tr><td colSpan="2" style={{ textAlign:'center', color:'var(--text-secondary)', padding:'2rem' }}>কোনো রেকর্ড পাওয়া যায়নি।</td></tr>
-                  ) : mealLogs.map(log => {
-                    return (
-                      <tr key={log.id}>
-                        <td>{log.date}</td>
-                        <td style={{ textAlign:'right', fontWeight:'700', color:'var(--accent-blue)' }}>
-                          <span className="badge badge-blue" style={{ fontSize: '0.9rem' }}>
-                            {Number(log.count || 0)} টি
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="w-full">
+              {/* Header Row */}
+              <div className="flex justify-between items-center w-full pb-2 border-b border-[var(--border-color)] text-xs uppercase tracking-wider text-[var(--text-secondary)] font-semibold">
+                <span>তারিখ</span>
+                <span>মিল সংখ্যা</span>
+              </div>
+              
+              {/* Body Rows */}
+              <div className="divide-y divide-[var(--border-color)]">
+                {mealLogs.length === 0 ? (
+                  <div className="text-center text-[var(--text-secondary)] py-8">কোনো রেকর্ড পাওয়া যায়নি।</div>
+                ) : mealLogs.map(log => {
+                  return (
+                    <div key={log.id} className="flex justify-between items-center w-full py-3 text-sm md:text-base text-[var(--text-primary)]">
+                      <span className="font-medium">{log.date}</span>
+                      <span style={{ fontWeight:'700', color:'var(--accent-blue)' }}>
+                        <span className="badge badge-success" style={{ fontSize: '0.9rem', backgroundColor: 'rgba(0, 209, 255, 0.1)', color: 'var(--accent-blue)', border: 'none' }}>
+                          {Number(log.count || 0)} টি
+                        </span>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
