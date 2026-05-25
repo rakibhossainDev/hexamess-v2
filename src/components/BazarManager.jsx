@@ -10,25 +10,27 @@ import BottomNav from './BottomNav';
 
 const renderBazarItem = (itemName) => {
   if (!itemName) return null;
-  
-  // Split by comma or pipe, trim spaces
-  const segments = itemName.split(/[,|]/).map(s => s.trim()).filter(Boolean);
-  
-  if (segments.length <= 1) {
-    return <span className="bazar-item-desc">{itemName}</span>;
+
+  const hasSerialNumbers = /(?:[১-৯০-৯\d]+[।.)])/.test(itemName);
+  let itemLines;
+  if (hasSerialNumbers) {
+    itemLines = itemName.split(/(?=[১-৯০-৯\d]+[।.)])/);
+  } else if (/[,|]/.test(itemName)) {
+    itemLines = itemName.split(/[,|]/);
+  } else {
+    itemLines = [itemName];
   }
   
+  const parsedLines = itemLines.map(line => line.trim()).filter(Boolean);
+
   return (
-    <span className="bazar-item-container">
-      {segments.map((segment, idx) => (
-        <span key={idx} className="bazar-item-segment">
-          <span className="bazar-item-desc">{segment}</span>
-          {idx < segments.length - 1 && (
-            <span className="bazar-item-separator">•</span>
-          )}
-        </span>
+    <div className="bazar-item-tiro">
+      {parsedLines.map((line, idx) => (
+        <div key={idx} className="block py-0.5 whitespace-pre-line text-gray-200">
+          {line}
+        </div>
       ))}
-    </span>
+    </div>
   );
 };
 

@@ -310,29 +310,10 @@ td {
 .row-danger td { background: rgba(239, 68, 68, 0.05) !important; }
 
 /* Bazar Item typography and layout styling */
-.bazar-item-desc {
+.bazar-item-tiro {
   font-family: 'Tiro Bangla', serif;
   line-height: 1.6;
-  letter-spacing: 0.02em;
-  color: #e2e8f0;
+  font-size: 1.05rem;
   word-break: break-word;
 }
 
-.bazar-item-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.375rem 0.5rem;
-  align-items: center;
-}
-
-.bazar-item-segment {
-  display: inline-flex;
-  align-items: center;
-}
-
-.bazar-item-separator {
-  margin-left: 0.5rem;
-  color: var(--accent-blue);
-  opacity: 0.6;
-  font-weight: 600;
-}
