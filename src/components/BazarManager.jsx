@@ -8,6 +8,30 @@ import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 import BottomNav from './BottomNav';
 
+const renderBazarItem = (itemName) => {
+  if (!itemName) return null;
+  
+  // Split by comma or pipe, trim spaces
+  const segments = itemName.split(/[,|]/).map(s => s.trim()).filter(Boolean);
+  
+  if (segments.length <= 1) {
+    return <span className="bazar-item-desc">{itemName}</span>;
+  }
+  
+  return (
+    <span className="bazar-item-container">
+      {segments.map((segment, idx) => (
+        <span key={idx} className="bazar-item-segment">
+          <span className="bazar-item-desc">{segment}</span>
+          {idx < segments.length - 1 && (
+            <span className="bazar-item-separator">•</span>
+          )}
+        </span>
+      ))}
+    </span>
+  );
+};
+
 const BazarManager = () => {
   const [members, setMembers] = useState([]);
   const [bazarRecords, setBazarRecords] = useState([]);
@@ -238,7 +262,7 @@ const BazarManager = () => {
                   <span className="text-sm text-[var(--text-secondary)]">{formatDisplayDate(r.date)}</span>
                   <span className="font-bold text-[var(--accent-orange)] text-lg">৳{r.amount}</span>
                 </div>
-                <div className="font-medium text-[var(--text-primary)] mb-1">{r.itemName}</div>
+                <div className="font-medium text-[var(--text-primary)] mb-1">{renderBazarItem(r.itemName)}</div>
                 <div className="text-sm text-[var(--text-secondary)] mb-4">বাজারকারী: {r.managerName}</div>
                 {isManagerUser && (
                   <div className="flex gap-3 justify-end border-t border-[var(--border-color)] pt-3">
@@ -278,7 +302,7 @@ const BazarManager = () => {
                 bazarRecords.map(r => (
                   <tr key={r.id} style={{ background: editingId === r.id ? 'rgba(0, 150, 255, 0.1)' : 'transparent' }}>
                     <td>{formatDisplayDate(r.date)}</td>
-                    <td style={{ fontWeight: '500' }}>{r.itemName}</td>
+                    <td style={{ fontWeight: '500' }}>{renderBazarItem(r.itemName)}</td>
                     <td>{r.managerName}</td>
                     <td style={{ textAlign: 'right', fontWeight: '700', color: 'var(--accent-orange)' }}>৳{r.amount}</td>
                     {isManagerUser && (
