@@ -8,30 +8,41 @@ import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 import BottomNav from './BottomNav';
 
-const renderBazarItem = (itemName) => {
-  if (!itemName) return null;
-
-  const hasSerialNumbers = /(?:[১-৯০-৯\d]+[।.)])/.test(itemName);
-  let itemLines;
-  if (hasSerialNumbers) {
-    itemLines = itemName.split(/(?=[১-৯০-৯\d]+[।.)])/);
-  } else if (/[,|]/.test(itemName)) {
-    itemLines = itemName.split(/[,|]/);
-  } else {
-    itemLines = [itemName];
+const renderBazarItem = (rawText) => {
+  try {
+    if (!rawText) return "";
+    
+    let lines;
+    const hasNumbers = /[১-৯০-৯\d]+[।.)]/.test(rawText);
+    
+    if (hasNumbers) {
+      lines = rawText.split(/(?=[১-৯০-৯\d]+[।.)])/) || [rawText];
+    } else if (/[,|]/.test(rawText)) {
+      lines = rawText.split(/[,|]/) || [rawText];
+    } else {
+      lines = [rawText];
+    }
+    
+    return (
+      <div className="bazar-item-tiro">
+        {lines.map((line, index) => {
+          if (!line) return null;
+          return (
+            <div 
+              key={index} 
+              className="block py-0.5 text-gray-200 whitespace-pre-line" 
+              style={{ fontFamily: "'Tiro Bangla', serif" }}
+            >
+              {line.trim()}
+            </div>
+          );
+        })}
+      </div>
+    );
+  } catch (error) {
+    console.error("Error rendering bazar items:", error);
+    return <span className="bazar-item-tiro">{String(rawText || "")}</span>;
   }
-  
-  const parsedLines = itemLines.map(line => line.trim()).filter(Boolean);
-
-  return (
-    <div className="bazar-item-tiro">
-      {parsedLines.map((line, idx) => (
-        <div key={idx} className="block py-0.5 whitespace-pre-line text-gray-200">
-          {line}
-        </div>
-      ))}
-    </div>
-  );
 };
 
 const BazarManager = () => {
@@ -264,7 +275,7 @@ const BazarManager = () => {
                   <span className="text-sm text-[var(--text-secondary)]">{formatDisplayDate(r.date)}</span>
                   <span className="font-bold text-[var(--accent-orange)] text-lg">৳{r.amount}</span>
                 </div>
-                <div className="font-medium text-[var(--text-primary)] mb-1">{renderBazarItem(r.itemName)}</div>
+                <div className="font-medium text-[var(--text-primary)] mb-1">{renderBazarItem(r?.itemName)}</div>
                 <div className="text-sm text-[var(--text-secondary)] mb-4">বাজারকারী: {r.managerName}</div>
                 {isManagerUser && (
                   <div className="flex gap-3 justify-end border-t border-[var(--border-color)] pt-3">
@@ -304,7 +315,7 @@ const BazarManager = () => {
                 bazarRecords.map(r => (
                   <tr key={r.id} style={{ background: editingId === r.id ? 'rgba(0, 150, 255, 0.1)' : 'transparent' }}>
                     <td>{formatDisplayDate(r.date)}</td>
-                    <td style={{ fontWeight: '500' }}>{renderBazarItem(r.itemName)}</td>
+                    <td style={{ fontWeight: '500' }}>{renderBazarItem(r?.itemName)}</td>
                     <td>{r.managerName}</td>
                     <td style={{ textAlign: 'right', fontWeight: '700', color: 'var(--accent-orange)' }}>৳{r.amount}</td>
                     {isManagerUser && (
