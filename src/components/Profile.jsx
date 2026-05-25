@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { db, doc, onSnapshot, updateDoc } from '../firebase';
+import { db, doc, onSnapshot, updateDoc, collection, query, where } from '../utils/firebase';
 import { ToastContainer } from './Toast';
 import { useToast } from '../hooks/useToast';
 import Sidebar from './Sidebar';
@@ -11,7 +11,8 @@ const Profile = ({ isAdminView = false }) => {
   const { id: paramId } = useParams();
   const navigate = useNavigate();
   const loggedInUserId = localStorage.getItem('hexamess-user-id');
-  const isAdmin = localStorage.getItem('hexamess-admin') === 'true';
+  const currentUser = JSON.parse(localStorage.getItem('hexa_user') || '{}');
+  const isManager = currentUser?.username === 'manager';
   
   // Use paramId if in admin view, otherwise use loggedInUserId
   const userId = isAdminView ? paramId : loggedInUserId;
@@ -30,13 +31,18 @@ const Profile = ({ isAdminView = false }) => {
   const [updating, setUpdating] = useState(false);
   const { toasts, showToast, removeToast } = useToast();
 
+  // Dynamic calculations states
+  const [personalDeposits, setPersonalDeposits] = useState(0);
+  const [personalMeals, setPersonalMeals] = useState(0);
+  const [liveMealRate, setLiveMealRate] = useState(0);
+
   useEffect(() => {
     if (!db || !userId) {
       setTimeout(() => setLoading(false), 0);
       return;
     }
 
-    const unsub = onSnapshot(doc(db, 'users', userId), (snap) => {
+    const unsubUser = onSnapshot(doc(db, 'users', userId), (snap) => {
       if (snap.exists()) {
         const data = snap.data();
         setUser({ id: snap.id, ...data });
@@ -56,13 +62,40 @@ const Profile = ({ isAdminView = false }) => {
       setLoading(false);
     });
 
-    return () => unsub();
+    const currentMonth = `${new Date().getMonth() + 1}`.padStart(2, '0') + '-' + new Date().getFullYear();
+
+    // Query strictly where memberId == userId
+    const unsubDeposits = onSnapshot(query(collection(db, 'deposits'), where('memberId', '==', userId)), snap => {
+      const total = snap.docs.reduce((sum, d) => sum + Number(d.data().amount || 0), 0);
+      setPersonalDeposits(total);
+    });
+
+    const unsubMeals = onSnapshot(query(collection(db, 'daily_meals'), where('memberId', '==', userId)), snap => {
+      const total = snap.docs.reduce((sum, d) => sum + Number(d.data().count || 0), 0);
+      setPersonalMeals(total);
+    });
+
+    // Global queries for meal rate
+    const unsubGlobalMeals = onSnapshot(query(collection(db, 'daily_meals'), where('monthYear', '==', currentMonth)), snap => {
+      const totalM = snap.docs.reduce((sum, d) => sum + Number(d.data().count || 0), 0);
+      
+      const unsubBazar = onSnapshot(query(collection(db, 'bazar_records'), where('monthYear', '==', currentMonth)), bazarSnap => {
+        const totalB = bazarSnap.docs.reduce((sum, d) => sum + Number(d.data().amount || 0), 0);
+        setLiveMealRate(totalM > 0 ? (totalB / totalM) : 0);
+      });
+      return unsubBazar;
+    });
+
+    return () => { unsubUser(); unsubDeposits(); unsubMeals(); unsubGlobalMeals(); };
   }, [userId]);
+
+  const personalCurrentCost = personalMeals * liveMealRate;
+  const personalNetBalance = personalDeposits - personalCurrentCost;
 
 
   const handleUpdate = async (e) => {
     e.preventDefault();
-    if (isAdminView && !isAdmin) return;
+    if (isAdminView && !isManager) return;
     
     setUpdating(true);
     try {
@@ -125,15 +158,16 @@ const Profile = ({ isAdminView = false }) => {
               {user.status === 'active' ? 'সক্রিয়' : 'নিষ্ক্রিয়'}
             </span>
             <span className="badge badge-manager">
-              {user.role === 'admin' ? 'ম্যানেজার' : 'সদস্য'}
+              {user.username === 'manager' ? 'ম্যানেজার' : 'সদস্য'}
             </span>
           </div>
         </div>
 
-        {/* Update Form */}
-        <div className="card">
-          <h3 style={{ marginBottom: '1.5rem', color: 'var(--accent-blue)' }}>তথ্য আপডেট করুন</h3>
-          <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        {/* Update Form (Hidden for non-managers unless in admin view) */}
+        {(isManager || isAdminView) && (
+          <div className="card">
+            <h3 style={{ marginBottom: '1.5rem', color: 'var(--accent-blue)' }}>তথ্য আপডেট করুন</h3>
+            <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             {!isAdminView && (
               <>
                 <div className="form-group">
@@ -155,7 +189,7 @@ const Profile = ({ isAdminView = false }) => {
                   className="form-control"
                   value={formData.bloodGroup}
                   onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })}
-                  disabled={isAdminView && !isAdmin}
+                  disabled={isAdminView && !isManager}
                 >
                   <option value="">নির্বাচন করুন</option>
                   {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(bg => (
@@ -170,7 +204,7 @@ const Profile = ({ isAdminView = false }) => {
                   placeholder="017XXXXXXXX"
                   value={formData.mobileNumber}
                   onChange={(e) => setFormData({ ...formData, mobileNumber: e.target.value })}
-                  disabled={isAdminView && !isAdmin}
+                  disabled={isAdminView && !isManager}
                 />
               </div>
             </div>
@@ -182,7 +216,7 @@ const Profile = ({ isAdminView = false }) => {
                 placeholder="যেমন: ছাত্র, চাকরিজীবী"
                 value={formData.occupation}
                 onChange={(e) => setFormData({ ...formData, occupation: e.target.value })}
-                disabled={isAdminView && !isAdmin}
+                disabled={isAdminView && !isManager}
               />
             </div>
 
@@ -193,7 +227,7 @@ const Profile = ({ isAdminView = false }) => {
                 placeholder="আপনার বর্তমান ঠিকানা দিন..."
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                disabled={isAdminView && !isAdmin}
+                disabled={isAdminView && !isManager}
                 style={{ minHeight: '80px', resize: 'vertical' }}
               />
             </div>
@@ -204,7 +238,8 @@ const Profile = ({ isAdminView = false }) => {
               </button>
             )}
           </form>
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Stats Summary */}
@@ -213,15 +248,19 @@ const Profile = ({ isAdminView = false }) => {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
           <div style={{ padding: '1rem', background: 'var(--surface-hover)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>মোট জমা</p>
-            <p style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--accent-green)' }}>৳{user.total_deposit || 0}</p>
+            <p style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--accent-green)' }}>৳{personalDeposits.toFixed(0)}</p>
           </div>
           <div style={{ padding: '1rem', background: 'var(--surface-hover)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>মোট মিল</p>
-            <p style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--accent-blue)' }}>{user.total_meals || 0}</p>
+            <p style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--accent-blue)' }}>{personalMeals}</p>
+          </div>
+          <div style={{ padding: '1rem', background: 'var(--surface-hover)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>চলতি খরচ</p>
+            <p style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--accent-purple)' }}>৳{personalCurrentCost.toFixed(0)}</p>
           </div>
           <div style={{ padding: '1rem', background: 'var(--surface-hover)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>বর্তমান ব্যালেন্স</p>
-            <p style={{ fontSize: '1.25rem', fontWeight: '700', color: (user.current_balance || 0) < 0 ? 'var(--accent-red)' : 'var(--accent-green)' }}>৳{user.current_balance || 0}</p>
+            <p style={{ fontSize: '1.25rem', fontWeight: '700', color: personalNetBalance < 0 ? 'var(--accent-red)' : 'var(--accent-green)' }}>৳{personalNetBalance.toFixed(0)}</p>
           </div>
         </div>
       </div>
@@ -232,14 +271,14 @@ const Profile = ({ isAdminView = false }) => {
 
   return (
     <div className="app-layout">
-      <Sidebar isManager={isAdmin} />
+      <Sidebar isManager={isManager} />
       <main className="main-content" style={{ padding: '0 0 80px 0' }}>
-        <Navbar userName={user.name} userRole={isAdmin ? "ম্যানেজার" : "সদস্য"} />
+        <Navbar userName={user.name} userRole={isManager ? "ম্যানেজার" : "সদস্য"} />
         <div style={{ padding: '1.5rem' }}>
           {content}
         </div>
       </main>
-      <BottomNav isManager={isAdmin} />
+      <BottomNav isManager={isManager} />
     </div>
   );
 };

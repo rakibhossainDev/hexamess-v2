@@ -44,11 +44,9 @@ const UserDashboard = () => {
   }, [userId]);
 
   const [myFixedExpenses, setMyFixedExpenses] = useState([]);
-  const [myDeposits, setMyDeposits] = useState([]);
   const [globalDeposits, setGlobalDeposits] = useState([]);
   const [monthTotalMeals, setMonthTotalMeals] = useState(0);
   const [totalBazarAmount, setTotalBazarAmount] = useState(0);
-  const [userMonthTotalMeals, setUserMonthTotalMeals] = useState(0);
 
   useEffect(() => {
     if (!db || !currentUser || !monthId) return;
@@ -99,15 +97,6 @@ const UserDashboard = () => {
       setMyFixedExpenses(filtered.map(dSnap => dSnap.data()));
     });
 
-    // Listen to personal deposits strictly querying by unique Firestore Document ID
-    const qDeposits = query(collection(db, 'deposits'), where('memberId', '==', currentUser.id));
-    const unsubDeposits = onSnapshot(qDeposits, snap => {
-      const filtered = snap.docs.filter(dSnap => {
-        const data = dSnap.data();
-        return data.memberId === currentUser.id || data.memberId === currentUser.username;
-      });
-      setMyDeposits(filtered.map(dSnap => dSnap.data()));
-    });
 
     // Listen to global deposits
     const unsubGlobalDeposits = onSnapshot(collection(db, 'deposits'), snap => {
@@ -128,31 +117,14 @@ const UserDashboard = () => {
       setMonthTotalMeals(sumAll);
     });
 
-    const qMealsPersonal = query(collection(db, 'daily_meals'), where('memberId', '==', currentUser.id));
-    const unsubMealsPersonal = onSnapshot(qMealsPersonal, snap => {
-      const sumUser = snap.docs.reduce((s, dSnap) => {
-        const data = dSnap.data();
-        if (data.monthYear !== monthId) return s;
-        if (data.memberId === currentUser.id || 
-            data.user_id === currentUser.id || 
-            data.memberId === currentUser.username || 
-            data.user_id === currentUser.username) {
-          return s + Number(data.count || 0);
-        }
-        return s;
-      }, 0);
-      setUserMonthTotalMeals(sumUser);
-    });
 
     return () => {
       unsubToday();
       unsubLogs();
       unsubFixed();
-      unsubDeposits();
       unsubGlobalDeposits();
       unsubBazar();
       unsubMealsGlobal();
-      unsubMealsPersonal();
     };
   }, [currentUser, today, monthId]);
 
@@ -174,22 +146,7 @@ const UserDashboard = () => {
     return globalDepositSum - globalTotalCost;
   }, [globalDepositSum, globalTotalCost]);
 
-  // Personal calculations (for warning alert strictly)
-  const personalTotalDeposit = useMemo(() => {
-    return myDeposits.reduce((sum, dSnap) => sum + Number(dSnap.amount || 0), 0);
-  }, [myDeposits]);
 
-  const personalFixedCost = useMemo(() => {
-    return myFixedExpenses.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
-  }, [myFixedExpenses]);
-
-  const personalTotalCost = useMemo(() => {
-    return (Number(userMonthTotalMeals) * Number(liveMealRate)) + personalFixedCost;
-  }, [userMonthTotalMeals, liveMealRate, personalFixedCost]);
-
-  const personalNetBalance = useMemo(() => {
-    return personalTotalDeposit - personalTotalCost;
-  }, [personalTotalDeposit, personalTotalCost]);
 
   if (!currentUser) return <div className="loading">লোড হচ্ছে...</div>;
 
@@ -197,17 +154,10 @@ const UserDashboard = () => {
     <div className="app-layout" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
       <Sidebar isManager={false} />
       <main className="main-content" style={{ padding: '0 0 80px 0', flex: 1 }}>
-        <Navbar userName={currentUser?.name} userRole={currentUser?.role === 'manager' ? 'ম্যানেজার' : 'সদস্য'} photoURL={currentUser?.photoURL} />
+        <Navbar userName={currentUser?.name} userRole={currentUser?.username === 'manager' ? 'ম্যানেজার' : 'সদস্য'} photoURL={currentUser?.photoURL} />
         <ToastContainer toasts={toasts} removeToast={removeToast} />
 
         <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {personalNetBalance < 0 && (
-            <div className="alert-danger">
-              <span style={{ fontWeight:'bold' }}>!</span> 
-              <span>ব্যালেন্স সতর্কতা: আপনার ব্যালেন্স নেগেটিভ (৳{personalNetBalance.toFixed(0)})। দয়া করে ফান্ড ডিপোজিট করুন।</span>
-            </div>
-          )}
-
           {/* Dynamic 5 Metric Cards */}
           <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
             <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-orange)' }}>
@@ -303,7 +253,7 @@ const UserDashboard = () => {
           </div>
         </div>
       </main>
-      <BottomNav isManager={currentUser?.role === 'manager'} />
+      <BottomNav isManager={currentUser?.username === 'manager'} />
     </div>
   );
 };
