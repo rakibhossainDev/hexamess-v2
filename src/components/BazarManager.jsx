@@ -62,13 +62,13 @@ const renderBazarItems = (rawText) => {
     }
     
     return lines.map((line, index) => (
-      <div key={index} className="block py-0.5 text-gray-200" style={{ fontFamily: "'Tiro Bangla', serif", display: 'block' }}>
+      <div key={index} className="bazar-item-tiro block py-0.5 text-gray-200" style={{ fontFamily: "'Tiro Bangla', serif", display: 'block' }}>
         {line.trim()}
       </div>
     ));
   } catch (error) {
     console.error("Error rendering bazar items:", error);
-    return <div className="block py-0.5 text-gray-200" style={{ fontFamily: "'Tiro Bangla', serif", display: 'block' }}>{String(rawText || "")}</div>;
+    return <div className="bazar-item-tiro block py-0.5 text-gray-200" style={{ fontFamily: "'Tiro Bangla', serif", display: 'block' }}>{String(rawText || "")}</div>;
   }
 };
 
