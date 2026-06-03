@@ -161,7 +161,7 @@ const HistoryArchive = () => {
                 <div className="card">
                   <h3 style={{ marginBottom: '1.25rem', display:'flex', alignItems:'center', gap:'0.5rem' }}>📊 মেম্বার ক্লোজিং ব্যালেন্স</h3>
                   <div className="w-full overflow-x-auto">
-                    <table className="w-full min-w-max border-collapse border border-slate-700 text-left text-sm md:text-base">
+                    <table className="w-full border-collapse border border-slate-700 text-left text-sm md:text-base">
                       <thead className="bg-slate-800 text-slate-200">
                         <tr>
                           <th className="border border-slate-700 p-2">Member Name</th>
@@ -204,25 +204,25 @@ const HistoryArchive = () => {
                 <div className="card">
                   <h3 style={{ marginBottom: '1.25rem' }}>🛒 বাজার বিবরণ</h3>
                   <div className="w-full overflow-x-auto">
-                    <table className="w-full min-w-max border-collapse border border-slate-700 text-left text-sm md:text-base">
+                    <table className="w-full border-collapse border border-slate-700 text-left text-sm md:text-base">
                       <thead className="bg-slate-800 text-slate-200">
                         <tr>
-                          <th className="border border-slate-700 p-3">তারিখ</th>
+                          <th className="border border-slate-700 p-3 whitespace-nowrap">তারিখ</th>
                           <th className="border border-slate-700 p-3">আইটেম</th>
-                          <th className="border border-slate-700 p-3">বাজারকারী</th>
-                          <th className="border border-slate-700 p-3 text-right">খরচ</th>
+                          <th className="border border-slate-700 p-3 whitespace-nowrap">বাজারকারী</th>
+                          <th className="border border-slate-700 p-3 text-right whitespace-nowrap">খরচ</th>
                         </tr>
                       </thead>
                       <tbody className="bg-slate-900 text-slate-300">
                         {[...(historyData.expenses || [])].sort((a, b) => new Date(a.date || a.createdAt || 0) - new Date(b.date || b.createdAt || 0)).map((exp, idx) => (
                           <tr key={idx} className="hover:bg-slate-800/50 even:bg-slate-800/20">
-                            <td className="border border-slate-700 p-3 text-slate-400 text-sm">{exp.date}</td>
-                            <td className="border border-slate-700 p-3">
+                            <td className="border border-slate-700 p-3 text-slate-400 text-sm whitespace-nowrap">{exp.date}</td>
+                            <td className="border border-slate-700 p-3 whitespace-normal break-words min-w-[200px] md:min-w-[300px]">
                               <div className="font-semibold">{exp.itemName || exp.details}</div>
                               {exp.quantity && <div className="text-xs text-slate-400 mt-1">{exp.quantity}</div>}
                             </td>
-                            <td className="border border-slate-700 p-3">{exp.managerName || exp.shopperName || exp.shopper_name || 'N/A'}</td>
-                            <td className="border border-slate-700 p-3 text-right font-bold text-[var(--accent-blue)]">৳{exp.amount || exp.cost}</td>
+                            <td className="border border-slate-700 p-3 whitespace-nowrap">{exp.managerName || exp.shopperName || exp.shopper_name || 'N/A'}</td>
+                            <td className="border border-slate-700 p-3 text-right font-bold text-[var(--accent-blue)] whitespace-nowrap">৳{exp.amount || exp.cost}</td>
                           </tr>
                         ))}
                       </tbody>
