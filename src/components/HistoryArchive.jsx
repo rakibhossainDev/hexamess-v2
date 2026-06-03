@@ -66,14 +66,13 @@ const HistoryArchive = () => {
       <main className="main-content" style={{ padding: isAdminPath ? 0 : '0 0 80px 0' }}>
         {!isAdminPath && <Navbar userName={localStorage.getItem('hexamess-user-name')} userRole={userRole === 'manager' ? 'ম্যানেজার' : 'সদস্য'} />}
         
-        <div style={{ padding: '1.5rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>📅 হিস্টরি আর্কাইভ</h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>মাস:</label>
+        <div className="w-full px-4 md:px-6 py-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+            <h2 className="text-2xl font-bold m-0">📅 হিস্টরি আর্কাইভ</h2>
+            <div className="flex justify-end items-center gap-3">
+              <label className="text-sm text-[var(--text-secondary)]">মাস:</label>
               <select 
-                className="form-control" 
-                style={{ width: 'auto' }}
+                className="form-control w-auto min-w-[150px]" 
                 value={selectedMonth}
                 onChange={(e) => { setSelectedMonth(e.target.value); loadMonthData(e.target.value); }}
               >
@@ -94,16 +93,16 @@ const HistoryArchive = () => {
               <div id="history-pdf-content" className="font-solaiman" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1.5rem', background: 'var(--bg-primary)' }}>
                 
                 {/* Official Document Header */}
-                <div className="flex flex-wrap justify-center items-center gap-2 md:gap-4 mb-4 pb-4 border-b-2 border-[var(--border-color)]">
+                <div className="w-full flex flex-col md:flex-row items-center justify-center gap-3 md:gap-4 my-6 pb-4 border-b-2 border-[var(--border-color)]">
                   <h1 className="text-xl md:text-2xl font-extrabold text-[var(--accent-blue)] m-0 leading-none">Hexamess</h1>
-                  <span className="text-slate-500 font-bold leading-none hidden sm:inline">|</span>
+                  <span className="text-slate-500 font-bold leading-none hidden md:inline">|</span>
                   <h2 className="text-lg md:text-xl font-bold text-white m-0 leading-none">Monthly Session Report</h2>
-                  <span className="text-slate-500 font-bold leading-none hidden sm:inline">|</span>
+                  <span className="text-slate-500 font-bold leading-none hidden md:inline">|</span>
                   <p className="text-sm md:text-base text-slate-400 m-0 leading-none">সেশন: {historyData.month_name}</p>
                   
                   {/* PDF Download Button (Ignored in the PDF export) */}
                   <button 
-                    className="btn btn-primary ml-auto text-sm md:text-base px-3 py-1.5 md:px-4 md:py-2" 
+                    className="btn btn-primary text-sm md:text-base px-4 py-2 mt-2 md:mt-0" 
                     onClick={generatePDF}
                     style={{ background: 'var(--accent-blue)', color: '#000', fontWeight: '600' }}
                     data-html2canvas-ignore="true"
