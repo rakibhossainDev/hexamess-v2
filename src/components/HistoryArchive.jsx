@@ -51,11 +51,11 @@ const HistoryArchive = () => {
     
     // Config for html2pdf
     const opt = {
-      margin:       0.5,
-      filename:     `Hexamess_History_${historyData.month_id}.pdf`,
-      image:        { type: 'jpeg', quality: 0.98 },
+      margin:       0.4,
+      filename:     `Hexamess_Session_Report_${historyData.month_id}.pdf`,
+      image:        { type: 'jpeg', quality: 1 },
       html2canvas:  { scale: 2, useCORS: true },
-      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+      jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
     };
 
     html2pdf().set(opt).from(element).save();
@@ -100,7 +100,15 @@ const HistoryArchive = () => {
               </div>
 
               {/* PDF Content Wrapper */}
-              <div id="history-pdf-content" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1rem', background: 'var(--bg-primary)' }}>
+              <div id="history-pdf-content" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1.5rem', background: 'var(--bg-primary)', fontFamily: 'SolaimanLipi, sans-serif' }}>
+                
+                {/* Official Document Header */}
+                <div style={{ textAlign: 'center', marginBottom: '1rem', borderBottom: '2px solid var(--border-color)', paddingBottom: '1rem' }}>
+                  <h1 style={{ fontSize: '2rem', fontWeight: '800', margin: '0 0 0.5rem 0', color: 'var(--accent-blue)' }}>Hexamess</h1>
+                  <h2 style={{ fontSize: '1.25rem', fontWeight: '600', margin: '0 0 0.25rem 0', color: 'var(--text-primary)' }}>Monthly Session Report</h2>
+                  <p style={{ fontSize: '1rem', color: 'var(--text-secondary)', margin: 0 }}>সেশন: {historyData.month_name}</p>
+                </div>
+
                 {/* Summary Cards */}
                 <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
                   <div className="card glass-card" style={{ 
@@ -173,7 +181,7 @@ const HistoryArchive = () => {
                 <div className="card">
                   <h3 style={{ marginBottom: '1.25rem' }}>🛒 বাজার বিবরণ</h3>
                   <div className="overflow-x-auto">
-                    <table className="w-full border-collapse border border-slate-700 text-left text-sm md:text-base" style={{ fontFamily: 'SolaimanLipi, sans-serif' }}>
+                    <table className="w-full border-collapse border border-slate-700 text-left text-sm md:text-base">
                       <thead className="bg-slate-800 text-slate-200">
                         <tr>
                           <th className="border border-slate-700 p-3">তারিখ</th>
@@ -183,14 +191,14 @@ const HistoryArchive = () => {
                         </tr>
                       </thead>
                       <tbody className="bg-slate-900 text-slate-300">
-                        {(historyData.expenses || []).map((exp, idx) => (
+                        {[...(historyData.expenses || [])].sort((a, b) => new Date(a.date || a.createdAt || 0) - new Date(b.date || b.createdAt || 0)).map((exp, idx) => (
                           <tr key={idx} className="hover:bg-slate-800/50 even:bg-slate-800/20">
                             <td className="border border-slate-700 p-3 text-slate-400 text-sm">{exp.date}</td>
                             <td className="border border-slate-700 p-3">
                               <div className="font-semibold">{exp.itemName || exp.details}</div>
                               {exp.quantity && <div className="text-xs text-slate-400 mt-1">{exp.quantity}</div>}
                             </td>
-                            <td className="border border-slate-700 p-3">{exp.shopperName || exp.shopper_name}</td>
+                            <td className="border border-slate-700 p-3">{exp.managerName || exp.shopperName || exp.shopper_name || 'N/A'}</td>
                             <td className="border border-slate-700 p-3 text-right font-bold text-[var(--accent-blue)]">৳{exp.amount || exp.cost}</td>
                           </tr>
                         ))}
