@@ -100,7 +100,7 @@ const HistoryArchive = () => {
               </div>
 
               {/* PDF Content Wrapper */}
-              <div id="history-pdf-content" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1.5rem', background: 'var(--bg-primary)', fontFamily: 'SolaimanLipi, sans-serif' }}>
+              <div id="history-pdf-content" className="font-solaiman" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1.5rem', background: 'var(--bg-primary)' }}>
                 
                 {/* Official Document Header */}
                 <div style={{ textAlign: 'center', marginBottom: '1rem', borderBottom: '2px solid var(--border-color)', paddingBottom: '1rem' }}>

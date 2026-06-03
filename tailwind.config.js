@@ -8,6 +8,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ['"Hind Siliguri"', 'sans-serif'],
+        solaiman: ['SolaimanLipi', 'sans-serif'],
       },
       colors: {
         background: 'var(--bg-color)',
