@@ -3,9 +3,7 @@ import { useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import BottomNav from './BottomNav';
 import { db, collection, getDocs, doc, getDoc } from '../firebase';
-import { getMonthLabel } from '../utils/monthUtils';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import html2pdf from 'html2pdf.js';
 
 const HistoryArchive = () => {
   const [selectedMonth, setSelectedMonth] = useState('');
@@ -49,48 +47,18 @@ const HistoryArchive = () => {
 
   const generatePDF = () => {
     if (!historyData) return;
-    const doc = new jsPDF();
-    const summary = historyData;
-
-    doc.setFontSize(18);
-    doc.text(`HexaMess Monthly Report - ${summary.month_name}`, 14, 22);
+    const element = document.getElementById('history-pdf-content');
     
-    doc.setFontSize(12);
-    doc.text(`Total Meals: ${summary.total_meals}`, 14, 32);
-    doc.text(`Total Market Cost: BDT ${summary.total_market}`, 14, 40);
-    doc.text(`Total Fixed Cost: BDT ${summary.total_fixed}`, 100, 32);
-    doc.text(`Meal Rate: BDT ${summary.meal_rate}`, 100, 40);
+    // Config for html2pdf
+    const opt = {
+      margin:       0.5,
+      filename:     `Hexamess_History_${historyData.month_id}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2, useCORS: true },
+      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
 
-    const tableColumn = ["Member Name", "Total Deposit", "Total Meals", "Meal Rate", "Meal Cost", "Fixed Cost", "Total Cost", "Final Status (Refund/Due)"];
-    const tableRows = [];
-
-    summary.members.forEach(m => {
-      const totalCost = (m.meal_cost || 0) + (m.fixed_cost || 0);
-      const refund = (m.deposit || 0) > totalCost 
-        ? `+ BDT ${((m.deposit || 0) - totalCost).toFixed(2)}` 
-        : `- BDT ${(totalCost - (m.deposit || 0)).toFixed(2)}`;
-      
-      tableRows.push([
-        m.name,
-        m.deposit || 0,
-        m.meals || 0,
-        summary.meal_rate || 0,
-        m.meal_cost || 0,
-        m.fixed_cost || 0,
-        totalCost.toFixed(2),
-        refund
-      ]);
-    });
-
-    doc.autoTable({
-      head: [tableColumn],
-      body: tableRows,
-      startY: 50,
-      styles: { fontSize: 10 },
-      headStyles: { fillColor: [0, 209, 255] }
-    });
-
-    doc.save(`HexaMess_Report_${summary.month_id}.pdf`);
+    html2pdf().set(opt).from(element).save();
   };
 
   return (
@@ -131,116 +99,110 @@ const HistoryArchive = () => {
                 </button>
               </div>
 
-              {/* Summary Cards */}
-              <div className="stats-grid">
-                <div className="card glass-card" style={{ 
-                  background: 'linear-gradient(135deg, rgba(245,158,11,0.1), rgba(245,158,11,0.02))',
-                  borderTop:'4px solid var(--accent-orange)' 
-                }}>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>💰 মোট বাজার খরচ</p>
-                  <p style={{ fontSize: '1.75rem', fontWeight: '800', color: 'var(--accent-orange)' }}>৳{Number(historyData.total_market).toLocaleString()}</p>
+              {/* PDF Content Wrapper */}
+              <div id="history-pdf-content" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1rem', background: 'var(--bg-primary)' }}>
+                {/* Summary Cards */}
+                <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+                  <div className="card glass-card" style={{ 
+                    background: 'linear-gradient(135deg, rgba(245,158,11,0.1), rgba(245,158,11,0.02))',
+                    borderTop:'4px solid var(--accent-orange)' 
+                  }}>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>💰 মোট বাজার খরচ</p>
+                    <p style={{ fontSize: '1.75rem', fontWeight: '800', color: 'var(--accent-orange)' }}>৳{Number(historyData.total_market).toLocaleString()}</p>
+                  </div>
+                  <div className="card glass-card" style={{ 
+                    background: 'linear-gradient(135deg, rgba(0,209,255,0.1), rgba(0,209,255,0.02))',
+                    borderTop:'4px solid var(--accent-blue)' 
+                  }}>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>🍽️ মোট মিল</p>
+                    <p style={{ fontSize: '1.75rem', fontWeight: '800', color: 'var(--accent-blue)' }}>{historyData.total_meals}</p>
+                  </div>
+                  <div className="card glass-card" style={{ 
+                    background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(16,185,129,0.02))',
+                    borderTop:'4px solid var(--accent-green)' 
+                  }}>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>📉 ফাইনাল মিল রেট</p>
+                    <p style={{ fontSize: '1.75rem', fontWeight: '800', color: 'var(--accent-green)' }}>৳{historyData.meal_rate}</p>
+                  </div>
                 </div>
-                <div className="card glass-card" style={{ 
-                  background: 'linear-gradient(135deg, rgba(239,68,68,0.1), rgba(239,68,68,0.02))',
-                  borderTop:'4px solid var(--accent-red)' 
-                }}>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>🏠 মোট ফিক্সড বিল</p>
-                  <p style={{ fontSize: '1.75rem', fontWeight: '800', color: 'var(--accent-red)' }}>৳{Number(historyData.total_fixed).toLocaleString()}</p>
-                </div>
-                <div className="card glass-card" style={{ 
-                  background: 'linear-gradient(135deg, rgba(0,209,255,0.1), rgba(0,209,255,0.02))',
-                  borderTop:'4px solid var(--accent-blue)' 
-                }}>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>🍽️ মোট মিল</p>
-                  <p style={{ fontSize: '1.75rem', fontWeight: '800', color: 'var(--accent-blue)' }}>{historyData.total_meals}</p>
-                </div>
-                <div className="card glass-card" style={{ 
-                  background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(16,185,129,0.02))',
-                  borderTop:'4px solid var(--accent-green)' 
-                }}>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>📉 ফাইনাল মিল রেট</p>
-                  <p style={{ fontSize: '1.75rem', fontWeight: '800', color: 'var(--accent-green)' }}>৳{historyData.meal_rate}</p>
-                </div>
-              </div>
 
-              {/* Member Report */}
-              <div className="card">
-                <h3 style={{ marginBottom: '1.25rem', display:'flex', alignItems:'center', gap:'0.5rem' }}>📊 মেম্বার ক্লোজিং ব্যালেন্স</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse border border-slate-700 text-left text-sm md:text-base">
-                    <thead className="bg-slate-800 text-slate-200">
-                      <tr>
-                        <th className="border border-slate-700 p-2">Member Name</th>
-                        <th className="border border-slate-700 p-2 text-right">Total Deposit</th>
-                        <th className="border border-slate-700 p-2 text-center">Total Meals</th>
-                        <th className="border border-slate-700 p-2 text-right">Meal Rate</th>
-                        <th className="border border-slate-700 p-2 text-right">Meal Cost</th>
-                        <th className="border border-slate-700 p-2 text-right">Fixed Cost</th>
-                        <th className="border border-slate-700 p-2 text-right">Total Cost</th>
-                        <th className="border border-slate-700 p-2 text-right">Final Status (Refund/Due)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-slate-900 text-slate-300">
-                      {historyData.members.map(user => {
-                        const totalCost = (user.meal_cost || 0) + (user.fixed_cost || 0);
-                        const isRefund = (user.deposit || 0) > totalCost;
-                        const statusAmount = Math.abs((user.deposit || 0) - totalCost).toFixed(2);
-                        const statusText = isRefund ? `+৳${statusAmount} পাবে` : `-৳${statusAmount} দিবে`;
-                        const statusColor = isRefund ? 'text-green-400' : 'text-red-400';
-
-                        return (
-                          <tr key={user.id} className="hover:bg-slate-800/50">
-                            <td className="border border-slate-700 p-2 font-medium">{user.name}</td>
-                            <td className="border border-slate-700 p-2 text-right">৳{user.deposit || 0}</td>
-                            <td className="border border-slate-700 p-2 text-center">{user.meals || 0}</td>
-                            <td className="border border-slate-700 p-2 text-right">৳{historyData.meal_rate || 0}</td>
-                            <td className="border border-slate-700 p-2 text-right">৳{user.meal_cost || 0}</td>
-                            <td className="border border-slate-700 p-2 text-right">৳{user.fixed_cost || 0}</td>
-                            <td className="border border-slate-700 p-2 text-right text-[var(--accent-orange)] font-bold">৳{totalCost.toFixed(2)}</td>
-                            <td className={`border border-slate-700 p-2 text-right font-bold ${statusColor}`}>
-                              {statusText}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Expense List */}
-              <div className="card">
-                <h3 style={{ marginBottom: '1.25rem' }}>🛒 বাজার বিবরণ</h3>
-                <div className="table-container">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>তারিখ</th>
-                        <th>আইটেম</th>
-                        <th>বাজারকারী</th>
-                        <th style={{ textAlign: 'right' }}>খরচ</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(historyData.expenses || []).map((exp, idx) => (
-                        <tr key={idx}>
-                          <td style={{ color: 'var(--text-secondary)', fontSize:'0.875rem' }}>{exp.date}</td>
-                          <td>
-                            <div style={{ fontWeight:'600' }}>{exp.itemName || exp.details}</div>
-                            {exp.quantity && <div style={{ fontSize:'0.75rem', color:'var(--text-secondary)' }}>{exp.quantity}</div>}
-                          </td>
-                          <td>{exp.shopperName || exp.shopper_name}</td>
-                          <td style={{ textAlign: 'right', fontWeight:'600' }}>৳{exp.amount || exp.cost}</td>
+                {/* Member Report */}
+                <div className="card">
+                  <h3 style={{ marginBottom: '1.25rem', display:'flex', alignItems:'center', gap:'0.5rem' }}>📊 মেম্বার ক্লোজিং ব্যালেন্স</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse border border-slate-700 text-left text-sm md:text-base">
+                      <thead className="bg-slate-800 text-slate-200">
+                        <tr>
+                          <th className="border border-slate-700 p-2">Member Name</th>
+                          <th className="border border-slate-700 p-2 text-right">Total Deposit</th>
+                          <th className="border border-slate-700 p-2 text-center">Total Meals</th>
+                          <th className="border border-slate-700 p-2 text-right">Meal Rate</th>
+                          <th className="border border-slate-700 p-2 text-right">Meal Cost</th>
+                          <th className="border border-slate-700 p-2 text-right">Total Cost</th>
+                          <th className="border border-slate-700 p-2 text-right">Final Status (Refund/Due)</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="bg-slate-900 text-slate-300">
+                        {historyData.members.map(user => {
+                          const totalCost = user.meal_cost || 0;
+                          const isRefund = (user.deposit || 0) >= totalCost;
+                          const statusAmount = Math.abs((user.deposit || 0) - totalCost).toFixed(2);
+                          const statusText = isRefund ? `+৳${statusAmount} পাবে` : `-৳${statusAmount} দিবে`;
+                          const statusColor = isRefund ? 'text-green-400' : 'text-red-400';
+
+                          return (
+                            <tr key={user.id} className="hover:bg-slate-800/50">
+                              <td className="border border-slate-700 p-2 font-medium">{user.name}</td>
+                              <td className="border border-slate-700 p-2 text-right">৳{user.deposit || 0}</td>
+                              <td className="border border-slate-700 p-2 text-center">{user.meals || 0}</td>
+                              <td className="border border-slate-700 p-2 text-right">৳{historyData.meal_rate || 0}</td>
+                              <td className="border border-slate-700 p-2 text-right">৳{user.meal_cost || 0}</td>
+                              <td className="border border-slate-700 p-2 text-right text-[var(--accent-orange)] font-bold">৳{totalCost.toFixed(2)}</td>
+                              <td className={`border border-slate-700 p-2 text-right font-bold ${statusColor}`}>
+                                {statusText}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Expense List */}
+                <div className="card">
+                  <h3 style={{ marginBottom: '1.25rem' }}>🛒 বাজার বিবরণ</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse border border-slate-700 text-left text-sm md:text-base" style={{ fontFamily: 'SolaimanLipi, sans-serif' }}>
+                      <thead className="bg-slate-800 text-slate-200">
+                        <tr>
+                          <th className="border border-slate-700 p-3">তারিখ</th>
+                          <th className="border border-slate-700 p-3">আইটেম</th>
+                          <th className="border border-slate-700 p-3">বাজারকারী</th>
+                          <th className="border border-slate-700 p-3 text-right">খরচ</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-slate-900 text-slate-300">
+                        {(historyData.expenses || []).map((exp, idx) => (
+                          <tr key={idx} className="hover:bg-slate-800/50 even:bg-slate-800/20">
+                            <td className="border border-slate-700 p-3 text-slate-400 text-sm">{exp.date}</td>
+                            <td className="border border-slate-700 p-3">
+                              <div className="font-semibold">{exp.itemName || exp.details}</div>
+                              {exp.quantity && <div className="text-xs text-slate-400 mt-1">{exp.quantity}</div>}
+                            </td>
+                            <td className="border border-slate-700 p-3">{exp.shopperName || exp.shopper_name}</td>
+                            <td className="border border-slate-700 p-3 text-right font-bold text-[var(--accent-blue)]">৳{exp.amount || exp.cost}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </div>
           ) : (
             <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-              <p style={{ color:'var(--text-secondary)', marginBottom:'1rem' }}>কোনো আর্কাইভ ডাটা পাওয়া যায়নি।</p>
+              <p style={{ color:'var(--text-secondary)', marginBottom:'1rem' }}>কোনো আর্কাইভ ডাটা পাওয়া জ্ঞায়নি।</p>
               <p style={{ fontSize:'0.875rem' }}>ম্যানেজার যখন নতুন মাস শুরু করবেন, তখন চলতি মাসের ডাটা এখানে সংরক্ষিত হবে।</p>
             </div>
           )}
