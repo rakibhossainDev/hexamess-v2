@@ -103,7 +103,7 @@ const BazarManager = () => {
     const [y, m] = todayStr.split('-');
     const currentMonthId = `${m}-${y}`;
     
-    const q = query(collection(db, 'bazar_records'), where('monthYear', '==', currentMonthId));
+    const q = query(collection(db, 'bazar_records'));
     const unsubRecords = onSnapshot(q, snap => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       // Sort in memory by date descending, or by creation

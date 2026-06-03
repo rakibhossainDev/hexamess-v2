@@ -82,14 +82,14 @@ const MemberDashboard = () => {
     });
 
     // Monthly Bazar amount for the current month
-    const qBazar = query(collection(db, 'bazar_records'), where('monthYear', '==', monthId));
+    const qBazar = query(collection(db, 'bazar_records'));
     const unsubBazar = onSnapshot(qBazar, snap => {
       const sum = snap.docs.reduce((s, docSnap) => s + Number(docSnap.data().amount || 0), 0);
       setTotalBazarAmount(sum);
     });
 
     // Monthly Daily meals for the current month
-    const qMeals = query(collection(db, 'daily_meals'), where('monthYear', '==', monthId));
+    const qMeals = query(collection(db, 'daily_meals'));
     const unsubMeals = onSnapshot(qMeals, snap => {
       const sumAll = snap.docs.reduce((s, docSnap) => s + Number(docSnap.data().count || 0), 0);
       setMonthTotalMeals(sumAll);

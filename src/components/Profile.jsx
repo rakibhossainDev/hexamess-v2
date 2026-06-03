@@ -76,10 +76,10 @@ const Profile = ({ isAdminView = false }) => {
     });
 
     // Global queries for meal rate
-    const unsubGlobalMeals = onSnapshot(query(collection(db, 'daily_meals'), where('monthYear', '==', currentMonth)), snap => {
+    const unsubGlobalMeals = onSnapshot(query(collection(db, 'daily_meals')), snap => {
       const totalM = snap.docs.reduce((sum, d) => sum + Number(d.data().count || 0), 0);
       
-      const unsubBazar = onSnapshot(query(collection(db, 'bazar_records'), where('monthYear', '==', currentMonth)), bazarSnap => {
+      const unsubBazar = onSnapshot(query(collection(db, 'bazar_records')), bazarSnap => {
         const totalB = bazarSnap.docs.reduce((sum, d) => sum + Number(d.data().amount || 0), 0);
         setLiveMealRate(totalM > 0 ? (totalB / totalM) : 0);
       });

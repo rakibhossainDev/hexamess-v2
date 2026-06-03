@@ -82,7 +82,7 @@ export const DashboardHome = () => {
     
     // B. Monthly Total Listener (MM-YYYY)
     const unsubMonth = onSnapshot(
-      query(collection(db, 'daily_meals'), where('monthYear', '==', monthId)),
+      query(collection(db, 'daily_meals')),
       (snap) => {
         const total = snap.docs.reduce((sum, d) => sum + Number(d.data().count || 0), 0);
         setMonthTotalMeals(total);
@@ -91,7 +91,7 @@ export const DashboardHome = () => {
 
     // C. Monthly Bazar Listener (MM-YYYY)
     const unsubBazar = onSnapshot(
-      query(collection(db, 'bazar_records'), where('monthYear', '==', monthId)),
+      query(collection(db, 'bazar_records')),
       (snap) => {
         const total = snap.docs.reduce((sum, d) => sum + Number(d.data().amount || 0), 0);
         setTotalBazarAmount(total);
