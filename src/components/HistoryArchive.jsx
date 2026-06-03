@@ -103,10 +103,12 @@ const HistoryArchive = () => {
               <div id="history-pdf-content" className="font-solaiman" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1.5rem', background: 'var(--bg-primary)' }}>
                 
                 {/* Official Document Header */}
-                <div style={{ textAlign: 'center', marginBottom: '1rem', borderBottom: '2px solid var(--border-color)', paddingBottom: '1rem' }}>
-                  <h1 style={{ fontSize: '2rem', fontWeight: '800', margin: '0 0 0.5rem 0', color: 'var(--accent-blue)' }}>Hexamess</h1>
-                  <h2 style={{ fontSize: '1.25rem', fontWeight: '600', margin: '0 0 0.25rem 0', color: 'var(--text-primary)' }}>Monthly Session Report</h2>
-                  <p style={{ fontSize: '1rem', color: 'var(--text-secondary)', margin: 0 }}>সেশন: {historyData.month_name}</p>
+                <div className="flex flex-wrap justify-center items-center gap-3 mb-4 pb-4 border-b-2 border-[var(--border-color)]">
+                  <h1 className="text-2xl font-extrabold text-[var(--accent-blue)] m-0 leading-none">Hexamess</h1>
+                  <span className="text-slate-500 font-bold leading-none">|</span>
+                  <h2 className="text-xl font-bold text-white m-0 leading-none">Monthly Session Report</h2>
+                  <span className="text-slate-500 font-bold leading-none">|</span>
+                  <p className="text-base text-slate-400 m-0 leading-none">সেশন: {historyData.month_name}</p>
                 </div>
 
                 {/* Summary Cards */}
