@@ -66,8 +66,8 @@ const HistoryArchive = () => {
       <main className="main-content" style={{ padding: isAdminPath ? 0 : '0 0 80px 0' }}>
         {!isAdminPath && <Navbar userName={localStorage.getItem('hexamess-user-name')} userRole={userRole === 'manager' ? 'ম্যানেজার' : 'সদস্য'} />}
         
-        <div className="w-full px-4 md:px-6 py-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <div className="w-full overflow-x-hidden p-4 md:p-6 box-border">
+          <div className="flex flex-row justify-between items-center w-full mb-6">
             <h2 className="text-2xl font-bold m-0">📅 হিস্টরি আর্কাইভ</h2>
             <div className="flex justify-end items-center gap-3">
               <label className="text-sm text-[var(--text-secondary)]">মাস:</label>
@@ -112,7 +112,7 @@ const HistoryArchive = () => {
                 </div>
 
                 {/* Summary Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                <div className="w-full grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                   {/* Total Deposit */}
                   <div className="card glass-card" style={{ 
                     background: 'linear-gradient(135deg, rgba(34,197,94,0.1), rgba(34,197,94,0.02))',
