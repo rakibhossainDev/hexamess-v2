@@ -61,17 +61,24 @@ const HistoryArchive = () => {
     doc.text(`Total Fixed Cost: BDT ${summary.total_fixed}`, 100, 32);
     doc.text(`Meal Rate: BDT ${summary.meal_rate}`, 100, 40);
 
-    const tableColumn = ["Name", "Deposit", "Meals", "Meal Cost", "Fixed Cost", "Final Balance"];
+    const tableColumn = ["Member Name", "Total Deposit", "Total Meals", "Meal Rate", "Meal Cost", "Fixed Cost", "Total Cost", "Final Status (Refund/Due)"];
     const tableRows = [];
 
     summary.members.forEach(m => {
+      const totalCost = (m.meal_cost || 0) + (m.fixed_cost || 0);
+      const refund = (m.deposit || 0) > totalCost 
+        ? `+ BDT ${((m.deposit || 0) - totalCost).toFixed(2)}` 
+        : `- BDT ${(totalCost - (m.deposit || 0)).toFixed(2)}`;
+      
       tableRows.push([
         m.name,
-        m.deposit,
-        m.meals,
-        m.meal_cost,
-        m.fixed_cost,
-        m.final_balance
+        m.deposit || 0,
+        m.meals || 0,
+        summary.meal_rate || 0,
+        m.meal_cost || 0,
+        m.fixed_cost || 0,
+        totalCost.toFixed(2),
+        refund
       ]);
     });
 
@@ -159,31 +166,43 @@ const HistoryArchive = () => {
               {/* Member Report */}
               <div className="card">
                 <h3 style={{ marginBottom: '1.25rem', display:'flex', alignItems:'center', gap:'0.5rem' }}>📊 মেম্বার ক্লোজিং ব্যালেন্স</h3>
-                <div className="table-container">
-                  <table>
-                    <thead>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse border border-slate-700 text-left text-sm md:text-base">
+                    <thead className="bg-slate-800 text-slate-200">
                       <tr>
-                        <th>নাম</th>
-                        <th style={{ textAlign: 'right' }}>জমা</th>
-                        <th style={{ textAlign: 'center' }}>মিল</th>
-                        <th style={{ textAlign: 'right' }}>মিল খরচ</th>
-                        <th style={{ textAlign: 'right' }}>ফিক্সড খরচ</th>
-                        <th style={{ textAlign: 'right' }}>ফাইনাল ব্যালেন্স</th>
+                        <th className="border border-slate-700 p-2">Member Name</th>
+                        <th className="border border-slate-700 p-2 text-right">Total Deposit</th>
+                        <th className="border border-slate-700 p-2 text-center">Total Meals</th>
+                        <th className="border border-slate-700 p-2 text-right">Meal Rate</th>
+                        <th className="border border-slate-700 p-2 text-right">Meal Cost</th>
+                        <th className="border border-slate-700 p-2 text-right">Fixed Cost</th>
+                        <th className="border border-slate-700 p-2 text-right">Total Cost</th>
+                        <th className="border border-slate-700 p-2 text-right">Final Status (Refund/Due)</th>
                       </tr>
                     </thead>
-                    <tbody>
-                      {historyData.members.map(user => (
-                        <tr key={user.id}>
-                          <td style={{ fontWeight:'500' }}>{user.name}</td>
-                          <td style={{ textAlign: 'right' }}>৳{user.deposit || 0}</td>
-                          <td style={{ textAlign: 'center' }}>{user.meals || 0}</td>
-                          <td style={{ textAlign: 'right' }}>৳{user.meal_cost || 0}</td>
-                          <td style={{ textAlign: 'right' }}>৳{user.fixed_cost || 0}</td>
-                          <td style={{ textAlign: 'right', fontWeight: '700', color: user.final_balance < 0 ? 'var(--accent-red)' : 'var(--accent-green)' }}>
-                            ৳{user.final_balance || 0}
-                          </td>
-                        </tr>
-                      ))}
+                    <tbody className="bg-slate-900 text-slate-300">
+                      {historyData.members.map(user => {
+                        const totalCost = (user.meal_cost || 0) + (user.fixed_cost || 0);
+                        const isRefund = (user.deposit || 0) > totalCost;
+                        const statusAmount = Math.abs((user.deposit || 0) - totalCost).toFixed(2);
+                        const statusText = isRefund ? `+৳${statusAmount} পাবে` : `-৳${statusAmount} দিবে`;
+                        const statusColor = isRefund ? 'text-green-400' : 'text-red-400';
+
+                        return (
+                          <tr key={user.id} className="hover:bg-slate-800/50">
+                            <td className="border border-slate-700 p-2 font-medium">{user.name}</td>
+                            <td className="border border-slate-700 p-2 text-right">৳{user.deposit || 0}</td>
+                            <td className="border border-slate-700 p-2 text-center">{user.meals || 0}</td>
+                            <td className="border border-slate-700 p-2 text-right">৳{historyData.meal_rate || 0}</td>
+                            <td className="border border-slate-700 p-2 text-right">৳{user.meal_cost || 0}</td>
+                            <td className="border border-slate-700 p-2 text-right">৳{user.fixed_cost || 0}</td>
+                            <td className="border border-slate-700 p-2 text-right text-[var(--accent-orange)] font-bold">৳{totalCost.toFixed(2)}</td>
+                            <td className={`border border-slate-700 p-2 text-right font-bold ${statusColor}`}>
+                              {statusText}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
