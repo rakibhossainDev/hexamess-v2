@@ -3,14 +3,23 @@ import { db, collection, doc, onSnapshot, writeBatch, query, where, getDocs, add
 import { ToastContainer } from './Toast';
 import { useToast } from '../hooks/useToast';
 
-// Helper to convert DD-MM-YYYY to YYYY-MM-DD for comparison
-const convertToIso = (dateStr) => {
-  if (!dateStr) return '';
-  if (dateStr.includes('-') && dateStr.split('-')[0].length === 2) {
-    const [d, m, y] = dateStr.split('-');
+// Helper to convert DD-MM-YYYY or Timestamps to YYYY-MM-DD for comparison
+const convertToIso = (dateVal) => {
+  if (!dateVal) return '';
+  if (typeof dateVal !== 'string') {
+    if (dateVal.toDate && typeof dateVal.toDate === 'function') {
+      return dateVal.toDate().toISOString().split('T')[0];
+    }
+    if (dateVal instanceof Date) {
+      return dateVal.toISOString().split('T')[0];
+    }
+    return '';
+  }
+  if (dateVal.includes('-') && dateVal.split('-')[0].length === 2) {
+    const [d, m, y] = dateVal.split('-');
     return `${y}-${m}-${d}`;
   }
-  return dateStr;
+  return dateVal;
 };
 
 const Settings = () => {
@@ -32,20 +41,24 @@ const Settings = () => {
   }, []);
 
   const handleStartNewMonth = async () => {
-    if (!config) return;
-    if (!endDate) {
-      showToast('দয়া করে সেশন শেষের তারিখ নির্বাচন করুন।', 'error');
-      return;
-    }
-    const newMonthName = window.prompt("নতুন সেশনের নাম দিন (যেমন: May 2024):");
-    if (!newMonthName) return;
-
-    if (!window.confirm("আপনি কি নিশ্চিত? এই তারিখ পর্যন্ত সকল তথ্য আর্কাইভে যাবে।")) {
-      return;
-    }
-
-    setIsProcessing(true);
     try {
+      if (!config) {
+        alert("সিস্টেম কনফিগারেশন লোড হয়নি। দয়া করে পেজটি রিফ্রেশ করুন।");
+        return;
+      }
+      if (!endDate) {
+        showToast('দয়া করে সেশন শেষের তারিখ নির্বাচন করুন।', 'error');
+        return;
+      }
+      const newMonthName = window.prompt("নতুন সেশনের নাম দিন (যেমন: May 2024):");
+      if (!newMonthName) return;
+
+      if (!window.confirm("আপনি কি নিশ্চিত? এই তারিখ পর্যন্ত সকল তথ্য আর্কাইভে যাবে।")) {
+        return;
+      }
+
+      setIsProcessing(true);
+      
       // 1. Fetch ALL current data
       const [mealSnap, expSnap, fixedSnap, depSnap] = await Promise.all([
         getDocs(collection(db, 'daily_meals')),
@@ -150,8 +163,9 @@ const Settings = () => {
       showToast('নতুন সেশন সফলভাবে শুরু হয়েছে! পুরাতন ডেটা ডিলিট এবং আর্কাইভ করা হয়েছে।', 'success');
       setEndDate('');
     } catch (err) {
-      console.error('New month error:', err);
-      showToast('ব্যর্থ।', 'error');
+      console.error('New session error details:', err);
+      alert(`অপারেশনটি ব্যর্থ হয়েছে। ত্রুটি: ${err.message}`);
+      showToast('অপারেশন ব্যর্থ হয়েছে।', 'error');
     } finally {
       setIsProcessing(false);
     }
