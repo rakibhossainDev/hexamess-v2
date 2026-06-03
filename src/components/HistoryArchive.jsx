@@ -110,7 +110,16 @@ const HistoryArchive = () => {
                 </div>
 
                 {/* Summary Cards */}
-                <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                  {/* Total Deposit */}
+                  <div className="card glass-card" style={{ 
+                    background: 'linear-gradient(135deg, rgba(34,197,94,0.1), rgba(34,197,94,0.02))',
+                    borderTop:'4px solid #22c55e' 
+                  }}>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>💵 মোট জমা</p>
+                    <p style={{ fontSize: '1.75rem', fontWeight: '800', color: '#22c55e' }}>৳{((historyData.members || []).reduce((sum, member) => sum + (Number(member.deposit) || 0), 0)).toLocaleString()}</p>
+                  </div>
+                  {/* Market Cost */}
                   <div className="card glass-card" style={{ 
                     background: 'linear-gradient(135deg, rgba(245,158,11,0.1), rgba(245,158,11,0.02))',
                     borderTop:'4px solid var(--accent-orange)' 
@@ -118,6 +127,17 @@ const HistoryArchive = () => {
                     <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>💰 মোট বাজার খরচ</p>
                     <p style={{ fontSize: '1.75rem', fontWeight: '800', color: 'var(--accent-orange)' }}>৳{Number(historyData.total_market).toLocaleString()}</p>
                   </div>
+                  {/* Cash Balance */}
+                  <div className="card glass-card" style={{ 
+                    background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(99,102,241,0.02))',
+                    borderTop:'4px solid #6366f1' 
+                  }}>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>🏦 ক্যাশ ব্যালেন্স</p>
+                    <p style={{ fontSize: '1.75rem', fontWeight: '800', color: '#6366f1' }}>
+                      ৳{(((historyData.members || []).reduce((sum, member) => sum + (Number(member.deposit) || 0), 0)) - Number(historyData.total_market || 0)).toLocaleString()}
+                    </p>
+                  </div>
+                  {/* Total Meals */}
                   <div className="card glass-card" style={{ 
                     background: 'linear-gradient(135deg, rgba(0,209,255,0.1), rgba(0,209,255,0.02))',
                     borderTop:'4px solid var(--accent-blue)' 
@@ -125,6 +145,7 @@ const HistoryArchive = () => {
                     <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>🍽️ মোট মিল</p>
                     <p style={{ fontSize: '1.75rem', fontWeight: '800', color: 'var(--accent-blue)' }}>{historyData.total_meals}</p>
                   </div>
+                  {/* Meal Rate */}
                   <div className="card glass-card" style={{ 
                     background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(16,185,129,0.02))',
                     borderTop:'4px solid var(--accent-green)' 
