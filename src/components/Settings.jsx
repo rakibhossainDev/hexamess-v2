@@ -1,51 +1,50 @@
 import { useState, useEffect } from 'react';
-import { db, collection, doc, onSnapshot, writeBatch, query, where, getDocs, addDoc } from '../utils/firebase';
+import { db, collection, doc, onSnapshot, writeBatch, getDocs } from '../utils/firebase';
 import { ToastContainer } from './Toast';
 import { useToast } from '../hooks/useToast';
 
-// Helper to convert DD-MM-YYYY or Timestamps to YYYY-MM-DD for comparison
-const convertToIso = (dateVal) => {
-  if (!dateVal) return '';
-  if (typeof dateVal !== 'string') {
-    if (dateVal.toDate && typeof dateVal.toDate === 'function') {
-      return dateVal.toDate().toISOString().split('T')[0];
+// Helper to convert any date format into a standard JS Date object for safe comparison
+const getSafeDate = (dateVal) => {
+  if (!dateVal) return new Date(0); // Epoch if missing
+  
+  if (typeof dateVal === 'string') {
+    // Check if it's DD-MM-YYYY format
+    if (dateVal.includes('-') && dateVal.split('-')[0].length === 2) {
+      const [d, m, y] = dateVal.split('-');
+      return new Date(`${y}-${m}-${d}T00:00:00`);
     }
-    if (dateVal instanceof Date) {
-      return dateVal.toISOString().split('T')[0];
-    }
-    return '';
+    // Assume YYYY-MM-DD or standard parseable string
+    return new Date(dateVal);
   }
-  if (dateVal.includes('-') && dateVal.split('-')[0].length === 2) {
-    const [d, m, y] = dateVal.split('-');
-    return `${y}-${m}-${d}`;
+  
+  // If it's a Firestore Timestamp
+  if (dateVal.toDate && typeof dateVal.toDate === 'function') {
+    return dateVal.toDate();
   }
-  return dateVal;
+  
+  if (dateVal instanceof Date) {
+    return dateVal;
+  }
+  
+  return new Date(0);
 };
 
 const Settings = () => {
   const [members, setMembers] = useState([]);
-  const [config, setConfig] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [endDate, setEndDate] = useState('');
   const { toasts, showToast, removeToast } = useToast();
 
   useEffect(() => {
     if (!db) return;
-    const unsub1 = onSnapshot(collection(db, 'users'), snap => {
+    const unsub = onSnapshot(collection(db, 'users'), snap => {
       setMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
-    const unsub2 = onSnapshot(doc(db, 'config', 'settings'), snap => {
-      if (snap.exists()) setConfig(snap.data());
-    });
-    return () => { unsub1(); unsub2(); };
+    return () => { unsub(); };
   }, []);
 
   const handleStartNewMonth = async () => {
     try {
-      if (!config) {
-        alert("সিস্টেম কনফিগারেশন লোড হয়নি। দয়া করে পেজটি রিফ্রেশ করুন।");
-        return;
-      }
       if (!endDate) {
         showToast('দয়া করে সেশন শেষের তারিখ নির্বাচন করুন।', 'error');
         return;
@@ -59,7 +58,7 @@ const Settings = () => {
 
       setIsProcessing(true);
       
-      // 1. Fetch ALL current data
+      // 1. Fetch ALL current data FIRST without complex where() queries
       const [mealSnap, expSnap, fixedSnap, depSnap] = await Promise.all([
         getDocs(collection(db, 'daily_meals')),
         getDocs(collection(db, 'bazar_records')),
@@ -67,17 +66,30 @@ const Settings = () => {
         getDocs(collection(db, 'deposits'))
       ]);
 
-      // Filter by end date (<= endDate)
-      const meals = mealSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(m => convertToIso(m.date) <= endDate);
-      const expenses = expSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(e => convertToIso(e.date || e.createdAt) <= endDate);
-      const fixedCosts = fixedSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(f => convertToIso(f.date || endDate) <= endDate);
-      const deposits = depSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => convertToIso(d.date || endDate) <= endDate);
+      const endDateTime = new Date(endDate).getTime();
 
-      // Aggregation helpers for correct reporting
+      // 2. Filter them in JavaScript using standard Date object comparisons
+      const meals = mealSnap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(m => getSafeDate(m.date).getTime() <= endDateTime);
+        
+      const expenses = expSnap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(e => getSafeDate(e.date || e.createdAt).getTime() <= endDateTime);
+        
+      const fixedCosts = fixedSnap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(f => getSafeDate(f.date || endDate).getTime() <= endDateTime);
+        
+      const deposits = depSnap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(d => getSafeDate(d.date || endDate).getTime() <= endDateTime);
+
+      // Aggregation helpers for correct reporting (defaulting to 0)
       const calcMemberMeals = (mId, uName) => meals.filter(m => m.memberId === mId || m.user_id === mId || m.memberId === uName || m.username === uName).reduce((s, m) => s + Number(m.count || 0), 0);
       const calcMemberDeposit = (mId, uName) => deposits.filter(d => d.memberId === mId || d.user_id === mId || d.memberId === uName || d.username === uName).reduce((s, d) => s + Number(d.amount || 0), 0);
 
-      // Calculate Summaries strictly from filtered arrays
+      // 3. Calculate Summaries safely defaulting to 0
       const totalMealsCount = meals.reduce((s, m) => s + Number(m.count || 0), 0);
       const totalMarket = expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
       const totalFixed = fixedCosts.reduce((s, f) => s + Number(f.amount || 0), 0);
@@ -104,7 +116,7 @@ const Settings = () => {
         };
       });
 
-      // 2. Save to `histories` collection (Document named after the custom session name)
+      // 4. Save to `histories` collection
       const { setDoc } = await import('../utils/firebase');
       const sessionDocId = newMonthName.trim();
       
@@ -123,10 +135,10 @@ const Settings = () => {
         fixed_costs: fixedCosts
       });
 
-      // 3. Database Cleanup & Member Reset
+      // 5. Database Cleanup & Member Reset
       const batch = writeBatch(db);
       
-      // Reset members intelligently (subtract only what we archived)
+      // Reset members intelligently
       members.forEach(m => {
         const archivedMeals = calcMemberMeals(m.id, m.username);
         const archivedDeposit = calcMemberDeposit(m.id, m.username);
@@ -139,7 +151,7 @@ const Settings = () => {
         });
       });
 
-      // Delete only the documents we archived!
+      // Delete ONLY the documents we archived
       const deleteDocs = (docsList, colName) => {
         docsList.forEach(d => {
           batch.delete(doc(db, colName, d.id));
@@ -151,21 +163,23 @@ const Settings = () => {
       deleteDocs(fixedCosts, 'fixed_expenses');
       deleteDocs(deposits, 'deposits');
 
-      // 4. Update config with new session details
+      // 6. Update config (using setDoc with merge to prevent crashes if config doesn't exist)
       const newMonthId = newMonthName.toLowerCase().replace(/ /g, '_');
-      batch.update(doc(db, 'config', 'settings'), {
+      batch.set(doc(db, 'config', 'settings'), {
         current_month_id: newMonthId,
         last_reset: new Date().toISOString(),
         last_reset_date: endDate
-      });
+      }, { merge: true });
 
       await batch.commit();
-      showToast('নতুন সেশন সফলভাবে শুরু হয়েছে! পুরাতন ডেটা ডিলিট এবং আর্কাইভ করা হয়েছে।', 'success');
+      
+      showToast('নতুন সেশন সফলভাবে শুরু হয়েছে!', 'success');
       setEndDate('');
-    } catch (err) {
-      console.error('New session error details:', err);
-      alert(`অপারেশনটি ব্যর্থ হয়েছে। ত্রুটি: ${err.message}`);
-      showToast('অপারেশন ব্যর্থ হয়েছে।', 'error');
+      
+    } catch (error) {
+      // Expose the Real Error as requested
+      console.error("Session Archive Error:", error);
+      alert("Error: " + error.message);
     } finally {
       setIsProcessing(false);
     }
@@ -178,7 +192,6 @@ const Settings = () => {
       <div className="card glass-card">
         <h2 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1.5rem' }}>⚙️ সিস্টেম সেটিংস</h2>
 
-        {/* New Session */}
         <div style={{ padding: '1.5rem', background: 'rgba(0, 209, 255, 0.05)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(0, 209, 255, 0.2)' }}>
           <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: 'var(--accent-blue)' }}>📅 নতুন সেশন শুরু করুন</h3>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: '1.6' }}>
