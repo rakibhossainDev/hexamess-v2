@@ -88,54 +88,55 @@ const HistoryArchive = () => {
           ) : historyData ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               
-              {/* PDF Download Button */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button 
-                  className="btn btn-primary" 
-                  onClick={generatePDF}
-                  style={{ background: 'var(--accent-blue)', color: '#000', fontWeight: '600' }}
-                >
-                  📥 Download PDF
-                </button>
-              </div>
+              {/* The PDF Download Button has been moved into the Official Document Header */}
 
               {/* PDF Content Wrapper */}
               <div id="history-pdf-content" className="font-solaiman" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1.5rem', background: 'var(--bg-primary)' }}>
                 
                 {/* Official Document Header */}
-                <div className="flex flex-wrap justify-center items-center gap-3 mb-4 pb-4 border-b-2 border-[var(--border-color)]">
-                  <h1 className="text-2xl font-extrabold text-[var(--accent-blue)] m-0 leading-none">Hexamess</h1>
-                  <span className="text-slate-500 font-bold leading-none">|</span>
-                  <h2 className="text-xl font-bold text-white m-0 leading-none">Monthly Session Report</h2>
-                  <span className="text-slate-500 font-bold leading-none">|</span>
-                  <p className="text-base text-slate-400 m-0 leading-none">সেশন: {historyData.month_name}</p>
+                <div className="flex flex-wrap justify-center items-center gap-2 md:gap-4 mb-4 pb-4 border-b-2 border-[var(--border-color)]">
+                  <h1 className="text-xl md:text-2xl font-extrabold text-[var(--accent-blue)] m-0 leading-none">Hexamess</h1>
+                  <span className="text-slate-500 font-bold leading-none hidden sm:inline">|</span>
+                  <h2 className="text-lg md:text-xl font-bold text-white m-0 leading-none">Monthly Session Report</h2>
+                  <span className="text-slate-500 font-bold leading-none hidden sm:inline">|</span>
+                  <p className="text-sm md:text-base text-slate-400 m-0 leading-none">সেশন: {historyData.month_name}</p>
+                  
+                  {/* PDF Download Button (Ignored in the PDF export) */}
+                  <button 
+                    className="btn btn-primary ml-auto text-sm md:text-base px-3 py-1.5 md:px-4 md:py-2" 
+                    onClick={generatePDF}
+                    style={{ background: 'var(--accent-blue)', color: '#000', fontWeight: '600' }}
+                    data-html2canvas-ignore="true"
+                  >
+                    📥 Download PDF
+                  </button>
                 </div>
 
                 {/* Summary Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                   {/* Total Deposit */}
                   <div className="card glass-card" style={{ 
                     background: 'linear-gradient(135deg, rgba(34,197,94,0.1), rgba(34,197,94,0.02))',
                     borderTop:'4px solid #22c55e' 
                   }}>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>💵 মোট জমা</p>
-                    <p style={{ fontSize: '1.75rem', fontWeight: '800', color: '#22c55e' }}>৳{((historyData.members || []).reduce((sum, member) => sum + (Number(member.deposit) || 0), 0)).toLocaleString()}</p>
+                    <p className="text-xs md:text-sm text-[var(--text-secondary)] mb-1 md:mb-2">💵 মোট জমা</p>
+                    <p className="text-lg md:text-xl font-extrabold text-[#22c55e]">৳{((historyData.members || []).reduce((sum, member) => sum + (Number(member.deposit) || 0), 0)).toLocaleString()}</p>
                   </div>
                   {/* Market Cost */}
                   <div className="card glass-card" style={{ 
                     background: 'linear-gradient(135deg, rgba(245,158,11,0.1), rgba(245,158,11,0.02))',
                     borderTop:'4px solid var(--accent-orange)' 
                   }}>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>💰 মোট বাজার খরচ</p>
-                    <p style={{ fontSize: '1.75rem', fontWeight: '800', color: 'var(--accent-orange)' }}>৳{Number(historyData.total_market).toLocaleString()}</p>
+                    <p className="text-xs md:text-sm text-[var(--text-secondary)] mb-1 md:mb-2">💰 মোট বাজার খরচ</p>
+                    <p className="text-lg md:text-xl font-extrabold text-[var(--accent-orange)]">৳{Number(historyData.total_market).toLocaleString()}</p>
                   </div>
                   {/* Cash Balance */}
                   <div className="card glass-card" style={{ 
                     background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(99,102,241,0.02))',
                     borderTop:'4px solid #6366f1' 
                   }}>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>🏦 ক্যাশ ব্যালেন্স</p>
-                    <p style={{ fontSize: '1.75rem', fontWeight: '800', color: '#6366f1' }}>
+                    <p className="text-xs md:text-sm text-[var(--text-secondary)] mb-1 md:mb-2">🏦 ক্যাশ ব্যালেন্স</p>
+                    <p className="text-lg md:text-xl font-extrabold text-[#6366f1]">
                       ৳{(((historyData.members || []).reduce((sum, member) => sum + (Number(member.deposit) || 0), 0)) - Number(historyData.total_market || 0)).toLocaleString()}
                     </p>
                   </div>
@@ -144,24 +145,24 @@ const HistoryArchive = () => {
                     background: 'linear-gradient(135deg, rgba(0,209,255,0.1), rgba(0,209,255,0.02))',
                     borderTop:'4px solid var(--accent-blue)' 
                   }}>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>🍽️ মোট মিল</p>
-                    <p style={{ fontSize: '1.75rem', fontWeight: '800', color: 'var(--accent-blue)' }}>{historyData.total_meals}</p>
+                    <p className="text-xs md:text-sm text-[var(--text-secondary)] mb-1 md:mb-2">🍽️ মোট মিল</p>
+                    <p className="text-lg md:text-xl font-extrabold text-[var(--accent-blue)]">{historyData.total_meals}</p>
                   </div>
                   {/* Meal Rate */}
                   <div className="card glass-card" style={{ 
                     background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(16,185,129,0.02))',
                     borderTop:'4px solid var(--accent-green)' 
                   }}>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>📉 ফাইনাল মিল রেট</p>
-                    <p style={{ fontSize: '1.75rem', fontWeight: '800', color: 'var(--accent-green)' }}>৳{historyData.meal_rate}</p>
+                    <p className="text-xs md:text-sm text-[var(--text-secondary)] mb-1 md:mb-2">📉 ফাইনাল মিল রেট</p>
+                    <p className="text-lg md:text-xl font-extrabold text-[var(--accent-green)]">৳{historyData.meal_rate}</p>
                   </div>
                 </div>
 
                 {/* Member Report */}
                 <div className="card">
                   <h3 style={{ marginBottom: '1.25rem', display:'flex', alignItems:'center', gap:'0.5rem' }}>📊 মেম্বার ক্লোজিং ব্যালেন্স</h3>
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse border border-slate-700 text-left text-sm md:text-base">
+                  <div className="w-full overflow-x-auto">
+                    <table className="w-full min-w-max border-collapse border border-slate-700 text-left text-sm md:text-base">
                       <thead className="bg-slate-800 text-slate-200">
                         <tr>
                           <th className="border border-slate-700 p-2">Member Name</th>
@@ -203,8 +204,8 @@ const HistoryArchive = () => {
                 {/* Expense List */}
                 <div className="card">
                   <h3 style={{ marginBottom: '1.25rem' }}>🛒 বাজার বিবরণ</h3>
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse border border-slate-700 text-left text-sm md:text-base">
+                  <div className="w-full overflow-x-auto">
+                    <table className="w-full min-w-max border-collapse border border-slate-700 text-left text-sm md:text-base">
                       <thead className="bg-slate-800 text-slate-200">
                         <tr>
                           <th className="border border-slate-700 p-3">তারিখ</th>
