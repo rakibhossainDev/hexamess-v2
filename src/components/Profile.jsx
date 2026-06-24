@@ -142,18 +142,18 @@ const Profile = ({ isAdminView = false }) => {
 
   if (isManager && !isAdminView) {
     return (
-      <div className="w-full p-4 md:p-6">
+      <div className="w-full p-4 md:p-8">
         <ToastContainer toasts={toasts} removeToast={removeToast} />
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h2 className="text-2xl font-bold text-slate-800 dark:!text-white mb-6">অ্যাডমিন প্রোফাইল</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">অ্যাডমিন প্রোফাইল</h2>
         </div>
-        <div className="bg-white dark:!bg-slate-800 border border-slate-200 dark:!border-slate-700 rounded-lg p-6 shadow-lg max-w-xl">
-          <h3 className="text-xl font-bold text-slate-900 dark:!text-white text-center mb-6">নতুন মেম্বার যুক্ত করুন</h3>
+        <div className="bg-white dark:bg-[#1e293b] border border-gray-200 dark:border-[#334155] rounded-xl p-6 md:p-8 shadow-lg max-w-2xl mx-auto">
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white text-center mb-6">নতুন মেম্বার যুক্ত করুন</h3>
           <form onSubmit={handleAddMember} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <label className="block text-sm font-medium text-slate-700 dark:!text-slate-300 mb-1">নাম (Name)</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">নাম (Name)</label>
               <input 
-                className="w-full bg-slate-50 dark:!bg-slate-900 border border-slate-300 dark:!border-slate-600 text-slate-900 dark:!text-white rounded-md px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full bg-gray-50 dark:bg-[#0f172a] border border-gray-300 dark:border-[#334155] text-gray-900 dark:text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 placeholder="যেমন: রহিম মিয়া"
                 value={newMemberData.name}
                 onChange={(e) => setNewMemberData({ ...newMemberData, name: e.target.value })}
@@ -161,9 +161,9 @@ const Profile = ({ isAdminView = false }) => {
               />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <label className="block text-sm font-medium text-slate-700 dark:!text-slate-300 mb-1">ইউজারনেম (Username)</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">ইউজারনেম (Username)</label>
               <input 
-                className="w-full bg-slate-50 dark:!bg-slate-900 border border-slate-300 dark:!border-slate-600 text-slate-900 dark:!text-white rounded-md px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full bg-gray-50 dark:bg-[#0f172a] border border-gray-300 dark:border-[#334155] text-gray-900 dark:text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 placeholder="যেমন: @rahim"
                 value={newMemberData.username}
                 onChange={(e) => setNewMemberData({ ...newMemberData, username: e.target.value })}
@@ -171,17 +171,17 @@ const Profile = ({ isAdminView = false }) => {
               />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <label className="block text-sm font-medium text-slate-700 dark:!text-slate-300 mb-1">পাসওয়ার্ড (Password)</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">পাসওয়ার্ড (Password)</label>
               <input 
                 type="text"
-                className="w-full bg-slate-50 dark:!bg-slate-900 border border-slate-300 dark:!border-slate-600 text-slate-900 dark:!text-white rounded-md px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full bg-gray-50 dark:bg-[#0f172a] border border-gray-300 dark:border-[#334155] text-gray-900 dark:text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 placeholder="পাসওয়ার্ড দিন"
                 value={newMemberData.password}
                 onChange={(e) => setNewMemberData({ ...newMemberData, password: e.target.value })}
                 required
               />
             </div>
-            <button type="submit" className="w-full bg-cyan-500 hover:bg-cyan-600 text-white font-semibold py-2 px-4 rounded-md transition-colors mt-2" disabled={addingMember}>
+            <button type="submit" className="w-full bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-4 rounded-lg transition duration-200 mt-2" disabled={addingMember}>
               {addingMember ? 'লোড হচ্ছে...' : 'মেম্বার অ্যাড করুন'}
             </button>
           </form>
