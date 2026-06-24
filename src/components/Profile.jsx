@@ -28,6 +28,7 @@ const Profile = ({ isAdminView = false }) => {
   const [updating, setUpdating] = useState(false);
   const [newMemberData, setNewMemberData] = useState({ name: '', username: '', password: '' });
   const [addingMember, setAddingMember] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const { toasts, showToast, removeToast } = useToast();
 
   // Dynamic calculations states
@@ -138,6 +139,36 @@ const Profile = ({ isAdminView = false }) => {
     }
   };
 
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    setIsUploading(true);
+    const data = new FormData();
+    data.append("file", file);
+    data.append("upload_preset", "YOUR_UPLOAD_PRESET");
+    data.append("cloud_name", "YOUR_CLOUD_NAME");
+    
+    try {
+      const res = await fetch("https://api.cloudinary.com/v1_1/YOUR_CLOUD_NAME/image/upload", {
+        method: "POST",
+        body: data
+      });
+      const json = await res.json();
+      if (json.secure_url) {
+        setFormData({ ...formData, photoURL: json.secure_url });
+        showToast('ছবি সফলভাবে আপলোড হয়েছে!', 'success');
+      } else {
+        throw new Error('Upload failed');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('ছবি আপলোড করতে সমস্যা হয়েছে।', 'error');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   if (loading) return <div className="loading">লোড হচ্ছে...</div>;
 
   if (isManager && !isAdminView) {
@@ -243,17 +274,18 @@ const Profile = ({ isAdminView = false }) => {
             <h3 style={{ marginBottom: '1.5rem', color: 'var(--accent-blue)' }}>তথ্য আপডেট করুন</h3>
             <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             {!isAdminView && (
-              <>
-                <div className="form-group">
-                  <label>প্রোফাইল ফটো (URL)</label>
-                  <input 
-                    className="form-control"
-                    placeholder="ছবির লিঙ্ক দিন (যেমন: https://example.com/photo.jpg)"
-                    value={formData.photoURL}
-                    onChange={(e) => setFormData({ ...formData, photoURL: e.target.value })}
-                  />
-                </div>
-              </>
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">প্রোফাইল ফটো</label>
+                <input 
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="w-full text-gray-900 dark:text-white file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-cyan-50 file:text-cyan-700 hover:file:bg-cyan-100 dark:file:bg-[#334155] dark:file:text-cyan-400"
+                />
+                {formData.photoURL && (
+                  <img src={formData.photoURL} alt="Profile" className="w-16 h-16 rounded-full object-cover mt-3 border-2 border-cyan-500" />
+                )}
+              </div>
             )}
             
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
@@ -307,8 +339,8 @@ const Profile = ({ isAdminView = false }) => {
             </div>
 
             {!isAdminView && (
-              <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.5rem' }} disabled={updating}>
-                {updating ? 'আপডেট হচ্ছে...' : 'প্রোফাইল আপডেট করুন'}
+              <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.5rem' }} disabled={updating || isUploading}>
+                {updating ? 'আপডেট হচ্ছে...' : (isUploading ? 'ছবি আপলোড হচ্ছে... (Uploading...)' : 'প্রোফাইল আপডেট করুন')}
               </button>
             )}
           </form>
