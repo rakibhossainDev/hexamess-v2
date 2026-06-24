@@ -37,7 +37,7 @@ const Profile = () => {
         setUsername(selectedMember.username || '');
         setPassword(selectedMember.password || '');
         setPhotoURL(selectedMember.photoURL || '');
-        setTotalMeals(selectedMember.lifetimeMeals || 0);
+        setTotalMeals(selectedMember.lifetimeMeals || selectedMember.currentMeals || selectedMember.totalMeals || 0);
       }
     } else {
       // Clear forms
@@ -139,11 +139,20 @@ const Profile = () => {
               onChange={handleMemberSelect}
               className="w-full bg-gray-50 dark:bg-[#0f172a] border border-gray-300 dark:border-[#334155] text-gray-900 dark:text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-cyan-500"
             >
-              <option value="">নতুন মেম্বার (Add New)</option>
+              <option value="">➕ নতুন মেম্বার যুক্ত করুন (Add New Member)</option>
               {membersList.map(member => (
                 <option key={member.id} value={member.id}>{member.name} ({member.username})</option>
               ))}
             </select>
+            {selectedMemberId && (
+              <button 
+                type="button" 
+                onClick={() => { setSelectedMemberId(''); setName(''); setUsername(''); setPassword(''); setPhotoURL(''); setTotalMeals(0); }}
+                className="mt-2 text-sm text-red-500 hover:text-red-600 font-semibold underline self-start"
+              >
+                ✖ ক্যানসেল আপডেট / নতুন মেম্বার অ্যাড করুন
+              </button>
+            )}
           </div>
 
           <div className="flex flex-col gap-2">
@@ -212,7 +221,7 @@ const Profile = () => {
             disabled={isUploading}
             className={`w-full bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-4 rounded-lg transition duration-200 mt-4 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
-            {selectedMemberId ? 'আপডেট করুন' : 'অ্যাড করুন'}
+            {selectedMemberId ? 'আপডেট করুন' : 'নতুন মেম্বার অ্যাড করুন'}
           </button>
         </form>
       </div>
