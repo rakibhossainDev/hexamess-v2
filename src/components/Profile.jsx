@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { db, doc, onSnapshot, updateDoc, collection, query, where } from '../utils/firebase';
+import { db, doc, onSnapshot, updateDoc, collection, query, where, addDoc } from '../utils/firebase';
 import { ToastContainer } from './Toast';
 import { useToast } from '../hooks/useToast';
 import Sidebar from './Sidebar';
@@ -29,6 +29,8 @@ const Profile = ({ isAdminView = false }) => {
   });
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [newMemberData, setNewMemberData] = useState({ name: '', username: '', password: '' });
+  const [addingMember, setAddingMember] = useState(false);
   const { toasts, showToast, removeToast } = useToast();
 
   // Dynamic calculations states
@@ -115,7 +117,95 @@ const Profile = ({ isAdminView = false }) => {
     }
   };
 
+  const handleAddMember = async (e) => {
+    e.preventDefault();
+    setAddingMember(true);
+    try {
+      await addDoc(collection(db, 'users'), {
+        name: newMemberData.name,
+        username: newMemberData.username,
+        password: newMemberData.password,
+        currentMeals: 0,
+        currentDeposit: 0,
+        lifetimeMeals: 0,
+        status: "active",
+        createdAt: new Date()
+      });
+      showToast('নতুন মেম্বার যুক্ত করা হয়েছে!', 'success');
+      setNewMemberData({ name: '', username: '', password: '' });
+    } catch (err) {
+      console.error(err);
+      showToast('মেম্বার যুক্ত করতে সমস্যা হয়েছে।', 'error');
+    } finally {
+      setAddingMember(false);
+    }
+  };
+
   if (loading) return <div className="loading">লোড হচ্ছে...</div>;
+
+  if (isManager && !isAdminView) {
+    const managerContent = (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <ToastContainer toasts={toasts} removeToast={removeToast} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2>অ্যাডমিন প্রোফাইল</h2>
+        </div>
+        <div className="card glass-card" style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
+          <h3 style={{ marginBottom: '1.5rem', color: 'var(--accent-blue)', textAlign: 'center', fontSize: '1.5rem' }}>নতুন মেম্বার যুক্ত করুন</h3>
+          <form onSubmit={handleAddMember} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div className="form-group">
+              <label>নাম (Name)</label>
+              <input 
+                className="form-control"
+                placeholder="যেমন: রহিম মিয়া"
+                value={newMemberData.name}
+                onChange={(e) => setNewMemberData({ ...newMemberData, name: e.target.value })}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>ইউজারনেম (Username)</label>
+              <input 
+                className="form-control"
+                placeholder="যেমন: @rahim"
+                value={newMemberData.username}
+                onChange={(e) => setNewMemberData({ ...newMemberData, username: e.target.value })}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>পাসওয়ার্ড (Password)</label>
+              <input 
+                type="text"
+                className="form-control"
+                placeholder="পাসওয়ার্ড দিন"
+                value={newMemberData.password}
+                onChange={(e) => setNewMemberData({ ...newMemberData, password: e.target.value })}
+                required
+              />
+            </div>
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.5rem', padding: '0.75rem', fontSize: '1rem' }} disabled={addingMember}>
+              {addingMember ? 'লোড হচ্ছে...' : 'মেম্বার অ্যাড করুন'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+
+    return (
+      <div className="app-layout">
+        <Sidebar isManager={isManager} />
+        <main className="main-content" style={{ padding: '0 0 80px 0' }}>
+          <Navbar userName="মেস ম্যানেজার" userRole="ম্যানেজার" />
+          <div style={{ padding: '1.5rem' }}>
+            {managerContent}
+          </div>
+        </main>
+        <BottomNav isManager={isManager} />
+      </div>
+    );
+  }
+
   if (!user) return <div className="error">ব্যবহারকারী পাওয়া যায়নি।</div>;
 
   const content = (
