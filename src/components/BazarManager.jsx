@@ -8,68 +8,25 @@ import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 import BottomNav from './BottomNav';
 
+const toBengaliNumeral = (number) => {
+  const bengaliDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+  return number.toString().replace(/[0-9]/g, w => bengaliDigits[w]);
+};
+
 const renderBazarItems = (rawText) => {
-  try {
-    if (!rawText || typeof rawText !== 'string') return "";
-    
-    let formattedText = rawText;
-    const bengaliDigits = ['১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯', '১০'];
-    const englishDigits = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
-    
-    bengaliDigits.forEach(digit => {
-      // Delimiter with space
-      formattedText = formattedText.replaceAll(` ${digit}।`, `|${digit}।`);
-      formattedText = formattedText.replaceAll(` ${digit}.`, `|${digit}.`);
-      formattedText = formattedText.replaceAll(` ${digit})`, `|${digit})`);
-      // Delimiter without space at the start
-      if (!formattedText.startsWith(`${digit}।`)) {
-        formattedText = formattedText.replaceAll(`${digit}।`, `|${digit}।`);
-      }
-      if (!formattedText.startsWith(`${digit}.`)) {
-        formattedText = formattedText.replaceAll(`${digit}.`, `|${digit}.`);
-      }
-      if (!formattedText.startsWith(`${digit})`)) {
-        formattedText = formattedText.replaceAll(`${digit})`, `|${digit})`);
-      }
-    });
-
-    englishDigits.forEach(digit => {
-      // Delimiter with space
-      formattedText = formattedText.replaceAll(` ${digit}।`, `|${digit}।`);
-      formattedText = formattedText.replaceAll(` ${digit}.`, `|${digit}.`);
-      formattedText = formattedText.replaceAll(` ${digit})`, `|${digit})`);
-      // Delimiter without space at the start
-      if (!formattedText.startsWith(`${digit}।`)) {
-        formattedText = formattedText.replaceAll(`${digit}।`, `|${digit}।`);
-      }
-      if (!formattedText.startsWith(`${digit}.`)) {
-        formattedText = formattedText.replaceAll(`${digit}.`, `|${digit}.`);
-      }
-      if (!formattedText.startsWith(`${digit})`)) {
-        formattedText = formattedText.replaceAll(`${digit})`, `|${digit})`);
-      }
-    });
-
-    let lines;
-    if (formattedText.includes('|')) {
-      lines = formattedText.split('|');
-    } else if (rawText.includes(',')) {
-      lines = rawText.split(',');
-    } else if (rawText.includes('|')) {
-      lines = rawText.split('|');
-    } else {
-      lines = [rawText];
-    }
-    
-    return lines.map((line, index) => (
-      <div key={index} className="bazar-item-tiro block py-0.5 text-gray-200" style={{ fontFamily: "'Tiro Bangla', serif", display: 'block' }}>
-        {line.trim()}
-      </div>
-    ));
-  } catch (error) {
-    console.error("Error rendering bazar items:", error);
-    return <div className="bazar-item-tiro block py-0.5 text-gray-200" style={{ fontFamily: "'Tiro Bangla', serif", display: 'block' }}>{String(rawText || "")}</div>;
-  }
+  if (!rawText || typeof rawText !== 'string') return "";
+  
+  const items = rawText.split(',').map(item => item.trim()).filter(item => item.length > 0);
+  
+  return (
+    <div className="flex flex-col gap-1">
+      {items.map((item, index) => (
+        <div key={index} className="bazar-item-tiro" style={{ fontFamily: "'Tiro Bangla', serif" }}>
+          {toBengaliNumeral(index + 1)}। {item}
+        </div>
+      ))}
+    </div>
+  );
 };
 
 const BazarManager = () => {
