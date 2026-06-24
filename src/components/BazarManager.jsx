@@ -81,6 +81,7 @@ const BazarManager = () => {
   const [bazarDate, setBazarDate] = useState(getTodayDateString());
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const { toasts, showToast, removeToast } = useToast();
 
   // Unified monthYear for aggregation (e.g., "05-2026")
@@ -170,7 +171,7 @@ const BazarManager = () => {
     setAmount(record.amount);
     setBazarDate(record.date);
     setSelectedManager(record.managerId || '');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setIsModalOpen(true);
   };
 
   const handleDelete = async (id) => {
@@ -190,6 +191,7 @@ const BazarManager = () => {
     setItemName('');
     setAmount('');
     setSelectedManager('');
+    setIsModalOpen(false);
   };
 
   const currentUser = JSON.parse(localStorage.getItem('hexa_user') || '{}');
@@ -208,83 +210,20 @@ const BazarManager = () => {
         <h2 style={{ margin: 0 }}>বাজার ম্যানেজার</h2>
       </div>
 
-      {/* Bazar Expense Form */}
-      {isManagerUser && (
-        <div className="card glass-card">
-          <h3 style={{ marginBottom: '1.5rem', color: 'var(--accent-orange)' }}>🛒 বাজার খরচ ইস্যু করুন</h3>
-          <form onSubmit={handleIssueBazar} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem', alignItems: 'end' }}>
-            <div className="form-group">
-              <label>বাজারের নাম/আইটেম</label>
-              <input 
-                type="text" 
-                className="form-control" 
-                value={itemName} 
-                onChange={e => setItemName(e.target.value)} 
-                placeholder="যেমন: আলু, পেঁয়াজ, মাংস" 
-                required 
-              />
-            </div>
-            <div className="form-group">
-              <label>পরিমাণ (৳)</label>
-              <input 
-                type="number" 
-                className="form-control" 
-                value={amount} 
-                onChange={e => setAmount(e.target.value)} 
-                placeholder="৳০০.০০" 
-                required 
-              />
-            </div>
-            <div className="form-group">
-              <label>তারিখ</label>
-              <input 
-                type="date" 
-                className="form-control" 
-                value={bazarDate} 
-                onChange={e => setBazarDate(e.target.value)} 
-                required 
-              />
-            </div>
-            <div className="form-group">
-              <label>বাজারকারী (সদস্য)</label>
-              <select 
-                className="form-control" 
-                value={selectedManager} 
-                onChange={e => setSelectedManager(e.target.value)} 
-                required
-              >
-                <option value="">নির্বাচন করুন</option>
-                {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-              </select>
-            </div>
-            <div style={{ display: 'flex', gap: '0.75rem', gridColumn: 'span 1' }}>
-              <button 
-                type="submit" 
-                className={`btn ${editingId ? 'btn-success' : 'btn-primary'}`} 
-                disabled={saving}
-                style={{ flex: 2, height: 'fit-content', padding: '0.875rem 1rem' }}
-              >
-                {saving ? 'সেভ হচ্ছে...' : (editingId ? 'আপডেট করুন' : 'ইস্যু করুন')}
-              </button>
-              {editingId && (
-                <button 
-                  type="button" 
-                  className="btn" 
-                  onClick={resetForm}
-                  style={{ flex: 1, background: 'var(--surface-hover)', padding: '0.875rem 1rem' }}
-                >
-                  বাতিল
-                </button>
-              )}
-            </div>
-          </form>
-        </div>
-      )}
-
       {/* Bazar list */}
       <div className="card glass-card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ color: 'var(--accent-blue)', margin: 0 }}>এই মাসের বাজার তালিকা</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <h3 style={{ color: 'var(--accent-blue)', margin: 0 }}>এই মাসের বাজার তালিকা</h3>
+            {isManagerUser && (
+              <button 
+                onClick={() => { setEditingId(null); setItemName(''); setAmount(''); setSelectedManager(''); setBazarDate(getTodayDateString()); setIsModalOpen(true); }} 
+                className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm"
+              >
+                ➕ বাজার খরচ ইস্যু করুন
+              </button>
+            )}
+          </div>
           <div style={{ textAlign: 'right' }}>
             <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>মোট বাজার খরচ</p>
             <span style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--accent-green)' }}>৳{totalBazar}</span>
@@ -360,6 +299,83 @@ const BazarManager = () => {
           </table>
         </div>
       </div>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm px-4">
+          <div className="bg-white dark:bg-[#1e293b] w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden relative">
+            <div className="flex justify-between items-center p-5 border-b border-gray-200 dark:border-[#334155]">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">🛒 বাজার খরচ ইস্যু করুন</h3>
+              <button onClick={resetForm} className="text-gray-500 hover:text-red-500 text-2xl leading-none">&times;</button>
+            </div>
+            <div className="p-6">
+              <form onSubmit={handleIssueBazar} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem', alignItems: 'end' }}>
+                <div className="form-group text-left" style={{ gridColumn: '1 / -1' }}>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">বাজারের নাম/আইটেম</label>
+                  <input 
+                    type="text" 
+                    className="w-full bg-gray-50 dark:bg-[#0f172a] border border-gray-300 dark:border-[#334155] text-gray-900 dark:text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    value={itemName} 
+                    onChange={e => setItemName(e.target.value)} 
+                    placeholder="যেমন: আলু, পেঁয়াজ, মাংস" 
+                    required 
+                  />
+                </div>
+                <div className="form-group text-left">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">পরিমাণ (৳)</label>
+                  <input 
+                    type="number" 
+                    className="w-full bg-gray-50 dark:bg-[#0f172a] border border-gray-300 dark:border-[#334155] text-gray-900 dark:text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    value={amount} 
+                    onChange={e => setAmount(e.target.value)} 
+                    placeholder="৳০০.০০" 
+                    required 
+                  />
+                </div>
+                <div className="form-group text-left">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">তারিখ</label>
+                  <input 
+                    type="date" 
+                    className="w-full bg-gray-50 dark:bg-[#0f172a] border border-gray-300 dark:border-[#334155] text-gray-900 dark:text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    value={bazarDate} 
+                    onChange={e => setBazarDate(e.target.value)} 
+                    required 
+                  />
+                </div>
+                <div className="form-group text-left" style={{ gridColumn: '1 / -1' }}>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">বাজারকারী (সদস্য)</label>
+                  <select 
+                    className="w-full bg-gray-50 dark:bg-[#0f172a] border border-gray-300 dark:border-[#334155] text-gray-900 dark:text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    value={selectedManager} 
+                    onChange={e => setSelectedManager(e.target.value)} 
+                    required
+                  >
+                    <option value="">নির্বাচন করুন</option>
+                    {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                  </select>
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem', gridColumn: '1 / -1', marginTop: '1rem' }}>
+                  <button 
+                    type="submit" 
+                    className={`btn ${editingId ? 'btn-success' : 'btn-primary'}`} 
+                    disabled={saving}
+                    style={{ flex: 1, padding: '0.875rem 1rem' }}
+                  >
+                    {saving ? 'সেভ হচ্ছে...' : (editingId ? 'আপডেট করুন' : 'ইস্যু করুন')}
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn" 
+                    onClick={resetForm}
+                    style={{ flex: 1, background: 'var(--surface-hover)', padding: '0.875rem 1rem', color: 'var(--text-primary)' }}
+                  >
+                    বাতিল
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 
