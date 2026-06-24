@@ -2,9 +2,6 @@ import { useState, useEffect } from 'react';
 import { db, doc, onSnapshot, updateDoc, collection, query, where, addDoc } from '../utils/firebase';
 import { ToastContainer } from './Toast';
 import { useToast } from '../hooks/useToast';
-import Sidebar from './Sidebar';
-import Navbar from './Navbar';
-import BottomNav from './BottomNav';
 import { useParams, useNavigate } from 'react-router-dom';
 
 const Profile = ({ isAdminView = false }) => {
@@ -144,64 +141,51 @@ const Profile = ({ isAdminView = false }) => {
   if (loading) return <div className="loading">লোড হচ্ছে...</div>;
 
   if (isManager && !isAdminView) {
-    const managerContent = (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    return (
+      <div className="w-full p-4 md:p-6 text-white">
         <ToastContainer toasts={toasts} removeToast={removeToast} />
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2>অ্যাডমিন প্রোফাইল</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>অ্যাডমিন প্রোফাইল</h2>
         </div>
-        <div className="card glass-card" style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
-          <h3 style={{ marginBottom: '1.5rem', color: 'var(--accent-blue)', textAlign: 'center', fontSize: '1.5rem' }}>নতুন মেম্বার যুক্ত করুন</h3>
+        <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 shadow-md max-w-2xl mx-auto">
+          <h3 style={{ marginBottom: '1.5rem', color: '#60a5fa', textAlign: 'center', fontSize: '1.5rem', fontWeight: '600' }}>নতুন মেম্বার যুক্ত করুন</h3>
           <form onSubmit={handleAddMember} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            <div className="form-group">
-              <label>নাম (Name)</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.875rem', fontWeight: '500', color: '#cbd5e1' }}>নাম (Name)</label>
               <input 
-                className="form-control"
+                className="w-full bg-slate-900 border border-slate-700 rounded-md px-4 py-2 text-white focus:outline-none focus:border-blue-500"
                 placeholder="যেমন: রহিম মিয়া"
                 value={newMemberData.name}
                 onChange={(e) => setNewMemberData({ ...newMemberData, name: e.target.value })}
                 required
               />
             </div>
-            <div className="form-group">
-              <label>ইউজারনেম (Username)</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.875rem', fontWeight: '500', color: '#cbd5e1' }}>ইউজারনেম (Username)</label>
               <input 
-                className="form-control"
+                className="w-full bg-slate-900 border border-slate-700 rounded-md px-4 py-2 text-white focus:outline-none focus:border-blue-500"
                 placeholder="যেমন: @rahim"
                 value={newMemberData.username}
                 onChange={(e) => setNewMemberData({ ...newMemberData, username: e.target.value })}
                 required
               />
             </div>
-            <div className="form-group">
-              <label>পাসওয়ার্ড (Password)</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.875rem', fontWeight: '500', color: '#cbd5e1' }}>পাসওয়ার্ড (Password)</label>
               <input 
                 type="text"
-                className="form-control"
+                className="w-full bg-slate-900 border border-slate-700 rounded-md px-4 py-2 text-white focus:outline-none focus:border-blue-500"
                 placeholder="পাসওয়ার্ড দিন"
                 value={newMemberData.password}
                 onChange={(e) => setNewMemberData({ ...newMemberData, password: e.target.value })}
                 required
               />
             </div>
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.5rem', padding: '0.75rem', fontSize: '1rem' }} disabled={addingMember}>
+            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-md mt-2 transition-colors" disabled={addingMember}>
               {addingMember ? 'লোড হচ্ছে...' : 'মেম্বার অ্যাড করুন'}
             </button>
           </form>
         </div>
-      </div>
-    );
-
-    return (
-      <div className="app-layout">
-        <Sidebar isManager={isManager} />
-        <main className="main-content" style={{ padding: '0 0 80px 0' }}>
-          <Navbar userName="মেস ম্যানেজার" userRole="ম্যানেজার" />
-          <div style={{ padding: '1.5rem' }}>
-            {managerContent}
-          </div>
-        </main>
-        <BottomNav isManager={isManager} />
       </div>
     );
   }
@@ -360,15 +344,8 @@ const Profile = ({ isAdminView = false }) => {
   if (isAdminView) return content;
 
   return (
-    <div className="app-layout">
-      <Sidebar isManager={isManager} />
-      <main className="main-content" style={{ padding: '0 0 80px 0' }}>
-        <Navbar userName={user.name} userRole={isManager ? "ম্যানেজার" : "সদস্য"} />
-        <div style={{ padding: '1.5rem' }}>
-          {content}
-        </div>
-      </main>
-      <BottomNav isManager={isManager} />
+    <div className="w-full p-4 md:p-6 text-white">
+      {content}
     </div>
   );
 };
