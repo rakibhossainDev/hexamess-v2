@@ -133,13 +133,19 @@ const Profile = () => {
       <div className="w-full p-4 md:p-8">
         <div className="bg-white dark:bg-[#1e293b] border border-gray-200 dark:border-[#334155] p-6 md:p-8 rounded-xl shadow-lg max-w-2xl mx-auto text-center text-gray-900 dark:text-white">
           <div className="flex flex-col items-center gap-4 mb-8">
-            {myData.photoURL ? (
-              <img src={myData.photoURL} alt={myData.name} className="w-32 h-32 rounded-full object-cover border-4 border-cyan-500 shadow-lg" />
-            ) : (
-              <div className="w-32 h-32 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-300 flex items-center justify-center font-bold text-5xl border-4 border-cyan-500 shadow-lg">
+            <div className="relative w-32 h-32 flex-shrink-0">
+              <div className="absolute inset-0 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-300 flex items-center justify-center font-bold text-5xl border-4 border-cyan-500 shadow-lg">
                 {myData.name?.charAt(0) || 'U'}
               </div>
-            )}
+              {myData.photoURL && (
+                <img 
+                  src={myData.photoURL} 
+                  alt={myData.name} 
+                  className="absolute inset-0 w-32 h-32 rounded-full object-cover border-4 border-cyan-500 shadow-lg z-10 bg-white dark:bg-[#1e293b]" 
+                  onError={(e) => e.target.style.display = 'none'}
+                />
+              )}
+            </div>
             <div>
               <h2 className="text-3xl font-bold">{myData.name}</h2>
               <p className="text-gray-500 dark:text-gray-400">@{myData.username}</p>

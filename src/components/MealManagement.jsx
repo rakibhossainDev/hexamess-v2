@@ -159,13 +159,19 @@ const MealManagement = () => {
           {activeMembers.map(member => (
             <div key={member.id} className="bg-[var(--surface-color)] p-4 rounded-xl border border-[var(--border-color)] shadow-sm flex flex-col gap-3">
               <div className="flex items-center gap-3">
-                {member.photoURL ? (
-                  <img src={member.photoURL} alt={member.name} className="w-8 h-8 md:w-10 md:h-10 flex-shrink-0 rounded-full object-cover border border-cyan-500" />
-                ) : (
-                  <div className="w-8 h-8 md:w-10 md:h-10 flex-shrink-0 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-300 flex items-center justify-center font-bold">
+                <div className="relative w-8 h-8 md:w-10 md:h-10 flex-shrink-0">
+                  <div className="absolute inset-0 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-300 flex items-center justify-center font-bold">
                     {member.name.charAt(0)}
                   </div>
-                )}
+                  {member.photoURL && (
+                    <img 
+                      src={member.photoURL} 
+                      alt={member.name} 
+                      className="absolute inset-0 w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border border-cyan-500 z-10 bg-[var(--surface-color)]" 
+                      onError={(e) => e.target.style.display = 'none'}
+                    />
+                  )}
+                </div>
                 <div className="flex-1">
                   <div className="font-semibold text-[var(--text-primary)]">{member.name}</div>
                   <div className="text-xs text-[var(--text-secondary)]">@{member.username}</div>
@@ -210,13 +216,19 @@ const MealManagement = () => {
                 <tr key={member.id}>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      {member.photoURL ? (
-                        <img src={member.photoURL} alt={member.name} className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border border-cyan-500" />
-                      ) : (
-                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-300 flex items-center justify-center font-bold">
+                      <div className="relative w-8 h-8 md:w-10 md:h-10 flex-shrink-0">
+                        <div className="absolute inset-0 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-300 flex items-center justify-center font-bold">
                           {member.name.charAt(0)}
                         </div>
-                      )}
+                        {member.photoURL && (
+                          <img 
+                            src={member.photoURL} 
+                            alt={member.name} 
+                            className="absolute inset-0 w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border border-cyan-500 z-10 bg-[var(--surface-color)]" 
+                            onError={(e) => e.target.style.display = 'none'}
+                          />
+                        )}
+                      </div>
                       <div>
                         <div style={{ fontWeight: '600' }}>{member.name}</div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>@{member.username}</div>

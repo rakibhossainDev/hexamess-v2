@@ -92,13 +92,20 @@ const Navbar = ({ userName = 'ব্যবহারকারী', userRole = '�
             </p>
             <p style={{ color: 'var(--accent-blue)', fontSize: '0.75rem', fontWeight: '500', textTransform: 'uppercase' }}>{userRole}</p>
           </div>
-          {photoURL ? (
-            <img src={photoURL} alt={userName} className="w-10 h-10 rounded-full object-cover border-2 border-cyan-500" style={{ boxShadow: '0 0 10px rgba(0, 209, 255, 0.2)' }} />
-          ) : (
-            <div className="w-10 h-10 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-300 flex items-center justify-center font-bold border-2 border-cyan-500" style={{ boxShadow: '0 0 10px rgba(0, 209, 255, 0.2)' }}>
+          <div className="relative w-10 h-10 flex-shrink-0">
+            <div className="absolute inset-0 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-300 flex items-center justify-center font-bold border-2 border-cyan-500" style={{ boxShadow: '0 0 10px rgba(0, 209, 255, 0.2)' }}>
               {userName.charAt(0)}
             </div>
-          )}
+            {photoURL && (
+              <img 
+                src={photoURL} 
+                alt={userName} 
+                className="absolute inset-0 w-10 h-10 rounded-full object-cover border-2 border-cyan-500 z-10 bg-[var(--surface-color)]" 
+                style={{ boxShadow: '0 0 10px rgba(0, 209, 255, 0.2)' }}
+                onError={(e) => e.target.style.display = 'none'}
+              />
+            )}
+          </div>
         </div>
 
         {/* Mobile Logout (Desktop uses Sidebar) */}

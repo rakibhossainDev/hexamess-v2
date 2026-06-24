@@ -114,6 +114,8 @@ const PublicGuard = ({ children }) => {
 function App() {
   return (
     <AuthProvider>
+      <div className="fixed top-[-10%] right-[-5%] w-72 h-72 bg-cyan-500/20 dark:bg-cyan-500/10 rounded-full blur-3xl pointer-events-none -z-10"></div>
+      <div className="fixed bottom-[-10%] left-[-5%] w-72 h-72 bg-purple-500/10 dark:bg-purple-500/5 rounded-full blur-3xl pointer-events-none -z-10"></div>
       <Router>
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
