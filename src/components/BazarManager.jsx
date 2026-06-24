@@ -205,11 +205,6 @@ const BazarManager = () => {
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', fontFamily: "'Hind Siliguri', sans-serif" }}>
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       
-      {/* Page Title */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 style={{ margin: 0 }}>বাজার ম্যানেজার</h2>
-      </div>
-
       {/* Bazar list */}
       <div className="card glass-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
@@ -388,7 +383,7 @@ const BazarManager = () => {
       <Sidebar isManager={isManagerUser} />
       <main className="main-content" style={{ padding: '0 0 80px 0', flex: 1 }}>
         <Navbar userName={currentUser?.name} userRole={isManagerUser ? 'ম্যানেজার' : 'সদস্য'} photoURL={currentUser?.photoURL} />
-        <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div className="p-4 md:p-6" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {content}
         </div>
       </main>
