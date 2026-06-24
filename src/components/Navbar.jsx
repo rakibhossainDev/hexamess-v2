@@ -92,14 +92,13 @@ const Navbar = ({ userName = 'ব্যবহারকারী', userRole = '�
             </p>
             <p style={{ color: 'var(--accent-blue)', fontSize: '0.75rem', fontWeight: '500', textTransform: 'uppercase' }}>{userRole}</p>
           </div>
-          <div style={{
-            width: '40px', height: '40px', borderRadius: '50%',
-            background: 'var(--surface-hover)',
-            backgroundImage: photoURL ? `url("${photoURL}")` : `url("https://api.dicebear.com/7.x/avataaars/svg?seed=${userName}&backgroundColor=b6e3f4")`,
-            backgroundSize: 'cover', backgroundPosition: 'center',
-            border: '2px solid var(--accent-blue)',
-            boxShadow: '0 0 10px rgba(0, 209, 255, 0.2)'
-          }} />
+          {photoURL ? (
+            <img src={photoURL} alt={userName} className="w-10 h-10 rounded-full object-cover border-2 border-cyan-500" style={{ boxShadow: '0 0 10px rgba(0, 209, 255, 0.2)' }} />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-300 flex items-center justify-center font-bold border-2 border-cyan-500" style={{ boxShadow: '0 0 10px rgba(0, 209, 255, 0.2)' }}>
+              {userName.charAt(0)}
+            </div>
+          )}
         </div>
 
         {/* Mobile Logout (Desktop uses Sidebar) */}

@@ -124,6 +124,47 @@ const Profile = () => {
     }
   };
 
+  const currentUser = JSON.parse(localStorage.getItem('hexa_user') || '{}');
+  const isManager = currentUser?.username === 'manager';
+
+  if (!isManager) {
+    const myData = membersList.find(m => m.id === currentUser.id) || currentUser;
+    return (
+      <div className="w-full p-4 md:p-8">
+        <div className="bg-white dark:bg-[#1e293b] border border-gray-200 dark:border-[#334155] p-6 md:p-8 rounded-xl shadow-lg max-w-2xl mx-auto text-center text-gray-900 dark:text-white">
+          <div className="flex flex-col items-center gap-4 mb-8">
+            {myData.photoURL ? (
+              <img src={myData.photoURL} alt={myData.name} className="w-32 h-32 rounded-full object-cover border-4 border-cyan-500 shadow-lg" />
+            ) : (
+              <div className="w-32 h-32 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-300 flex items-center justify-center font-bold text-5xl border-4 border-cyan-500 shadow-lg">
+                {myData.name?.charAt(0) || 'U'}
+              </div>
+            )}
+            <div>
+              <h2 className="text-3xl font-bold">{myData.name}</h2>
+              <p className="text-gray-500 dark:text-gray-400">@{myData.username}</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-gray-50 dark:bg-[#0f172a] border border-gray-200 dark:border-[#334155] p-4 rounded-xl">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Meals</p>
+              <p className="text-xl font-bold text-cyan-500">{myData.lifetimeMeals || myData.currentMeals || myData.totalMeals || 0}</p>
+            </div>
+            <div className="bg-gray-50 dark:bg-[#0f172a] border border-gray-200 dark:border-[#334155] p-4 rounded-xl">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Deposit</p>
+              <p className="text-xl font-bold text-green-500">৳{myData.currentDeposit || 0}</p>
+            </div>
+            <div className="bg-gray-50 dark:bg-[#0f172a] border border-gray-200 dark:border-[#334155] p-4 rounded-xl">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Current Balance</p>
+              <p className="text-xl font-bold text-orange-500">৳{myData.currentDeposit || 0}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full p-4 md:p-8">
       <div className="bg-white dark:bg-[#1e293b] border border-gray-200 dark:border-[#334155] p-6 md:p-8 rounded-xl shadow-lg max-w-2xl mx-auto">

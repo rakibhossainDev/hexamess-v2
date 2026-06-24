@@ -79,9 +79,13 @@ const MemberList = () => {
                 <tr key={member.id} className={member.status === 'inactive' ? 'row-danger' : ''}>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <div className="avatar" style={{ background: member.status === 'active' ? 'var(--accent-blue)' : '#444' }}>
-                        {member.name[0]}
-                      </div>
+                      {member.photoURL ? (
+                        <img src={member.photoURL} alt={member.name} className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border border-cyan-500" />
+                      ) : (
+                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-300 flex items-center justify-center font-bold">
+                          {member.name.charAt(0)}
+                        </div>
+                      )}
                       <div style={{ fontWeight: '600' }}>{member.name}</div>
                     </div>
                   </td>
