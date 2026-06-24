@@ -146,23 +146,24 @@ const Profile = ({ isAdminView = false }) => {
     setIsUploading(true);
     const data = new FormData();
     data.append("file", file);
-    data.append("upload_preset", "YOUR_UPLOAD_PRESET");
-    data.append("cloud_name", "YOUR_CLOUD_NAME");
+    data.append("upload_preset", "hexamess");
+    data.append("cloud_name", "duu1c3nfd");
     
     try {
-      const res = await fetch("https://api.cloudinary.com/v1_1/YOUR_CLOUD_NAME/image/upload", {
+      const response = await fetch("https://api.cloudinary.com/v1_1/duu1c3nfd/image/upload", {
         method: "POST",
-        body: data
+        body: data,
       });
-      const json = await res.json();
-      if (json.secure_url) {
-        setFormData({ ...formData, photoURL: json.secure_url });
+      const uploadedImageData = await response.json();
+      
+      if (uploadedImageData.secure_url) {
+        setFormData({ ...formData, photoURL: uploadedImageData.secure_url });
         showToast('ছবি সফলভাবে আপলোড হয়েছে!', 'success');
       } else {
         throw new Error('Upload failed');
       }
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error("Error uploading image:", error);
       showToast('ছবি আপলোড করতে সমস্যা হয়েছে।', 'error');
     } finally {
       setIsUploading(false);
