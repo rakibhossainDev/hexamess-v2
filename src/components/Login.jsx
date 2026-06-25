@@ -142,16 +142,7 @@ const Login = () => {
         </button>
 
         <div style={{ marginBottom: '2rem' }}>
-          <div className="rounded-xl" style={{
-            width: '60px', height: '60px',
-            background: 'linear-gradient(135deg, var(--accent-blue), #0077FF)',
-            display: 'flex', alignItems: 'center',
-            justifyContent: 'center', color: '#fff', fontWeight: 'bold',
-            fontSize: '2rem', boxShadow: '0 0 20px rgba(0, 209, 255, 0.4)',
-            margin: '0 auto 1.25rem auto'
-          }}>
-            H
-          </div>
+          <img src="/logo192.png" alt="HexaMess Logo" className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover shadow-[0_0_15px_rgba(6,182,212,0.5)] mx-auto mb-5" />
           <h1 style={{ fontSize: '1.75rem', fontWeight: '700', marginBottom: '0.25rem' }}>হেক্সামেস (HexaMess)</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9375rem' }}>প্রফেশনাল মেস ম্যানেজমেন্ট সিস্টেম</p>
         </div>

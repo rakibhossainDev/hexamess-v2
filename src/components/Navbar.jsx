@@ -46,15 +46,7 @@ const Navbar = ({ userName = 'ব্যবহারকারী', userRole = '�
     }}>
       {/* Left: Brand */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        <div className="rounded-xl" style={{
-          width: '36px', height: '36px',
-          background: 'linear-gradient(135deg, var(--accent-blue), #0055ff)',
-          display: 'flex', alignItems: 'center',
-          justifyContent: 'center', color: '#fff', fontWeight: 'bold',
-          fontSize: '1.25rem', boxShadow: '0 0 15px rgba(0, 209, 255, 0.4)'
-        }}>
-          H
-        </div>
+        <img src="/logo192.png" alt="HexaMess Logo" className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl object-cover" />
         <h1 style={{ fontSize: '1.5rem', fontWeight: '700', letterSpacing: '-0.02em', margin: 0 }}>
           HexaMess
         </h1>
