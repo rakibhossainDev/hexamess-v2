@@ -11,6 +11,7 @@ const Login = () => {
   const [showRecovery, setShowRecovery] = useState(false);
   const [recoverySent, setRecoverySent] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('hexamess-theme') !== 'light');
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -141,7 +142,7 @@ const Login = () => {
         </button>
 
         <div style={{ marginBottom: '2rem' }}>
-          <div className="rounded-2xl" style={{
+          <div className="rounded-xl" style={{
             width: '60px', height: '60px',
             background: 'linear-gradient(135deg, var(--accent-blue), #0077FF)',
             display: 'flex', alignItems: 'center',
@@ -172,11 +173,26 @@ const Login = () => {
           </div>
           <div className="form-group" style={{ marginBottom: '2rem' }}>
             <label>পাসওয়ার্ড</label>
-            <input 
-              type="password" className="form-control" 
-              placeholder="••••••••" value={password}
-              onChange={(e) => setPassword(e.target.value)} required
-            />
+            <div style={{ position: 'relative' }}>
+              <input 
+                type={showPassword ? "text" : "password"} className="form-control" 
+                placeholder="••••••••" value={password}
+                onChange={(e) => setPassword(e.target.value)} required
+                style={{ paddingRight: '2.5rem' }}
+              />
+              <button 
+                type="button" 
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)',
+                  background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.25rem', fontSize: '1.2rem'
+                }}
+                title={showPassword ? "পাসওয়ার্ড লুকান" : "পাসওয়ার্ড দেখুন"}
+              >
+                {showPassword ? '👁️' : '👁️‍🗨️'}
+              </button>
+            </div>
           </div>
           <button type="submit" className="btn-electric" disabled={loading}>
             {loading ? 'লগইন হচ্ছে...' : 'প্রবেশ করুন'}
