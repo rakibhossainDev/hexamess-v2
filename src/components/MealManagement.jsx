@@ -159,15 +159,15 @@ const MealManagement = () => {
           {activeMembers.map(member => (
             <div key={member.id} className="bg-[var(--surface-color)] p-4 rounded-xl border border-[var(--border-color)] shadow-sm flex flex-col gap-3">
               <div className="flex items-center gap-3">
-                <div className="relative w-8 h-8 md:w-10 md:h-10 flex-shrink-0">
-                  <div className="absolute inset-0 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-300 flex items-center justify-center font-bold">
+                <div className="relative w-12 h-12 md:w-14 md:h-14 min-w-[48px] min-h-[48px] flex-shrink-0">
+                  <div className="absolute inset-0 w-12 h-12 md:w-14 md:h-14 min-w-[48px] min-h-[48px] flex-shrink-0 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-300 flex items-center justify-center font-bold">
                     {member.name.charAt(0)}
                   </div>
                   {member.photoURL && (
                     <img 
                       src={member.photoURL} 
                       alt={member.name} 
-                      className="absolute inset-0 w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border border-cyan-500 z-10 bg-[var(--surface-color)]" 
+                      className="absolute inset-0 w-12 h-12 md:w-14 md:h-14 min-w-[48px] min-h-[48px] flex-shrink-0 rounded-full object-cover border border-cyan-500 z-10 bg-[var(--surface-color)]" 
                       onError={(e) => e.target.style.display = 'none'}
                     />
                   )}
@@ -216,15 +216,15 @@ const MealManagement = () => {
                 <tr key={member.id}>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <div className="relative w-8 h-8 md:w-10 md:h-10 flex-shrink-0">
-                        <div className="absolute inset-0 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-300 flex items-center justify-center font-bold">
+                      <div className="relative w-12 h-12 md:w-14 md:h-14 min-w-[48px] min-h-[48px] flex-shrink-0">
+                        <div className="absolute inset-0 w-12 h-12 md:w-14 md:h-14 min-w-[48px] min-h-[48px] flex-shrink-0 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-300 flex items-center justify-center font-bold">
                           {member.name.charAt(0)}
                         </div>
                         {member.photoURL && (
                           <img 
                             src={member.photoURL} 
                             alt={member.name} 
-                            className="absolute inset-0 w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border border-cyan-500 z-10 bg-[var(--surface-color)]" 
+                            className="absolute inset-0 w-12 h-12 md:w-14 md:h-14 min-w-[48px] min-h-[48px] flex-shrink-0 rounded-full object-cover border border-cyan-500 z-10 bg-[var(--surface-color)]" 
                             onError={(e) => e.target.style.display = 'none'}
                           />
                         )}
