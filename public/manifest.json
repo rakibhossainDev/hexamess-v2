@@ -1,20 +1,12 @@
 {
-  "name": "HexaMess",
   "short_name": "HexaMess",
+  "name": "HexaMess Smart Manager",
+  "icons": [
+    { "src": "/logo192.png", "type": "image/png", "sizes": "192x192", "purpose": "any maskable" },
+    { "src": "/logo512.png", "type": "image/png", "sizes": "512x512", "purpose": "any maskable" }
+  ],
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#06b6d4",
-  "icons": [
-    {
-      "src": "/logo192.png",
-      "type": "image/png",
-      "sizes": "192x192"
-    },
-    {
-      "src": "/logo512.png",
-      "type": "image/png",
-      "sizes": "512x512"
-    }
-  ]
+  "theme_color": "#ffffff",
+  "background_color": "#ffffff"
 }
