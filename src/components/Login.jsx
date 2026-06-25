@@ -141,10 +141,10 @@ const Login = () => {
         </button>
 
         <div style={{ marginBottom: '2rem' }}>
-          <div style={{
+          <div className="rounded-2xl" style={{
             width: '60px', height: '60px',
             background: 'linear-gradient(135deg, var(--accent-blue), #0077FF)',
-            borderRadius: '16px', display: 'flex', alignItems: 'center',
+            display: 'flex', alignItems: 'center',
             justifyContent: 'center', color: '#fff', fontWeight: 'bold',
             fontSize: '2rem', boxShadow: '0 0 20px rgba(0, 209, 255, 0.4)',
             margin: '0 auto 1.25rem auto'

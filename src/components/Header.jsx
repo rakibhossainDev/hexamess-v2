@@ -7,11 +7,10 @@ const Header = ({ userName = 'মোঃ রাকিব হোসেন', userRo
       marginBottom: '1rem'
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        <div style={{
+        <div className="rounded-xl" style={{
           width: '40px',
           height: '40px',
           background: 'linear-gradient(135deg, var(--accent-blue), #0055ff)',
-          borderRadius: '10px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',

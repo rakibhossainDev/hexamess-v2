@@ -46,10 +46,10 @@ const Navbar = ({ userName = 'ব্যবহারকারী', userRole = '�
     }}>
       {/* Left: Brand */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        <div style={{
+        <div className="rounded-xl" style={{
           width: '36px', height: '36px',
           background: 'linear-gradient(135deg, var(--accent-blue), #0055ff)',
-          borderRadius: '10px', display: 'flex', alignItems: 'center',
+          display: 'flex', alignItems: 'center',
           justifyContent: 'center', color: '#fff', fontWeight: 'bold',
           fontSize: '1.25rem', boxShadow: '0 0 15px rgba(0, 209, 255, 0.4)'
         }}>
