@@ -151,15 +151,15 @@ const UserDashboard = () => {
   if (!currentUser) return <div className="loading">লোড হচ্ছে...</div>;
 
   return (
-    <div className="app-layout" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
+    <div className="app-layout overflow-x-hidden w-full max-w-[100vw]" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
       <Sidebar isManager={false} />
-      <main className="main-content" style={{ padding: '0 0 80px 0', flex: 1 }}>
+      <main className="main-content overflow-x-hidden w-full max-w-[100vw]" style={{ padding: '0 0 80px 0', flex: 1 }}>
         <Navbar userName={currentUser?.name} userRole={currentUser?.username === 'manager' ? 'ম্যানেজার' : 'সদস্য'} photoURL={currentUser?.photoURL} />
         <ToastContainer toasts={toasts} removeToast={removeToast} />
 
         <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {/* Dynamic 5 Metric Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
+          <div className="w-full grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
             <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-orange)' }}>
               <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>লাইভ মিল রেট</p>
               <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-orange)' }}>

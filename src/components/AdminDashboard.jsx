@@ -44,9 +44,9 @@ const AdminDashboard = () => {
   }, [userId, navigate]);
 
   return (
-    <div className="app-layout" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
+    <div className="app-layout overflow-x-hidden w-full max-w-[100vw]" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
       <Sidebar isManager={true} />
-      <main className="main-content" style={{ padding: 0 }}>
+      <main className="main-content overflow-x-hidden w-full max-w-[100vw]" style={{ padding: 0 }}>
         <Navbar userName={currentUser?.name || "ম্যানেজার"} userRole="ম্যানেজার" photoURL={currentUser?.photoURL} />
         <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '80px' }}>
           <Outlet />
@@ -150,7 +150,7 @@ export const DashboardHome = () => {
       </div>
 
       {/* Dynamic 5 Metric Cards (Aggregated Mess overview) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
+      <div className="w-full grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
         <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-orange)' }}>
           <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>লাইভ মিল রেট</p>
           <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-orange)' }}>
