@@ -159,36 +159,36 @@ const UserDashboard = () => {
 
         <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {/* Dynamic 5 Metric Cards */}
-          <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
-            <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-orange)' }}>
-              <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>লাইভ মিল রেট</p>
-              <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-orange)' }}>
+          <div className="stats-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4 mb-8">
+            <div className="card glass-card flex flex-col justify-center p-3 md:p-4" style={{ borderLeft: '5px solid var(--accent-orange)' }}>
+              <p className="text-xs md:text-sm mb-1" style={{ color:'var(--text-secondary)' }}>লাইভ মিল রেট</p>
+              <span className="text-lg sm:text-xl md:text-2xl font-black" style={{ color:'var(--accent-orange)' }}>
                 ৳{liveMealRate}
               </span>
             </div>
-            <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-blue)' }}>
-              <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>চলতি মোট মিল</p>
-              <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-blue)' }}>
+            <div className="card glass-card flex flex-col justify-center p-3 md:p-4" style={{ borderLeft: '5px solid var(--accent-blue)' }}>
+              <p className="text-xs md:text-sm mb-1" style={{ color:'var(--text-secondary)' }}>চলতি মোট মিল</p>
+              <span className="text-lg sm:text-xl md:text-2xl font-black" style={{ color:'var(--accent-blue)' }}>
                 {monthTotalMeals} টি
               </span>
             </div>
-            <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-green)' }}>
-              <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>মোট জমা</p>
-              <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-green)' }}>
+            <div className="card glass-card flex flex-col justify-center p-3 md:p-4" style={{ borderLeft: '5px solid var(--accent-green)' }}>
+              <p className="text-xs md:text-sm mb-1" style={{ color:'var(--text-secondary)' }}>মোট জমা</p>
+              <span className="text-lg sm:text-xl md:text-2xl font-black" style={{ color:'var(--accent-green)' }}>
                 ৳{globalDepositSum.toLocaleString()}
               </span>
             </div>
-            <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-purple)' }}>
-              <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>মোট খরচ</p>
-              <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-purple)' }}>
+            <div className="card glass-card flex flex-col justify-center p-3 md:p-4" style={{ borderLeft: '5px solid var(--accent-purple)' }}>
+              <p className="text-xs md:text-sm mb-1" style={{ color:'var(--text-secondary)' }}>মোট খরচ</p>
+              <span className="text-lg sm:text-xl md:text-2xl font-black" style={{ color:'var(--accent-purple)' }}>
                 ৳{globalTotalCost.toFixed(0)}
               </span>
             </div>
-            <div className="card glass-card" style={{ borderLeft: `5px solid ${globalNetBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}` }}>
-              <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>
+            <div className="card glass-card flex flex-col justify-center p-3 md:p-4" style={{ borderLeft: `5px solid ${globalNetBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}` }}>
+              <p className="text-xs md:text-sm mb-1" style={{ color:'var(--text-secondary)' }}>
                 {globalNetBalance >= 0 ? 'ক্যাশ ব্যালেন্স' : 'ম্যানেজার পাবে'}
               </p>
-              <span style={{ fontSize:'2.5rem', fontWeight:'900', color: globalNetBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
+              <span className="text-lg sm:text-xl md:text-2xl font-black" style={{ color: globalNetBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
                 ৳{Math.abs(globalNetBalance).toFixed(0)}
               </span>
             </div>
