@@ -14,7 +14,7 @@ export default {
       colors: {
         background: 'var(--bg-color)',
         surface: 'var(--surface-color)',
-        primary: 'var(--text-primary)',
+        primary: 'var(--primary-color)',
         secondary: 'var(--text-secondary)',
         accent: {
           blue: 'var(--accent-blue)',

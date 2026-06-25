@@ -1,5 +1,18 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 
+const THEMES = [
+  { name: 'Red', color: '#dc2626' },
+  { name: 'Blue', color: '#3b82f6' },
+  { name: 'Green', color: '#10b981' },
+  { name: 'Purple', color: '#8b5cf6' },
+  { name: 'Orange', color: '#f97316' }
+];
+
+const changeTheme = (color) => {
+  document.documentElement.style.setProperty('--primary-color', color);
+  localStorage.setItem('hexamess-primary-color', color);
+};
+
 const Sidebar = ({ isManager = false }) => {
   const navigate = useNavigate();
 
@@ -76,6 +89,25 @@ const Sidebar = ({ isManager = false }) => {
           <span>লগআউট</span>
         </button>
       </nav>
+
+      <div style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
+        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em' }}>থিম কালার</p>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {THEMES.map((theme) => (
+            <button
+              key={theme.name}
+              onClick={() => changeTheme(theme.color)}
+              style={{
+                width: '24px', height: '24px', borderRadius: '50%', backgroundColor: theme.color,
+                border: '2px solid var(--surface-color)', cursor: 'pointer',
+                boxShadow: '0 0 5px rgba(0,0,0,0.3)'
+              }}
+              title={theme.name}
+              aria-label={`Switch to ${theme.name} theme`}
+            />
+          ))}
+        </div>
+      </div>
     </aside>
   );
 };

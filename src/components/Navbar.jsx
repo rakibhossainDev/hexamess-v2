@@ -103,15 +103,16 @@ const Navbar = ({ userName = 'ব্যবহারকারী', userRole = '�
         {/* Mobile Logout (Desktop uses Sidebar) */}
         <button 
           onClick={handleLogout}
-          className="btn-mobile-logout"
+          className="hidden md:flex"
           style={{
-            display: 'none',
             background: 'rgba(239, 68, 68, 0.1)',
             color: 'var(--accent-red)',
             border: '1px solid rgba(239, 68, 68, 0.2)',
             padding: '0.5rem',
             borderRadius: 'var(--radius-sm)',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            alignItems: 'center',
+            justifyContent: 'center'
           }}
         >
           🚪
@@ -121,7 +122,6 @@ const Navbar = ({ userName = 'ব্যবহারকারী', userRole = '�
       <style dangerouslySetInnerHTML={{ __html: `
         @media (max-width: 480px) {
           .nav-user-text { display: none !important; }
-          .btn-mobile-logout { display: block !important; }
         }
       `}} />
     </nav>

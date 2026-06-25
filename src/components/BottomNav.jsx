@@ -1,6 +1,19 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 
+const THEMES = [
+  { name: 'Red', color: '#dc2626' },
+  { name: 'Blue', color: '#3b82f6' },
+  { name: 'Green', color: '#10b981' },
+  { name: 'Purple', color: '#8b5cf6' },
+  { name: 'Orange', color: '#f97316' }
+];
+
+const changeTheme = (color) => {
+  document.documentElement.style.setProperty('--primary-color', color);
+  localStorage.setItem('hexamess-primary-color', color);
+};
+
 const BottomNav = ({ isManager = false }) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const navigate = useNavigate();
@@ -80,6 +93,28 @@ const BottomNav = ({ isManager = false }) => {
           <button className="mobile-drawer-close" onClick={() => setIsDrawerOpen(false)}>✕</button>
         </div>
         
+        <div style={{ marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border-color)' }}>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', fontWeight: 'bold', textAlign: 'center' }}>থিম কালার নির্বাচন করুন</p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
+            {THEMES.map((theme) => (
+              <button
+                key={theme.name}
+                onClick={() => {
+                  changeTheme(theme.color);
+                  setIsDrawerOpen(false);
+                }}
+                style={{
+                  width: '32px', height: '32px', borderRadius: '50%', backgroundColor: theme.color,
+                  border: '2px solid var(--surface-color)', cursor: 'pointer',
+                  boxShadow: '0 0 8px rgba(0,0,0,0.2)'
+                }}
+                title={theme.name}
+                aria-label={`Switch to ${theme.name} theme`}
+              />
+            ))}
+          </div>
+        </div>
+
         <div className="mobile-drawer-grid">
           {drawerItems.map((item, index) => (
             <NavLink
