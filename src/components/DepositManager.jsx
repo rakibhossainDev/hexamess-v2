@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { db, collection, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp } from '../utils/firebase';
 import { ToastContainer } from './Toast';
 import { useToast } from '../hooks/useToast';
-import { getTodayDateString, formatDisplayDate } from '../utils/monthUtils';
+import { getTodayDateString, formatDisplayDate, getCurrentMonthId, getMonthLabel } from '../utils/monthUtils';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 import BottomNav from './BottomNav';
@@ -19,7 +19,18 @@ const DepositManager = () => {
   const [depositAmount, setDepositAmount] = useState('');
   const [depositDate, setDepositDate] = useState(getTodayDateString());
   const [saving, setSaving] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const { toasts, showToast, removeToast } = useToast();
+
+  const currentMonthId = getCurrentMonthId();
+  const currentMonthDeposits = deposits.filter(d => d.date && d.date.startsWith(currentMonthId));
+  const depositSummary = currentMonthDeposits.reduce((acc, curr) => {
+    if (!acc[curr.memberId]) {
+      acc[curr.memberId] = { name: curr.memberName, total: 0 };
+    }
+    acc[curr.memberId].total += Number(curr.amount) || 0;
+    return acc;
+  }, {});
 
   useEffect(() => {
     if (!db) return;
@@ -61,6 +72,7 @@ const DepositManager = () => {
       showToast('টাকা জমা সফলভাবে এন্ট্রি করা হয়েছে!', 'success');
       setSelectedMember('');
       setDepositAmount('');
+      setIsModalOpen(false);
     } catch (err) {
       console.error('Deposit Save Error:', err);
       showToast('সেভ করতে সমস্যা হয়েছে।', 'error');
@@ -84,62 +96,99 @@ const DepositManager = () => {
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', fontFamily: "'Hind Siliguri', sans-serif" }}>
       <ToastContainer toasts={toasts} removeToast={removeToast} />
 
-      {/* Page Title */}
+      {/* Page Title & Add Button */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 style={{ margin: 0, color: 'var(--accent-green)' }}>
           {isManager ? '💸 ডিপোজিট ম্যানেজার' : '💸 টাকা জমার তালিকা'}
         </h2>
+        {isManager && (
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="btn btn-success"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.2rem', borderRadius: '0.5rem' }}
+          >
+            + নতুন টাকা জমা দিন
+          </button>
+        )}
       </div>
 
-      {/* Deposit Input Form (Manager Only) */}
-      {isManager && (
-        <div className="card glass-card">
-          <h3 style={{ marginBottom: '1.5rem', color: 'var(--accent-green)' }}>💳 নতুন টাকা জমা করুন</h3>
-          <form onSubmit={handleAddDeposit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem', alignItems: 'end' }}>
-            <div className="form-group">
-              <label>সদস্য নির্বাচন</label>
-              <select 
-                className="form-control" 
-                value={selectedMember} 
-                onChange={e => setSelectedMember(e.target.value)} 
-                required
-              >
-                <option value="">নির্বাচন করুন</option>
-                {members.map(m => <option key={m.id} value={m.id}>{m.name} (@{m.username})</option>)}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>জমার পরিমাণ (৳)</label>
-              <input 
-                type="number" 
-                className="form-control" 
-                value={depositAmount} 
-                onChange={e => setDepositAmount(e.target.value)} 
-                placeholder="৳০.০০" 
-                required 
-              />
-            </div>
-            <div className="form-group">
-              <label>তারিখ</label>
-              <input 
-                type="date" 
-                className="form-control" 
-                value={depositDate} 
-                onChange={e => setDepositDate(e.target.value)} 
-                required 
-              />
-            </div>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
+      {/* Current Month Summary */}
+      <div className="card glass-card">
+        <h3 style={{ color: 'var(--accent-green)', marginBottom: '1.25rem' }}>চলতি মাসের মোট জমা ({getMonthLabel(currentMonthId)})</h3>
+        {Object.keys(depositSummary).length === 0 ? (
+          <div className="text-center p-4 text-gray-500 bg-[var(--bg-color)] rounded-xl border border-[var(--border-color)]">
+            এই মাসে এখনও কোন জমা নেই।
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {Object.values(depositSummary).map((summary, idx) => (
+              <div key={idx} className="bg-[var(--surface-color)] p-4 rounded-xl border border-[var(--border-color)] shadow-sm flex flex-col justify-center items-center text-center">
+                <span className="text-[var(--text-secondary)] text-sm mb-1">{summary.name}</span>
+                <span className="text-xl font-bold text-[var(--text-primary)]">৳{summary.total.toFixed(0)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Deposit Input Modal (Manager Only) */}
+      {isManager && isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-[var(--surface-color)] p-6 rounded-2xl shadow-xl w-full max-w-md border border-[var(--border-color)] max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="text-xl font-bold text-[var(--accent-green)] m-0">💳 নতুন টাকা জমা করুন</h3>
               <button 
-                type="submit" 
-                className="btn btn-success" 
-                disabled={saving}
-                style={{ flex: 1, height: 'fit-content', padding: '0.875rem 1rem' }}
+                onClick={() => setIsModalOpen(false)}
+                className="text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full w-8 h-8 flex items-center justify-center transition-colors border-0 cursor-pointer"
               >
-                {saving ? 'সেভ হচ্ছে...' : 'টাকা জমা করুন'}
+                ✕
               </button>
             </div>
-          </form>
+            <form onSubmit={handleAddDeposit} className="space-y-4 text-left">
+              <div className="form-group text-left">
+                <label className="block mb-1 font-medium text-[var(--text-secondary)]">সদস্য নির্বাচন</label>
+                <select 
+                  className="form-control w-full" 
+                  value={selectedMember} 
+                  onChange={e => setSelectedMember(e.target.value)} 
+                  required
+                >
+                  <option value="">নির্বাচন করুন</option>
+                  {members.map(m => <option key={m.id} value={m.id}>{m.name} (@{m.username})</option>)}
+                </select>
+              </div>
+              <div className="form-group text-left">
+                <label className="block mb-1 font-medium text-[var(--text-secondary)]">জমার পরিমাণ (৳)</label>
+                <input 
+                  type="number" 
+                  className="form-control w-full" 
+                  value={depositAmount} 
+                  onChange={e => setDepositAmount(e.target.value)} 
+                  placeholder="৳০.০০" 
+                  required 
+                />
+              </div>
+              <div className="form-group text-left">
+                <label className="block mb-1 font-medium text-[var(--text-secondary)]">তারিখ</label>
+                <input 
+                  type="date" 
+                  className="form-control w-full" 
+                  value={depositDate} 
+                  onChange={e => setDepositDate(e.target.value)} 
+                  required 
+                />
+              </div>
+              <div className="pt-2">
+                <button 
+                  type="submit" 
+                  className="btn btn-success w-full py-3 rounded-xl font-bold text-lg" 
+                  disabled={saving}
+                >
+                  {saving ? 'সেভ হচ্ছে...' : 'টাকা জমা করুন'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
