@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { db, collection, getDocs, query, where } from '../firebase';
-import { MONTH_OPTIONS, getYearOptions, getMonthLabel } from '../utils/monthUtils';
+import { db, collection, getDocs, query, where } from '../utils/firebase';
+import { MONTH_OPTIONS, getYearOptions, getMonthLabel, formatDisplayDate } from '../utils/monthUtils';
 
 const HistoryScreen = () => {
   const [selectedMonth, setSelectedMonth] = useState('');
@@ -41,77 +41,127 @@ const HistoryScreen = () => {
   const mealRate = totalMeals > 0 ? (totalMarket / totalMeals).toFixed(2) : 0;
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:'1.5rem' }}>
-      <h2>📅 হিস্টরি প্রিভিউ</h2>
-
-      {/* Filter Bar */}
-      <div className="card" style={{ display:'flex', alignItems:'end', gap:'1rem', flexWrap:'wrap' }}>
-        <div className="form-group" style={{ marginBottom:0, flex:1, minWidth:'150px' }}>
-          <label>মাস</label>
-          <select className="form-control" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}>
-            <option value="">নির্বাচন করুন</option>
-            {MONTH_OPTIONS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-          </select>
+    <div className="flex flex-col gap-6 font-['Hind_Siliguri'] pb-10">
+      {/* Header & Controls */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+        <h2 className="text-xl font-bold text-slate-800 m-0 flex items-center gap-2">
+          <span>📅</span> History Archive
+        </h2>
+        
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <select className="form-control bg-slate-50 border-slate-200 text-sm py-2 px-3 rounded-xl m-0 w-32" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}>
+              <option value="">মাস</option>
+              {MONTH_OPTIONS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+            </select>
+            <select className="form-control bg-slate-50 border-slate-200 text-sm py-2 px-3 rounded-xl m-0 w-24" value={selectedYear} onChange={e => setSelectedYear(e.target.value)}>
+              <option value="">বছর</option>
+              {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+          
+          <button 
+            className="bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 m-0 border-0 cursor-pointer"
+            onClick={handleSearch} 
+            disabled={!selectedMonth || !selectedYear}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            অনুসন্ধান
+          </button>
+          
+          {searched && (
+             <button 
+               onClick={() => window.print()}
+               className="bg-emerald-50 text-emerald-600 border border-emerald-200/60 px-4 py-2 rounded-xl text-sm font-medium hover:bg-emerald-100 transition-colors flex items-center gap-2 m-0 cursor-pointer"
+             >
+               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+               Download PDF
+             </button>
+          )}
         </div>
-        <div className="form-group" style={{ marginBottom:0, flex:1, minWidth:'120px' }}>
-          <label>বছর</label>
-          <select className="form-control" value={selectedYear} onChange={e => setSelectedYear(e.target.value)}>
-            <option value="">নির্বাচন করুন</option>
-            {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </div>
-        <button className="btn btn-primary" style={{ padding:'0.875rem 2rem' }} onClick={handleSearch} disabled={!selectedMonth || !selectedYear}>
-          🔍 অনুসন্ধান
-        </button>
       </div>
 
-      {loading && <p style={{ color:'var(--text-secondary)', textAlign:'center', padding:'2rem' }}>লোড হচ্ছে...</p>}
+      {loading && <p className="text-slate-500 text-center p-8">লোড হচ্ছে...</p>}
 
       {searched && !loading && (
         <>
           {/* Summary Cards */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(5, 1fr)', gap:'1rem' }}>
-            <SummaryCard label="মোট বাজার খরচ" value={`৳${totalMarket.toLocaleString()}`} color="var(--accent-orange)" />
-            <SummaryCard label="মোট ফিক্সড খরচ" value={`৳${totalFixed.toLocaleString()}`} color="var(--accent-red)" />
-            <SummaryCard label="মোট ডিপোজিট" value={`৳${totalDeposits.toLocaleString()}`} color="var(--accent-green)" />
-            <SummaryCard label="মোট মিল" value={totalMeals} color="var(--accent-blue)" />
-            <SummaryCard label="মিল রেট" value={`৳${mealRate}`} color="var(--accent-orange)" glow />
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <SummaryCard 
+              label="মোট বাজার খরচ" 
+              value={`৳${totalMarket.toLocaleString()}`} 
+              icon="🛒"
+              colorClass="bg-amber-100 text-amber-600" 
+            />
+            <SummaryCard 
+              label="মোট ফিক্সড খরচ" 
+              value={`৳${totalFixed.toLocaleString()}`} 
+              icon="🏠"
+              colorClass="bg-rose-100 text-rose-600" 
+            />
+            <SummaryCard 
+              label="মোট ডিপোজিট" 
+              value={`৳${totalDeposits.toLocaleString()}`} 
+              icon="💰"
+              colorClass="bg-emerald-100 text-emerald-600" 
+            />
+            <SummaryCard 
+              label="মোট মিল" 
+              value={totalMeals} 
+              icon="🍽️"
+              colorClass="bg-cyan-100 text-cyan-600" 
+            />
+            <SummaryCard 
+              label="মিল রেট" 
+              value={`৳${mealRate}`} 
+              icon="📈"
+              colorClass="bg-slate-200 text-slate-700" 
+            />
           </div>
 
           {/* Member Breakdown */}
           {archive && archive.members && (
-            <div className="card">
-              <h3 style={{ marginBottom:'1.5rem', color:'var(--accent-blue)' }}>
-                সদস্য সারাংশ — {getMonthLabel(monthId)}
-              </h3>
-              <div className="table-container">
-                <table>
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+              <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <h3 className="text-lg font-bold text-slate-800 m-0">সদস্য সমাপনী ব্যালেন্স — {getMonthLabel(monthId)}</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr>
-                      <th>নাম</th>
-                      <th style={{ textAlign:'right' }}>ডিপোজিট</th>
-                      <th style={{ textAlign:'center' }}>মিল</th>
-                      <th style={{ textAlign:'right' }}>মিল খরচ</th>
-                      <th style={{ textAlign:'right' }}>ফিক্সড শেয়ার</th>
-                      <th style={{ textAlign:'right' }}>ব্যালেন্স</th>
+                    <tr className="bg-slate-50">
+                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100">নাম</th>
+                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100 text-right">ডিপোজিট</th>
+                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100 text-center">মিল</th>
+                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100 text-right">মিল খরচ</th>
+                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100 text-right">ফিক্সড শেয়ার</th>
+                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100 text-center">স্ট্যাটাস</th>
+                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100 text-right">ব্যালেন্স</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-slate-100">
                     {archive.members.map((m, i) => {
                       const mealCost = (Number(m.total_meals) || 0) * Number(mealRate);
                       const fixedShare = totalFixed / (archive.members.length || 1);
                       const bal = m.current_balance || 0;
                       const isNeg = bal < 0;
                       return (
-                        <tr key={i} className={isNeg ? 'row-danger' : ''}>
-                          <td style={{ fontWeight:'500' }}>{m.name}
-                            {m.role === 'manager' && <span className="badge badge-manager" style={{ marginLeft:'0.5rem' }}>👑</span>}
+                        <tr key={i} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="px-4 py-3 font-medium text-slate-800 whitespace-nowrap">
+                            {m.name}
+                            {m.role === 'manager' && <span className="ml-2 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-md">👑</span>}
                           </td>
-                          <td style={{ textAlign:'right' }}>৳{(m.total_deposit||0).toLocaleString()}</td>
-                          <td style={{ textAlign:'center', color:'var(--accent-blue)', fontWeight:'600' }}>{m.total_meals||0}</td>
-                          <td style={{ textAlign:'right' }}>৳{mealCost.toFixed(0)}</td>
-                          <td style={{ textAlign:'right' }}>৳{fixedShare.toFixed(0)}</td>
-                          <td style={{ textAlign:'right', fontWeight:'600', color: isNeg ? 'var(--accent-red)' : 'var(--accent-green)' }}>৳{bal.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap">৳{(m.total_deposit||0).toLocaleString()}</td>
+                          <td className="px-4 py-3 text-center text-cyan-600 font-semibold whitespace-nowrap">{m.total_meals||0}</td>
+                          <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap">৳{mealCost.toFixed(0)}</td>
+                          <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap">৳{fixedShare.toFixed(0)}</td>
+                          <td className="px-4 py-3 text-center whitespace-nowrap">
+                             {!isNeg ? (
+                               <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full px-2.5 py-1 text-xs font-semibold">পাবে</span>
+                             ) : (
+                               <span className="bg-rose-50 text-rose-700 border border-rose-200/60 rounded-full px-2.5 py-1 text-xs font-semibold">দিবে</span>
+                             )}
+                          </td>
+                          <td className={`px-4 py-3 text-right font-bold whitespace-nowrap ${!isNeg ? 'text-emerald-600' : 'text-rose-600'}`}>৳{Math.abs(bal).toLocaleString()}</td>
                         </tr>
                       );
                     })}
@@ -122,25 +172,72 @@ const HistoryScreen = () => {
           )}
 
           {!archive && expenses.length === 0 && fixedCosts.length === 0 && (
-            <div className="card" style={{ textAlign:'center', padding:'3rem' }}>
-              <p style={{ fontSize:'1.25rem', marginBottom:'0.5rem' }}>📭</p>
-              <p style={{ color:'var(--text-secondary)' }}>এই মাসের কোনো ডাটা পাওয়া যায়নি।</p>
+            <div className="bg-white p-12 rounded-2xl shadow-sm border border-slate-100 text-center">
+              <p className="text-4xl mb-4 m-0">📭</p>
+              <p className="text-slate-500 font-medium m-0">এই মাসের কোনো ডাটা পাওয়া যায়নি।</p>
+            </div>
+          )}
+
+          {/* Market Details Breakdown */}
+          {expenses.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+              <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+                <h3 className="text-lg font-bold text-slate-800 m-0">বাজার বিবরণী</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50">
+                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100">তারিখ</th>
+                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100">সদস্য</th>
+                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100">বাজারের আইটেমসমূহ</th>
+                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100 text-right">পরিমাণ</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {expenses.sort((a,b) => new Date(a.date) - new Date(b.date)).map(e => (
+                      <tr key={e.id} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">{formatDisplayDate(e.date)}</td>
+                        <td className="px-4 py-3 font-medium text-slate-800 whitespace-nowrap">{e.buyer_name || e.buyer}</td>
+                        <td className="px-4 py-3">
+                          {e.items ? e.items.split(',').map((item, idx) => (
+                            <span key={idx} className="bg-slate-100 text-slate-700 rounded-lg px-2.5 py-1 text-xs font-medium inline-block mr-1.5 mb-1.5 border border-slate-200/60 shadow-sm">
+                              {item.trim()}
+                            </span>
+                          )) : <span className="text-slate-400 text-sm">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-slate-800 whitespace-nowrap">৳{Number(e.cost).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
           {/* Fixed Costs Breakdown */}
           {fixedCosts.length > 0 && (
-            <div className="card">
-              <h3 style={{ marginBottom:'1.5rem', color:'var(--accent-red)' }}>ফিক্সড খরচ বিবরণ</h3>
-              <div className="table-container">
-                <table>
-                  <thead><tr><th>ক্যাটাগরি</th><th style={{ textAlign:'right' }}>পরিমাণ</th><th style={{ textAlign:'right' }}>জনপ্রতি</th></tr></thead>
-                  <tbody>
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+              <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+                <h3 className="text-lg font-bold text-slate-800 m-0">ফিক্সড খরচ বিবরণী</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50">
+                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100">ক্যাটাগরি</th>
+                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100 text-right">পরিমাণ</th>
+                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100 text-right">জনপ্রতি</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
                     {fixedCosts.map(f => (
-                      <tr key={f.id}>
-                        <td><span className="badge-category">{f.category || f.type}</span></td>
-                        <td style={{ textAlign:'right' }}>৳{(f.amount||0).toLocaleString()}</td>
-                        <td style={{ textAlign:'right', color:'var(--text-secondary)' }}>৳{((f.amount||0)/6).toFixed(0)}</td>
+                      <tr key={f.id} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="px-4 py-3 font-medium text-slate-700">
+                           <span className="bg-slate-100 text-slate-700 border border-slate-200/60 rounded-lg px-2.5 py-1 text-xs font-medium inline-block">{f.category || f.type}</span>
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-slate-800 whitespace-nowrap">৳{(f.amount||0).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-right text-slate-500 whitespace-nowrap">৳{((f.amount||0)/ (archive?.members?.length || 6)).toFixed(0)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -154,11 +251,15 @@ const HistoryScreen = () => {
   );
 };
 
-const SummaryCard = ({ label, value, color, glow }) => (
-  <div className={glow ? 'glass-card' : 'card'} style={{ position:'relative', overflow:'hidden' }}>
-    {glow && <div style={{ position:'absolute', top:'-20px', right:'-20px', width:'80px', height:'80px', background:color, filter:'blur(40px)', opacity:'0.15', borderRadius:'50%' }} />}
-    <p style={{ color:'var(--text-secondary)', fontSize:'0.8rem', fontWeight:'500', marginBottom:'0.375rem' }}>{label}</p>
-    <p style={{ fontSize:'1.5rem', fontWeight:'700', color }}>{value}</p>
+const SummaryCard = ({ label, value, icon, colorClass }) => (
+  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+    <div className="flex items-center justify-between mb-3">
+      <p className="text-slate-500 text-xs font-semibold m-0">{label}</p>
+      <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-lg shadow-sm ${colorClass}`}>
+        {icon}
+      </div>
+    </div>
+    <p className="text-2xl font-bold text-slate-800 m-0">{value}</p>
   </div>
 );
 
