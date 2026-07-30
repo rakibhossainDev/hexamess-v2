@@ -121,47 +121,47 @@ const HistoryScreen = () => {
 
           {/* Member Breakdown */}
           {archive && archive.members && (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-              <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                <h3 className="text-lg font-bold text-slate-800 m-0">সদস্য সমাপনী ব্যালেন্স — {getMonthLabel(monthId)}</h3>
+            <div className="bg-slate-900 rounded-2xl shadow-lg border border-slate-800 overflow-hidden">
+              <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+                <h3 className="text-lg font-bold text-white m-0">সদস্য সমাপনী ব্যালেন্স — {getMonthLabel(monthId)}</h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-slate-50">
-                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100">নাম</th>
-                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100 text-right">ডিপোজিট</th>
-                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100 text-center">মিল</th>
-                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100 text-right">মিল খরচ</th>
-                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100 text-right">ফিক্সড শেয়ার</th>
-                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100 text-center">স্ট্যাটাস</th>
-                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100 text-right">ব্যালেন্স</th>
+                    <tr className="bg-slate-900">
+                      <th className="px-4 py-3 text-white font-bold text-xs uppercase tracking-wide border-b border-slate-800">নাম</th>
+                      <th className="px-4 py-3 text-white font-bold text-xs uppercase tracking-wide border-b border-slate-800 text-right">ডিপোজিট</th>
+                      <th className="px-4 py-3 text-white font-bold text-xs uppercase tracking-wide border-b border-slate-800 text-center">মিল</th>
+                      <th className="px-4 py-3 text-white font-bold text-xs uppercase tracking-wide border-b border-slate-800 text-right">মিল খরচ</th>
+                      <th className="px-4 py-3 text-white font-bold text-xs uppercase tracking-wide border-b border-slate-800 text-right">ফিক্সড শেয়ার</th>
+                      <th className="px-4 py-3 text-white font-bold text-xs uppercase tracking-wide border-b border-slate-800 text-center">স্ট্যাটাস</th>
+                      <th className="px-4 py-3 text-white font-bold text-xs uppercase tracking-wide border-b border-slate-800 text-right">ব্যালেন্স</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-800">
                     {archive.members.map((m, i) => {
                       const mealCost = (Number(m.total_meals) || 0) * Number(mealRate);
                       const fixedShare = totalFixed / (archive.members.length || 1);
                       const bal = m.current_balance || 0;
                       const isNeg = bal < 0;
                       return (
-                        <tr key={i} className="hover:bg-slate-50/60 transition-colors">
-                          <td className="px-4 py-3 font-medium text-slate-800 whitespace-nowrap">
+                        <tr key={i} className="hover:bg-slate-800/50 transition-colors">
+                          <td className="px-4 py-3 font-medium text-slate-100 whitespace-nowrap">
                             {m.name}
-                            {m.role === 'manager' && <span className="ml-2 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-md">👑</span>}
+                            {m.role === 'manager' && <span className="ml-2 text-xs bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-md border border-amber-500/40">👑</span>}
                           </td>
-                          <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap">৳{(m.total_deposit||0).toLocaleString()}</td>
-                          <td className="px-4 py-3 text-center text-cyan-600 font-semibold whitespace-nowrap">{m.total_meals||0}</td>
-                          <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap">৳{mealCost.toFixed(0)}</td>
-                          <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap">৳{fixedShare.toFixed(0)}</td>
+                          <td className="px-4 py-3 text-right text-emerald-400 whitespace-nowrap">৳{(m.total_deposit||0).toLocaleString()}</td>
+                          <td className="px-4 py-3 text-center text-cyan-300 font-semibold whitespace-nowrap">{m.total_meals||0}</td>
+                          <td className="px-4 py-3 text-right text-amber-400 whitespace-nowrap">৳{mealCost.toFixed(0)}</td>
+                          <td className="px-4 py-3 text-right text-amber-400 whitespace-nowrap">৳{fixedShare.toFixed(0)}</td>
                           <td className="px-4 py-3 text-center whitespace-nowrap">
                              {!isNeg ? (
-                               <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full px-2.5 py-1 text-xs font-semibold">পাবে</span>
+                               <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full px-3 py-1 text-xs font-bold">পাবে</span>
                              ) : (
-                               <span className="bg-rose-50 text-rose-700 border border-rose-200/60 rounded-full px-2.5 py-1 text-xs font-semibold">দিবে</span>
+                               <span className="bg-rose-500/20 text-rose-300 border border-rose-500/40 rounded-full px-3 py-1 text-xs font-bold">দিবে</span>
                              )}
                           </td>
-                          <td className={`px-4 py-3 text-right font-bold whitespace-nowrap ${!isNeg ? 'text-emerald-600' : 'text-rose-600'}`}>৳{Math.abs(bal).toLocaleString()}</td>
+                          <td className={`px-4 py-3 text-right font-bold whitespace-nowrap ${!isNeg ? 'text-emerald-400' : 'text-rose-400'}`}>৳{Math.abs(bal).toLocaleString()}</td>
                         </tr>
                       );
                     })}
@@ -180,33 +180,33 @@ const HistoryScreen = () => {
 
           {/* Market Details Breakdown */}
           {expenses.length > 0 && (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-              <div className="p-5 border-b border-slate-100 bg-slate-50/50">
-                <h3 className="text-lg font-bold text-slate-800 m-0">বাজার বিবরণী</h3>
+            <div className="bg-slate-900 rounded-2xl shadow-lg border border-slate-800 overflow-hidden">
+              <div className="p-5 border-b border-slate-800 bg-slate-900/50">
+                <h3 className="text-lg font-bold text-white m-0">বাজার বিবরণী</h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-slate-50">
-                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100">তারিখ</th>
-                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100">সদস্য</th>
-                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100">বাজারের আইটেমসমূহ</th>
-                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100 text-right">পরিমাণ</th>
+                    <tr className="bg-slate-900">
+                      <th className="px-4 py-3 text-white font-bold text-xs uppercase tracking-wide border-b border-slate-800">তারিখ</th>
+                      <th className="px-4 py-3 text-white font-bold text-xs uppercase tracking-wide border-b border-slate-800">সদস্য</th>
+                      <th className="px-4 py-3 text-white font-bold text-xs uppercase tracking-wide border-b border-slate-800">বাজারের আইটেমসমূহ</th>
+                      <th className="px-4 py-3 text-white font-bold text-xs uppercase tracking-wide border-b border-slate-800 text-right">পরিমাণ</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-800">
                     {expenses.sort((a,b) => new Date(a.date) - new Date(b.date)).map(e => (
-                      <tr key={e.id} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">{formatDisplayDate(e.date)}</td>
-                        <td className="px-4 py-3 font-medium text-slate-800 whitespace-nowrap">{e.buyer_name || e.buyer}</td>
+                      <tr key={e.id} className="hover:bg-slate-800/50 transition-colors">
+                        <td className="px-4 py-3 text-sm text-slate-100 whitespace-nowrap">{formatDisplayDate(e.date)}</td>
+                        <td className="px-4 py-3 font-medium text-slate-100 whitespace-nowrap">{e.buyer_name || e.buyer}</td>
                         <td className="px-4 py-3">
                           {e.items ? e.items.split(',').map((item, idx) => (
-                            <span key={idx} className="bg-slate-100 text-slate-700 rounded-lg px-2.5 py-1 text-xs font-medium inline-block mr-1.5 mb-1.5 border border-slate-200/60 shadow-sm">
+                            <span key={idx} className="bg-slate-800 text-slate-200 px-2 py-0.5 rounded text-xs inline-block mr-1 mb-1">
                               {item.trim()}
                             </span>
                           )) : <span className="text-slate-400 text-sm">—</span>}
                         </td>
-                        <td className="px-4 py-3 text-right font-bold text-slate-800 whitespace-nowrap">৳{Number(e.cost).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-right font-bold text-amber-400 whitespace-nowrap">৳{Number(e.cost).toLocaleString()}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -217,27 +217,27 @@ const HistoryScreen = () => {
 
           {/* Fixed Costs Breakdown */}
           {fixedCosts.length > 0 && (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-              <div className="p-5 border-b border-slate-100 bg-slate-50/50">
-                <h3 className="text-lg font-bold text-slate-800 m-0">ফিক্সড খরচ বিবরণী</h3>
+            <div className="bg-slate-900 rounded-2xl shadow-lg border border-slate-800 overflow-hidden">
+              <div className="p-5 border-b border-slate-800 bg-slate-900/50">
+                <h3 className="text-lg font-bold text-white m-0">ফিক্সড খরচ বিবরণী</h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-slate-50">
-                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100">ক্যাটাগরি</th>
-                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100 text-right">পরিমাণ</th>
-                      <th className="px-4 py-3 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-100 text-right">জনপ্রতি</th>
+                    <tr className="bg-slate-900">
+                      <th className="px-4 py-3 text-white font-bold text-xs uppercase tracking-wide border-b border-slate-800">ক্যাটাগরি</th>
+                      <th className="px-4 py-3 text-white font-bold text-xs uppercase tracking-wide border-b border-slate-800 text-right">পরিমাণ</th>
+                      <th className="px-4 py-3 text-white font-bold text-xs uppercase tracking-wide border-b border-slate-800 text-right">জনপ্রতি</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-800">
                     {fixedCosts.map(f => (
-                      <tr key={f.id} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="px-4 py-3 font-medium text-slate-700">
-                           <span className="bg-slate-100 text-slate-700 border border-slate-200/60 rounded-lg px-2.5 py-1 text-xs font-medium inline-block">{f.category || f.type}</span>
+                      <tr key={f.id} className="hover:bg-slate-800/50 transition-colors">
+                        <td className="px-4 py-3 font-medium text-slate-100">
+                           <span className="bg-slate-800 text-slate-200 px-2 py-0.5 rounded text-xs inline-block">{f.category || f.type}</span>
                         </td>
-                        <td className="px-4 py-3 text-right font-bold text-slate-800 whitespace-nowrap">৳{(f.amount||0).toLocaleString()}</td>
-                        <td className="px-4 py-3 text-right text-slate-500 whitespace-nowrap">৳{((f.amount||0)/ (archive?.members?.length || 6)).toFixed(0)}</td>
+                        <td className="px-4 py-3 text-right font-bold text-amber-400 whitespace-nowrap">৳{(f.amount||0).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-right text-amber-400 whitespace-nowrap">৳{((f.amount||0)/ (archive?.members?.length || 6)).toFixed(0)}</td>
                       </tr>
                     ))}
                   </tbody>
