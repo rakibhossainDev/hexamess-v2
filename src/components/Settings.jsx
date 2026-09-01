@@ -33,6 +33,9 @@ const Settings = () => {
   const [members, setMembers] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [endDate, setEndDate] = useState('');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
+  const [sessionNameToArchive, setSessionNameToArchive] = useState('');
   const { toasts, showToast, removeToast } = useToast();
 
   useEffect(() => {
@@ -43,20 +46,24 @@ const Settings = () => {
     return () => { unsub(); };
   }, []);
 
+  const initiateArchive = () => {
+    if (!endDate) {
+      showToast('দয়া করে সেশন শেষের তারিখ নির্বাচন করুন।', 'error');
+      return;
+    }
+    const newMonthName = window.prompt("নতুন সেশনের নাম দিন (যেমন: May 2024):");
+    if (!newMonthName) return;
+
+    setSessionNameToArchive(newMonthName);
+    setConfirmText('');
+    setShowConfirmModal(true);
+  };
+
   const handleStartNewMonth = async () => {
     try {
-      if (!endDate) {
-        showToast('দয়া করে সেশন শেষের তারিখ নির্বাচন করুন।', 'error');
-        return;
-      }
-      const newMonthName = window.prompt("নতুন সেশনের নাম দিন (যেমন: May 2024):");
-      if (!newMonthName) return;
-
-      if (!window.confirm("আপনি কি নিশ্চিত? এই তারিখ পর্যন্ত সকল তথ্য আর্কাইভে যাবে।")) {
-        return;
-      }
-
+      setShowConfirmModal(false);
       setIsProcessing(true);
+      const newMonthName = sessionNameToArchive;
       
       // 1. Fetch ALL current data FIRST without complex where() queries
       const [mealSnap, expSnap, fixedSnap, depSnap] = await Promise.all([
@@ -132,7 +139,9 @@ const Settings = () => {
         archived_at: new Date().toISOString(),
         members: memberBreakdown,
         expenses: expenses,
-        fixed_costs: fixedCosts
+        fixed_costs: fixedCosts,
+        meals: meals,
+        deposits: deposits
       });
 
       // 5. Database Cleanup & Member Reset
@@ -218,13 +227,59 @@ const Settings = () => {
               padding: '0.875rem',
               cursor: (!endDate || isProcessing) ? 'not-allowed' : 'pointer'
             }}
-            onClick={handleStartNewMonth}
+            onClick={initiateArchive}
             disabled={!endDate || isProcessing}
           >
             {isProcessing ? 'প্রসেসিং হচ্ছে...' : 'নতুন সেশন শুরু করুন'}
           </button>
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000, backdropFilter: 'blur(4px)'
+        }}>
+          <div className="card glass-card" style={{ maxWidth: '400px', width: '90%', padding: '2rem' }}>
+            <h3 style={{ color: 'var(--accent-red)', marginBottom: '1rem' }}>⚠️ চূড়ান্ত সতর্কতা</h3>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: '1.5' }}>
+              আপনি <strong>{sessionNameToArchive}</strong> সেশন আর্কাইভে স্থানান্তর করতে যাচ্ছেন। নিশ্চিত করতে নিচের বক্সে <strong>CONFIRM</strong> টাইপ করুন।
+            </p>
+            <input 
+              type="text" 
+              className="form-control" 
+              placeholder="CONFIRM টাইপ করুন"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              style={{ width: '100%', marginBottom: '1.5rem', textAlign: 'center', letterSpacing: '2px', fontWeight: 'bold' }}
+            />
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button 
+                className="btn btn-secondary" 
+                style={{ flex: 1, padding: '0.75rem', background: 'var(--surface-hover)', color: 'var(--text-primary)' }}
+                onClick={() => setShowConfirmModal(false)}
+              >
+                বাতিল
+              </button>
+              <button 
+                className="btn btn-primary" 
+                style={{ 
+                  flex: 1, padding: '0.75rem', 
+                  background: confirmText === 'CONFIRM' ? 'var(--accent-red)' : 'var(--surface-hover)', 
+                  color: confirmText === 'CONFIRM' ? '#fff' : 'var(--text-secondary)',
+                  cursor: confirmText === 'CONFIRM' ? 'pointer' : 'not-allowed'
+                }}
+                onClick={handleStartNewMonth}
+                disabled={confirmText !== 'CONFIRM'}
+              >
+                নিশ্চিত করুন
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

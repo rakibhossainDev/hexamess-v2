@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import BottomNav from './BottomNav';
-import { db, collection, getDocs, doc, getDoc } from '../firebase';
+import { db, collection, getDocs, doc, getDoc, writeBatch } from '../utils/firebase';
 import html2pdf from 'html2pdf.js';
 
 const HistoryArchive = () => {
@@ -61,6 +61,104 @@ const HistoryArchive = () => {
     html2pdf().set(opt).from(element).save();
   };
 
+  const handleRestoreSession = async () => {
+    if (!historyData) return;
+    
+    const confirmUndo = window.confirm(
+      "আপনি কি নিশ্চিত? এই সেশনটি রিস্টোর করলে এটি আর্কাইভ থেকে মুছে যাবে এবং এর সকল ডাটা (বাজার, মিল, খরচ, ইত্যাদি) মূল ড্যাশবোর্ডে ফিরে যাবে।"
+    );
+    if (!confirmUndo) return;
+    
+    setLoading(true);
+    try {
+      const batch = writeBatch(db);
+      
+      // 1. Restore expenses (bazar_records)
+      if (historyData.expenses && Array.isArray(historyData.expenses)) {
+        historyData.expenses.forEach(exp => {
+          if (exp.id) {
+            batch.set(doc(db, 'bazar_records', exp.id), exp);
+          }
+        });
+      }
+      
+      // 2. Restore fixed costs (fixed_expenses)
+      if (historyData.fixed_costs && Array.isArray(historyData.fixed_costs)) {
+        historyData.fixed_costs.forEach(f => {
+          if (f.id) {
+            batch.set(doc(db, 'fixed_expenses', f.id), f);
+          }
+        });
+      }
+      
+      // 3. Restore meals (daily_meals)
+      if (historyData.meals && Array.isArray(historyData.meals)) {
+        historyData.meals.forEach(m => {
+          if (m.id) {
+            batch.set(doc(db, 'daily_meals', m.id), m);
+          }
+        });
+      }
+      
+      // 4. Restore deposits (deposits)
+      if (historyData.deposits && Array.isArray(historyData.deposits)) {
+        historyData.deposits.forEach(d => {
+          if (d.id) {
+            batch.set(doc(db, 'deposits', d.id), d);
+          }
+        });
+      }
+      
+      // 5. Restore member balances in users collection
+      if (historyData.members && Array.isArray(historyData.members)) {
+        for (const m of historyData.members) {
+          const userSnap = await getDoc(doc(db, 'users', m.id));
+          if (userSnap.exists()) {
+            const userData = userSnap.data();
+            const currentTotalMeals = Number(userData.total_meals) || 0;
+            const currentTotalDeposit = Number(userData.total_deposit) || 0;
+            const currentLifetimeMeals = Number(userData.lifetime_meals) || 0;
+            
+            const archivedMeals = Number(m.meals) || 0;
+            const archivedDeposit = Number(m.deposit) || 0;
+            
+            batch.update(doc(db, 'users', m.id), {
+              total_meals: currentTotalMeals + archivedMeals,
+              total_deposit: currentTotalDeposit + archivedDeposit,
+              lifetime_meals: Math.max(0, currentLifetimeMeals - archivedMeals)
+            });
+          }
+        }
+      }
+      
+      // 6. Delete from histories
+      batch.delete(doc(db, 'histories', historyData.id));
+      
+      // 7. Commit batch
+      await batch.commit();
+      
+      alert("সেশন সফলভাবে রিস্টোর করা হয়েছে!");
+      
+      // Refresh
+      const snap = await getDocs(collection(db, 'histories'));
+      const uniqueMonths = snap.docs.map(d => d.id).sort().reverse();
+      setMonths(uniqueMonths);
+      if (uniqueMonths.length > 0) {
+        setSelectedMonth(uniqueMonths[0]);
+        loadMonthData(uniqueMonths[0]);
+      } else {
+        setSelectedMonth('');
+        setHistoryData(null);
+      }
+      
+    } catch (error) {
+      console.error("Error restoring session:", error);
+      alert("Error: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className={isAdminPath ? "" : "app-layout"}>
       <main className="main-content" style={{ padding: isAdminPath ? 0 : '0 0 80px 0' }}>
@@ -100,15 +198,25 @@ const HistoryArchive = () => {
                   <span className="text-slate-500 font-bold leading-none hidden md:inline">|</span>
                   <p className="text-sm md:text-base text-slate-400 m-0 leading-none">সেশন: {historyData.month_name}</p>
                   
-                  {/* PDF Download Button (Ignored in the PDF export) */}
-                  <button 
-                    className="btn btn-primary text-sm md:text-base px-4 py-2 mt-2 md:mt-0" 
-                    onClick={generatePDF}
-                    style={{ background: 'var(--accent-blue)', color: '#000', fontWeight: '600' }}
-                    data-html2canvas-ignore="true"
-                  >
-                    📥 Download PDF
-                  </button>
+                  {/* PDF Download Button and Restore Button */}
+                  <div data-html2canvas-ignore="true" className="flex gap-2 mt-2 md:mt-0">
+                    <button 
+                      className="btn btn-primary text-sm md:text-base px-4 py-2" 
+                      onClick={generatePDF}
+                      style={{ background: 'var(--accent-blue)', color: '#000', fontWeight: '600' }}
+                    >
+                      📥 Download PDF
+                    </button>
+                    {userRole === 'manager' && (
+                      <button 
+                        className="btn btn-secondary text-sm md:text-base px-4 py-2" 
+                        onClick={handleRestoreSession}
+                        style={{ background: 'var(--accent-orange)', color: '#fff', fontWeight: '600', border: 'none' }}
+                      >
+                        ↺ রিস্টোর করুন (Undo)
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Summary Cards */}
