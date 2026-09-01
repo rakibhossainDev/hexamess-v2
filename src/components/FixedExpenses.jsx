@@ -20,6 +20,7 @@ const FixedExpenses = () => {
   const [fixedDate, setFixedDate] = useState(getTodayDateString());
   const [selectedMember, setSelectedMember] = useState('');
   const [savingFixed, setSavingFixed] = useState(false);
+  const [customCategory, setCustomCategory] = useState('');
   const [loading, setLoading] = useState(true);
   const { toasts, showToast, removeToast } = useToast();
 
@@ -98,11 +99,13 @@ const FixedExpenses = () => {
         const amt = Number(row.amount);
         totalMemberFixed += amt;
         
+        const finalCategory = row.category === 'অন্যান্য' ? (customCategory.trim() || 'অন্যান্য') : row.category;
+        
         const newDocRef = doc(collection(db, 'fixed_expenses'));
         batch.set(newDocRef, {
           memberId: selectedMember,
           memberName: member ? member.name : '',
-          category: row.category,
+          category: finalCategory,
           amount: amt,
           date: fixedDate,
           timestamp: serverTimestamp()
@@ -118,6 +121,7 @@ const FixedExpenses = () => {
       await batch.commit();
       showToast('সবগুলো ফিক্সড খরচ সফলভাবে ব্যাচ-আপডেট করা হয়েছে!', 'success');
       setExpenseRows([{ category: '', amount: '' }]);
+      setCustomCategory('');
       setSelectedMember('');
     } catch (err) {
       console.error('Batch Fixed Expense Save Error:', err);
@@ -195,13 +199,23 @@ const FixedExpenses = () => {
                       required
                     >
                       <option value="">নির্বাচন করুন</option>
-                      <option value="বাসা ভাড়া">বাসা ভাড়া</option>
-                      <option value="বিদ্যুৎ বিল">বিদ্যুৎ বিল</option>
-                      <option value="ওয়াইফাই বিল">ওয়াইফাই বিল</option>
-                      <option value="গ্যাস বিল">গ্যাস বিল</option>
-                      <option value="আসবাবপত্র খরচ">আসবাবপত্র খরচ</option>
+                      <option value="খালার বিল">খালার বিল</option>
+                      <option value="ওয়াইফাই বিল">ওয়াইফাই বিল</option>
+                      <option value="গ্যাস/বিদ্যুৎ বিল">গ্যাস/বিদ্যুৎ বিল</option>
+                      <option value="ময়লা বিল">ময়লা বিল</option>
                       <option value="অন্যান্য">অন্যান্য</option>
                     </select>
+                    {row.category === 'অন্যান্য' && (
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        value={customCategory} 
+                        onChange={e => setCustomCategory(e.target.value)} 
+                        placeholder="ক্যাটেগরির নাম লিখুন" 
+                        style={{ marginTop: '0.5rem' }}
+                        required 
+                      />
+                    )}
                   </div>
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     {index === 0 && <label style={{ fontSize: '0.85rem' }}>পরিমাণ (৳)</label>}
