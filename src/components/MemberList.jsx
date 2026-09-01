@@ -6,6 +6,7 @@ import { ToastContainer } from './Toast';
 const MemberList = () => {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [totalBazarAmount, setTotalBazarAmount] = useState(0);
   const [visiblePasswords, setVisiblePasswords] = useState({});
   const { toasts, showToast, removeToast } = useToast();
 
@@ -18,7 +19,13 @@ const MemberList = () => {
       setLoading(false);
     });
 
-    return () => { unsubscribe(); };
+    // 2. Bazar Records Listener for Live Meal Rate
+    const unsubBazar = onSnapshot(collection(db, 'bazar_records'), (snap) => {
+      const sum = snap.docs.reduce((acc, docSnap) => acc + Number(docSnap.data().amount || 0), 0);
+      setTotalBazarAmount(sum);
+    });
+
+    return () => { unsubscribe(); unsubBazar(); };
   }, []);
 
   const togglePassword = (id) => {
@@ -55,8 +62,11 @@ const MemberList = () => {
                 <th>মেম্বার প্রোফাইল</th>
                 <th>ইউজারনেম</th>
                 <th>পাসওয়ার্ড</th>
-                <th style={{ textAlign: 'center' }}>মোট মিল (চলমান)</th>
+                <th style={{ textAlign: 'center' }}>মোট মিল</th>
                 <th style={{ textAlign: 'center' }}>মোট জমা</th>
+                <th style={{ textAlign: 'center' }}>ফিক্সড খরচ</th>
+                <th style={{ textAlign: 'center' }}>সর্বমোট খরচ</th>
+                <th style={{ textAlign: 'center' }}>হিসেব (পাবে/দিবে)</th>
                 <th>স্ট্যাটাস</th>
                 <th style={{ textAlign: 'right' }}>অ্যাকশন</th>
               </tr>
@@ -100,6 +110,26 @@ const MemberList = () => {
                   </td>
                   <td style={{ textAlign: 'center', fontWeight: 'bold', color: 'var(--accent-green)' }}>
                     ৳{Number(member.total_deposit) || 0}
+                  </td>
+                  <td style={{ textAlign: 'center', fontWeight: 'bold', color: 'var(--accent-orange)' }}>
+                    ৳{Number(member.total_fixed_cost) || 0}
+                  </td>
+                  <td style={{ textAlign: 'center', fontWeight: 'bold', color: 'var(--accent-red)' }}>
+                    ৳{(((Number(member.total_meals) || 0) * (members.reduce((s, m) => s + (Number(m.total_meals) || 0), 0) > 0 ? (totalBazarAmount / members.reduce((s, m) => s + (Number(m.total_meals) || 0), 0)) : 0)) + (Number(member.total_fixed_cost) || 0)).toFixed(2)}
+                  </td>
+                  <td style={{ textAlign: 'center', fontWeight: 'bold' }}>
+                    {(() => {
+                      const totalMeals = members.reduce((s, m) => s + (Number(m.total_meals) || 0), 0);
+                      const liveMealRate = totalMeals > 0 ? totalBazarAmount / totalMeals : 0;
+                      const finalTotalCost = ((Number(member.total_meals) || 0) * liveMealRate) + (Number(member.total_fixed_cost) || 0);
+                      const finalBalance = (Number(member.total_deposit) || 0) - finalTotalCost;
+                      const isRefund = finalBalance >= 0;
+                      return (
+                        <span className={isRefund ? 'text-green-500' : 'text-red-500'}>
+                          {isRefund ? `+৳${finalBalance.toFixed(2)}` : `-৳${Math.abs(finalBalance).toFixed(2)}`}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td>
                     <span className={`badge ${member.status === 'active' ? 'badge-success' : 'badge-warning'}`}>

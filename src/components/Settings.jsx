@@ -103,14 +103,14 @@ const Settings = () => {
       const mealRate = totalMealsCount === 0 ? 0 : (totalMarket / totalMealsCount).toFixed(2);
       
       const activeMembers = members.filter(m => m.status === 'active' || calcMemberMeals(m.id, m.username) > 0);
-      const perMemberFixed = activeMembers.length > 0 ? (totalFixed / activeMembers.length).toFixed(2) : 0;
 
       // Calculate Per Member Breakdown
       const memberBreakdown = activeMembers.map(m => {
         const mMeals = calcMemberMeals(m.id, m.username);
         const mDeposit = calcMemberDeposit(m.id, m.username);
+        const mFixedCost = Number(m.total_fixed_cost) || 0;
         const mealCost = mMeals * Number(mealRate);
-        const finalBalance = mDeposit - (mealCost + Number(perMemberFixed));
+        const finalBalance = mDeposit - (mealCost + mFixedCost);
         
         return {
           id: m.id,
@@ -118,7 +118,7 @@ const Settings = () => {
           deposit: mDeposit,
           meals: mMeals,
           meal_cost: Number(mealCost.toFixed(2)),
-          fixed_cost: Number(perMemberFixed),
+          fixed_cost: Number(mFixedCost.toFixed(2)),
           final_balance: Number(finalBalance.toFixed(2))
         };
       });
@@ -156,6 +156,7 @@ const Settings = () => {
         batch.update(doc(db, 'users', m.id), {
           total_meals: Math.max(0, (Number(m.total_meals) || 0) - archivedMeals),
           total_deposit: Math.max(0, (Number(m.total_deposit) || 0) - archivedDeposit),
+          total_fixed_cost: 0,
           lifetime_meals: lifetime
         });
       });

@@ -88,37 +88,32 @@ const FixedExpenses = () => {
 
     setSavingFixed(true);
     try {
-      const { writeBatch, collection, doc } = await import('../utils/firebase');
+      const { writeBatch, collection, doc, increment } = await import('../utils/firebase');
       const batch = writeBatch(db);
+
+      let totalMemberFixed = 0;
+      const member = members.find(m => m.id === selectedMember);
 
       for (const row of expenseRows) {
         const amt = Number(row.amount);
-        if (selectedMember === 'all') {
-          const dividedAmt = amt / members.length;
-          for (const m of members) {
-            const newDocRef = doc(collection(db, 'fixed_expenses'));
-            batch.set(newDocRef, {
-              memberId: m.id,
-              memberName: m.name,
-              category: row.category,
-              amount: dividedAmt,
-              date: fixedDate,
-              timestamp: serverTimestamp()
-            });
-          }
-        } else {
-          const member = members.find(m => m.id === selectedMember);
-          const newDocRef = doc(collection(db, 'fixed_expenses'));
-          batch.set(newDocRef, {
-            memberId: selectedMember,
-            memberName: member ? member.name : '',
-            category: row.category,
-            amount: amt,
-            date: fixedDate,
-            timestamp: serverTimestamp()
-          });
-        }
+        totalMemberFixed += amt;
+        
+        const newDocRef = doc(collection(db, 'fixed_expenses'));
+        batch.set(newDocRef, {
+          memberId: selectedMember,
+          memberName: member ? member.name : '',
+          category: row.category,
+          amount: amt,
+          date: fixedDate,
+          timestamp: serverTimestamp()
+        });
       }
+
+      // Increment the member's total_fixed_cost in the users collection
+      const userRef = doc(db, 'users', selectedMember);
+      batch.update(userRef, {
+        total_fixed_cost: increment(totalMemberFixed)
+      });
 
       await batch.commit();
       showToast('সবগুলো ফিক্সড খরচ সফলভাবে ব্যাচ-আপডেট করা হয়েছে!', 'success');
@@ -181,7 +176,6 @@ const FixedExpenses = () => {
                   required
                 >
                   <option value="">নির্বাচন করুন</option>
-                  <option value="all">All Members (সমান ভাগে বিভক্ত)</option>
                   {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
               </div>
