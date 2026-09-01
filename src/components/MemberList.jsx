@@ -56,6 +56,7 @@ const MemberList = () => {
                 <th>ইউজারনেম</th>
                 <th>পাসওয়ার্ড</th>
                 <th style={{ textAlign: 'center' }}>মোট মিল (চলমান)</th>
+                <th style={{ textAlign: 'center' }}>মোট জমা</th>
                 <th>স্ট্যাটাস</th>
                 <th style={{ textAlign: 'right' }}>অ্যাকশন</th>
               </tr>
@@ -96,6 +97,9 @@ const MemberList = () => {
                     <span className="badge badge-blue" style={{ fontWeight: '800' }}>
                       {Number(member.total_meals) || 0} টি
                     </span>
+                  </td>
+                  <td style={{ textAlign: 'center', fontWeight: 'bold', color: 'var(--accent-green)' }}>
+                    ৳{Number(member.total_deposit) || 0}
                   </td>
                   <td>
                     <span className={`badge ${member.status === 'active' ? 'badge-success' : 'badge-warning'}`}>
