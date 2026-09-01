@@ -237,7 +237,7 @@ const HistoryArchive = () => {
                 {/* Summary Cards */}
                 <div className="w-full grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                   {/* Total Deposit */}
-                  <div className="card glass-card" style={{ 
+                  <div className="card glass-card shadow-sm hover:shadow-md transition-shadow" style={{ 
                     background: 'linear-gradient(135deg, rgba(34,197,94,0.1), rgba(34,197,94,0.02))',
                     borderTop:'4px solid #22c55e' 
                   }}>
@@ -245,7 +245,7 @@ const HistoryArchive = () => {
                     <p className="text-lg md:text-xl font-extrabold text-[#22c55e]">৳{((historyData.members || []).reduce((sum, member) => sum + (Number(member.deposit) || 0), 0)).toLocaleString()}</p>
                   </div>
                   {/* Market Cost */}
-                  <div className="card glass-card" style={{ 
+                  <div className="card glass-card shadow-sm hover:shadow-md transition-shadow" style={{ 
                     background: 'linear-gradient(135deg, rgba(245,158,11,0.1), rgba(245,158,11,0.02))',
                     borderTop:'4px solid var(--accent-orange)' 
                   }}>
@@ -253,7 +253,7 @@ const HistoryArchive = () => {
                     <p className="text-lg md:text-xl font-extrabold text-[var(--accent-orange)]">৳{Number(historyData.total_market).toLocaleString()}</p>
                   </div>
                   {/* Cash Balance */}
-                  <div className="card glass-card" style={{ 
+                  <div className="card glass-card shadow-sm hover:shadow-md transition-shadow" style={{ 
                     background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(99,102,241,0.02))',
                     borderTop:'4px solid #6366f1' 
                   }}>
@@ -263,7 +263,7 @@ const HistoryArchive = () => {
                     </p>
                   </div>
                   {/* Total Meals */}
-                  <div className="card glass-card" style={{ 
+                  <div className="card glass-card shadow-sm hover:shadow-md transition-shadow" style={{ 
                     background: 'linear-gradient(135deg, rgba(0,209,255,0.1), rgba(0,209,255,0.02))',
                     borderTop:'4px solid var(--accent-blue)' 
                   }}>
@@ -271,7 +271,7 @@ const HistoryArchive = () => {
                     <p className="text-lg md:text-xl font-extrabold text-[var(--accent-blue)]">{historyData.total_meals}</p>
                   </div>
                   {/* Meal Rate */}
-                  <div className="card glass-card" style={{ 
+                  <div className="card glass-card shadow-sm hover:shadow-md transition-shadow" style={{ 
                     background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(16,185,129,0.02))',
                     borderTop:'4px solid var(--accent-green)' 
                   }}>
@@ -284,36 +284,39 @@ const HistoryArchive = () => {
                 <div className="card">
                   <h3 style={{ marginBottom: '1.25rem', display:'flex', alignItems:'center', gap:'0.5rem' }}>📊 মেম্বার ক্লোজিং ব্যালেন্স</h3>
                   <div className="w-full overflow-x-auto">
-                    <table className="w-full border-collapse border border-slate-700 text-left text-sm md:text-base">
-                      <thead className="bg-slate-800 text-slate-200">
+                    <table className="w-full border-collapse text-left text-sm md:text-base">
+                      <thead className="bg-slate-50 text-slate-600 uppercase tracking-wider text-xs font-semibold">
                         <tr>
-                          <th className="border border-slate-700 p-2">Member Name</th>
-                          <th className="border border-slate-700 p-2 text-right">Total Deposit</th>
-                          <th className="border border-slate-700 p-2 text-center">Total Meals</th>
-                          <th className="border border-slate-700 p-2 text-right">Meal Rate</th>
-                          <th className="border border-slate-700 p-2 text-right">Meal Cost</th>
-                          <th className="border border-slate-700 p-2 text-right">Total Cost</th>
-                          <th className="border border-slate-700 p-2 text-right">Final Status (Refund/Due)</th>
+                          <th className="border-b border-gray-100 px-4 py-3 text-left">Member Name</th>
+                          <th className="border-b border-gray-100 px-4 py-3 text-right">Total Deposit</th>
+                          <th className="border-b border-gray-100 px-4 py-3 text-right">Total Meals</th>
+                          <th className="border-b border-gray-100 px-4 py-3 text-right">Meal Rate</th>
+                          <th className="border-b border-gray-100 px-4 py-3 text-right">Meal Cost</th>
+                          <th className="border-b border-gray-100 px-4 py-3 text-right">Total Cost</th>
+                          <th className="border-b border-gray-100 px-4 py-3 text-right">Final Status (Refund/Due)</th>
                         </tr>
                       </thead>
-                      <tbody className="bg-slate-900 text-slate-300">
+                      <tbody className="bg-white text-slate-700">
                         {historyData.members.map(user => {
                           const totalCost = user.meal_cost || 0;
                           const isRefund = (user.deposit || 0) >= totalCost;
                           const statusAmount = Math.abs((user.deposit || 0) - totalCost).toFixed(2);
                           const statusText = isRefund ? `+৳${statusAmount} পাবে` : `-৳${statusAmount} দিবে`;
-                          const statusColor = isRefund ? 'text-green-400' : 'text-red-400';
 
                           return (
-                            <tr key={user.id} className="hover:bg-slate-800/50">
-                              <td className="border border-slate-700 p-2 font-medium">{user.name}</td>
-                              <td className="border border-slate-700 p-2 text-right">৳{user.deposit || 0}</td>
-                              <td className="border border-slate-700 p-2 text-center">{user.meals || 0}</td>
-                              <td className="border border-slate-700 p-2 text-right">৳{historyData.meal_rate || 0}</td>
-                              <td className="border border-slate-700 p-2 text-right">৳{user.meal_cost || 0}</td>
-                              <td className="border border-slate-700 p-2 text-right text-[var(--accent-orange)] font-bold">৳{totalCost.toFixed(2)}</td>
-                              <td className={`border border-slate-700 p-2 text-right font-bold ${statusColor}`}>
-                                {statusText}
+                            <tr key={user.id} className="border-b border-gray-100 hover:bg-slate-50 transition-colors">
+                              <td className="px-4 py-3 font-medium text-left">{user.name}</td>
+                              <td className="px-4 py-3 text-right">৳{user.deposit || 0}</td>
+                              <td className="px-4 py-3 text-right">{user.meals || 0}</td>
+                              <td className="px-4 py-3 text-right">৳{historyData.meal_rate || 0}</td>
+                              <td className="px-4 py-3 text-right">৳{user.meal_cost || 0}</td>
+                              <td className="px-4 py-3 text-right font-bold text-[var(--accent-orange)]">৳{totalCost.toFixed(2)}</td>
+                              <td className="px-4 py-3 text-right">
+                                {isRefund ? (
+                                  <span className="px-2.5 py-1 text-xs font-medium bg-emerald-100 text-emerald-700 rounded-full">{statusText}</span>
+                                ) : (
+                                  <span className="px-2.5 py-1 text-xs font-medium bg-red-100 text-red-700 rounded-full">{statusText}</span>
+                                )}
                               </td>
                             </tr>
                           );
@@ -327,25 +330,25 @@ const HistoryArchive = () => {
                 <div className="card">
                   <h3 style={{ marginBottom: '1.25rem' }}>🛒 বাজার বিবরণ</h3>
                   <div className="w-full overflow-x-auto">
-                    <table className="w-full border-collapse border border-slate-700 text-left text-sm md:text-base">
-                      <thead className="bg-slate-800 text-slate-200">
+                    <table className="w-full border-collapse text-left text-sm md:text-base">
+                      <thead className="bg-slate-50 text-slate-600 uppercase tracking-wider text-xs font-semibold">
                         <tr>
-                          <th className="border border-slate-700 p-3 whitespace-nowrap">তারিখ</th>
-                          <th className="border border-slate-700 p-3">আইটেম</th>
-                          <th className="border border-slate-700 p-3 whitespace-nowrap">বাজারকারী</th>
-                          <th className="border border-slate-700 p-3 text-right whitespace-nowrap">খরচ</th>
+                          <th className="border-b border-gray-100 px-4 py-3 whitespace-nowrap text-left">তারিখ</th>
+                          <th className="border-b border-gray-100 px-4 py-3 text-left">আইটেম</th>
+                          <th className="border-b border-gray-100 px-4 py-3 whitespace-nowrap text-left">বাজারকারী</th>
+                          <th className="border-b border-gray-100 px-4 py-3 text-right whitespace-nowrap">খরচ</th>
                         </tr>
                       </thead>
-                      <tbody className="bg-slate-900 text-slate-300">
+                      <tbody className="bg-white text-slate-700">
                         {[...(historyData.expenses || [])].sort((a, b) => new Date(a.date || a.createdAt || 0) - new Date(b.date || b.createdAt || 0)).map((exp, idx) => (
-                          <tr key={idx} className="hover:bg-slate-800/50 even:bg-slate-800/20">
-                            <td className="border border-slate-700 p-3 text-slate-400 text-sm whitespace-nowrap">{exp.date}</td>
-                            <td className="border border-slate-700 p-3 whitespace-normal break-words min-w-[200px] md:min-w-[300px]">
+                          <tr key={idx} className="border-b border-gray-100 hover:bg-slate-50 transition-colors">
+                            <td className="px-4 py-3 text-sm whitespace-nowrap text-left">{exp.date}</td>
+                            <td className="px-4 py-3 whitespace-normal break-words min-w-[200px] md:min-w-[300px] text-left">
                               <div className="font-semibold">{exp.itemName || exp.details}</div>
-                              {exp.quantity && <div className="text-xs text-slate-400 mt-1">{exp.quantity}</div>}
+                              {exp.quantity && <div className="text-xs text-slate-500 mt-1">{exp.quantity}</div>}
                             </td>
-                            <td className="border border-slate-700 p-3 whitespace-nowrap">{exp.managerName || exp.shopperName || exp.shopper_name || 'N/A'}</td>
-                            <td className="border border-slate-700 p-3 text-right font-bold text-[var(--accent-blue)] whitespace-nowrap">৳{exp.amount || exp.cost}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-left">{exp.managerName || exp.shopperName || exp.shopper_name || 'N/A'}</td>
+                            <td className="px-4 py-3 text-right font-bold text-[var(--accent-blue)] whitespace-nowrap">৳{exp.amount || exp.cost}</td>
                           </tr>
                         ))}
                       </tbody>
