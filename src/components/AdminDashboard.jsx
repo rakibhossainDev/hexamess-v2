@@ -59,70 +59,51 @@ const AdminDashboard = () => {
 
 // This is the actual Dashboard Home View
 export const DashboardHome = () => {
-  const [monthTotalMeals, setMonthTotalMeals] = useState(0);
+  const [globalTotalMeals, setGlobalTotalMeals] = useState(0);
   const [totalBazarAmount, setTotalBazarAmount] = useState(0);
-  const [selectedDateIso, setSelectedDateIso] = useState(getTodayDateString());
+  const [globalDepositSum, setGlobalDepositSum] = useState(0);
   
-  // Dynamic state for aggregated admin overview
-  const [allDeposits, setAllDeposits] = useState([]);
+  const [selectedDateIso, setSelectedDateIso] = useState(getTodayDateString());
 
-  // 3. Automated Dashboard Calculations (Unified from daily_meals)
+  // Unified Unconditional Fetching for Dashboard Metrics
   useEffect(() => {
     if (!db) return;
     
-    // B. Total Meals Listener (All Active Data)
-    const unsubMonth = onSnapshot(
-      collection(db, 'daily_meals'),
-      (snap) => {
-        const total = snap.docs.reduce((sum, d) => sum + Number(d.data().count || 0), 0);
-        setMonthTotalMeals(total);
-      }
-    );
+    // 1. Total Meals (All Active Data without date filters)
+    const unsubMeals = onSnapshot(collection(db, 'daily_meals'), (snap) => {
+      const sum = snap.docs.reduce((acc, docSnap) => acc + Number(docSnap.data().count || 0), 0);
+      setGlobalTotalMeals(sum);
+    });
 
-    // C. Total Bazar Listener (All Active Data)
-    const unsubBazar = onSnapshot(
-      collection(db, 'bazar_records'),
-      (snap) => {
-        const total = snap.docs.reduce((sum, d) => sum + Number(d.data().amount || 0), 0);
-        setTotalBazarAmount(total);
-      }
-    );
+    // 2. Total Deposits (All Active Data without date filters)
+    const unsubDeposits = onSnapshot(collection(db, 'deposits'), (snap) => {
+      const sum = snap.docs.reduce((acc, docSnap) => acc + Number(docSnap.data().amount || 0), 0);
+      setGlobalDepositSum(sum);
+    });
+
+    // 3. Total Bazar/Expense (All Active Data without date filters)
+    const unsubBazar = onSnapshot(collection(db, 'bazar_records'), (snap) => {
+      const sum = snap.docs.reduce((acc, docSnap) => acc + Number(docSnap.data().amount || 0), 0);
+      setTotalBazarAmount(sum);
+    });
 
     return () => {
-      unsubMonth();
+      unsubMeals();
+      unsubDeposits();
       unsubBazar();
     };
   }, []);
 
-  // Listener for all deposits (fixed_expenses excluded from dashboard metrics)
-  useEffect(() => {
-    if (!db) return;
-    const unsubDeposits = onSnapshot(collection(db, 'deposits'), snap => {
-      setAllDeposits(snap.docs.map(d => d.data()));
-    });
-    return () => { unsubDeposits(); };
-  }, []);
-
   const liveMealRate = useMemo(() => {
-    if (monthTotalMeals === 0) return 0;
-    return (totalBazarAmount / monthTotalMeals).toFixed(2);
-  }, [totalBazarAmount, monthTotalMeals]);
+    if (globalTotalMeals === 0) return 0;
+    return (totalBazarAmount / globalTotalMeals).toFixed(2);
+  }, [totalBazarAmount, globalTotalMeals]);
 
-  const currentTotalMeals = monthTotalMeals; // Total of all users combined for the current month
-
-  const totalDeposit = useMemo(() => {
-    return allDeposits.reduce((sum, d) => sum + Number(d.amount || 0), 0);
-  }, [allDeposits]);
-
-  // মোট খরচ = exclusively bazar_records sum (fixed_expenses excluded)
-  const totalCost = useMemo(() => {
-    return Number(totalBazarAmount);
-  }, [totalBazarAmount]);
+  // মোট খরচ = exclusively bazar_records sum
+  const totalCost = Number(totalBazarAmount);
 
   // ক্যাশ ব্যালেন্স = মোট জমা - মোট বাজার খরচ
-  const netBalance = useMemo(() => {
-    return totalDeposit - totalCost;
-  }, [totalDeposit, totalCost]);
+  const netBalance = globalDepositSum - totalCost;
 
   return (
     <div className="fade-in">
@@ -148,15 +129,15 @@ export const DashboardHome = () => {
           </span>
         </div>
         <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-blue)' }}>
-          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>চলতি মোট মিল</p>
+          <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>মোট মিল</p>
           <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-blue)' }}>
-            {currentTotalMeals} টি
+            {globalTotalMeals} টি
           </span>
         </div>
         <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-green)' }}>
           <p style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>মোট জমা</p>
           <span style={{ fontSize:'2.5rem', fontWeight:'900', color:'var(--accent-green)' }}>
-            ৳{totalDeposit.toLocaleString()}
+            ৳{globalDepositSum.toLocaleString()}
           </span>
         </div>
         <div className="card glass-card" style={{ borderLeft: '5px solid var(--accent-purple)' }}>
