@@ -61,26 +61,15 @@ const AdminDashboard = () => {
 export const DashboardHome = () => {
   const [monthTotalMeals, setMonthTotalMeals] = useState(0);
   const [totalBazarAmount, setTotalBazarAmount] = useState(0);
-  const [selectedDateIso, setSelectedDateIso] = useState(getTodayDateString());
-
+  
   // Dynamic state for aggregated admin overview
   const [allDeposits, setAllDeposits] = useState([]);
 
-  // UNIFIED DATE HELPERS
-  const { docIdKey, monthId } = useMemo(() => {
-    if (!selectedDateIso) return { docIdKey: '', monthId: '' };
-    const [y, m, d] = selectedDateIso.split('-');
-    return {
-      docIdKey: `${d}-${m}-${y}`,
-      monthId: `${m}-${y}`
-    };
-  }, [selectedDateIso]);
-
   // 3. Automated Dashboard Calculations (Unified from daily_meals)
   useEffect(() => {
-    if (!db || !docIdKey) return;
+    if (!db) return;
     
-    // B. Monthly Total Listener (MM-YYYY)
+    // B. Total Meals Listener (All Active Data)
     const unsubMonth = onSnapshot(
       query(collection(db, 'daily_meals')),
       (snap) => {
@@ -89,7 +78,7 @@ export const DashboardHome = () => {
       }
     );
 
-    // C. Monthly Bazar Listener (MM-YYYY)
+    // C. Total Bazar Listener (All Active Data)
     const unsubBazar = onSnapshot(
       query(collection(db, 'bazar_records')),
       (snap) => {
@@ -102,7 +91,7 @@ export const DashboardHome = () => {
       unsubMonth();
       unsubBazar();
     };
-  }, [docIdKey, monthId]);
+  }, []);
 
   // Listener for all deposits (fixed_expenses excluded from dashboard metrics)
   useEffect(() => {
@@ -138,15 +127,6 @@ export const DashboardHome = () => {
     <div className="fade-in">
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: '1.5rem' }}>
         <h2 style={{ margin: 0 }}>অ্যাডমিন ড্যাশবোর্ড</h2>
-        <div className="form-group" style={{ marginBottom: 0 }}>
-          <input 
-            type="date" 
-            className="form-control" 
-            value={selectedDateIso} 
-            onChange={(e) => setSelectedDateIso(e.target.value)}
-            style={{ width: '160px' }}
-          />
-        </div>
       </div>
 
       {/* Dynamic 5 Metric Cards (Aggregated Mess overview) */}

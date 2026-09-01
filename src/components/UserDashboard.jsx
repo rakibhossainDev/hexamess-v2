@@ -23,13 +23,6 @@ const UserDashboard = () => {
   const userId = currentUser?.id || localStorage.getItem('hexamess-user-id');
   const today = getTodayDateString();
 
-  // Unified monthYear key (e.g. "05-2026")
-  const monthId = useMemo(() => {
-    if (!today) return '';
-    const [y, m] = today.split('-');
-    return `${m}-${y}`;
-  }, [today]);
-
   // Load config & user
   useEffect(() => {
     if (!db || !userId) return;
@@ -49,7 +42,7 @@ const UserDashboard = () => {
   const [totalBazarAmount, setTotalBazarAmount] = useState(0);
 
   useEffect(() => {
-    if (!db || !currentUser || !monthId) return;
+    if (!db || !currentUser) return;
 
     // Create proper formatted date (DD-MM-YYYY) for search alignment
     const [y, m, d] = today.split('-');
@@ -126,7 +119,7 @@ const UserDashboard = () => {
       unsubBazar();
       unsubMealsGlobal();
     };
-  }, [currentUser, today, monthId]);
+  }, [currentUser, today]);
 
   const liveMealRate = useMemo(() => {
     if (monthTotalMeals === 0) return 0;
