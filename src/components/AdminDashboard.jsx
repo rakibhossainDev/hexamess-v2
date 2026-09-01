@@ -65,20 +65,23 @@ export const DashboardHome = () => {
   
   const [selectedDateIso, setSelectedDateIso] = useState(getTodayDateString());
 
-  // Unified Unconditional Fetching for Dashboard Metrics
+  // Unified Fetching for Dashboard Metrics (Using Users Collection for Bulletproof Summation)
   useEffect(() => {
     if (!db) return;
     
-    // 1. Total Meals (All Active Data without date filters)
-    const unsubMeals = onSnapshot(collection(db, 'daily_meals'), (snap) => {
-      const sum = snap.docs.reduce((acc, docSnap) => acc + Number(docSnap.data().count || 0), 0);
-      setGlobalTotalMeals(sum);
-    });
-
-    // 2. Total Deposits (All Active Data without date filters)
-    const unsubDeposits = onSnapshot(collection(db, 'deposits'), (snap) => {
-      const sum = snap.docs.reduce((acc, docSnap) => acc + Number(docSnap.data().amount || 0), 0);
-      setGlobalDepositSum(sum);
+    // 1 & 2. Total Meals and Total Deposits (Aggregated from Users Collection)
+    const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
+      let totalMeals = 0;
+      let totalDeposits = 0;
+      
+      snap.docs.forEach((docSnap) => {
+        const userData = docSnap.data();
+        totalMeals += Number(userData.total_meals) || 0;
+        totalDeposits += Number(userData.total_deposit) || 0;
+      });
+      
+      setGlobalTotalMeals(totalMeals);
+      setGlobalDepositSum(totalDeposits);
     });
 
     // 3. Total Bazar/Expense (All Active Data without date filters)
@@ -88,8 +91,7 @@ export const DashboardHome = () => {
     });
 
     return () => {
-      unsubMeals();
-      unsubDeposits();
+      unsubUsers();
       unsubBazar();
     };
   }, []);
