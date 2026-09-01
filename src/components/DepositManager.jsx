@@ -22,9 +22,7 @@ const DepositManager = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { toasts, showToast, removeToast } = useToast();
 
-  const currentMonthId = getCurrentMonthId();
-  const currentMonthDeposits = deposits.filter(d => d.date && d.date.startsWith(currentMonthId));
-  const depositSummary = currentMonthDeposits.reduce((acc, curr) => {
+  const depositSummary = deposits.reduce((acc, curr) => {
     if (!acc[curr.memberId]) {
       acc[curr.memberId] = { name: curr.memberName, total: 0 };
     }
@@ -112,9 +110,9 @@ const DepositManager = () => {
         )}
       </div>
 
-      {/* Current Month Summary */}
+      {/* Total Active Session Summary */}
       <div className="card glass-card">
-        <h3 style={{ color: 'var(--accent-green)', marginBottom: '1.25rem' }}>চলতি মাসের মোট জমা ({getMonthLabel(currentMonthId)})</h3>
+        <h3 style={{ color: 'var(--accent-green)', marginBottom: '1.25rem' }}>মোট জমা</h3>
         {Object.keys(depositSummary).length === 0 ? (
           <div className="text-center p-4 text-gray-500 bg-[var(--bg-color)] rounded-xl border border-[var(--border-color)]">
             এই মাসে এখনও কোন জমা নেই।
