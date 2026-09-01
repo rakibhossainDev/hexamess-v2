@@ -71,13 +71,14 @@ const HistoryArchive = () => {
     
     setLoading(true);
     try {
-      const batch = writeBatch(db);
-      
+      // Firebase batch limit is 500. We will chunk operations into groups of 400.
+      const operations = [];
+
       // 1. Restore expenses (bazar_records)
       if (historyData.expenses && Array.isArray(historyData.expenses)) {
         historyData.expenses.forEach(exp => {
           if (exp.id) {
-            batch.set(doc(db, 'bazar_records', exp.id), exp);
+            operations.push({ ref: doc(db, 'bazar_records', String(exp.id)), data: exp, type: 'set' });
           }
         });
       }
@@ -86,7 +87,7 @@ const HistoryArchive = () => {
       if (historyData.fixed_costs && Array.isArray(historyData.fixed_costs)) {
         historyData.fixed_costs.forEach(f => {
           if (f.id) {
-            batch.set(doc(db, 'fixed_expenses', f.id), f);
+            operations.push({ ref: doc(db, 'fixed_expenses', String(f.id)), data: f, type: 'set' });
           }
         });
       }
@@ -95,7 +96,7 @@ const HistoryArchive = () => {
       if (historyData.meals && Array.isArray(historyData.meals)) {
         historyData.meals.forEach(m => {
           if (m.id) {
-            batch.set(doc(db, 'daily_meals', m.id), m);
+            operations.push({ ref: doc(db, 'daily_meals', String(m.id)), data: m, type: 'set' });
           }
         });
       }
@@ -104,7 +105,7 @@ const HistoryArchive = () => {
       if (historyData.deposits && Array.isArray(historyData.deposits)) {
         historyData.deposits.forEach(d => {
           if (d.id) {
-            batch.set(doc(db, 'deposits', d.id), d);
+            operations.push({ ref: doc(db, 'deposits', String(d.id)), data: d, type: 'set' });
           }
         });
       }
@@ -112,7 +113,7 @@ const HistoryArchive = () => {
       // 5. Restore member balances in users collection
       if (historyData.members && Array.isArray(historyData.members)) {
         for (const m of historyData.members) {
-          const userSnap = await getDoc(doc(db, 'users', m.id));
+          const userSnap = await getDoc(doc(db, 'users', String(m.id)));
           if (userSnap.exists()) {
             const userData = userSnap.data();
             const currentTotalMeals = Number(userData.total_meals) || 0;
@@ -122,20 +123,34 @@ const HistoryArchive = () => {
             const archivedMeals = Number(m.meals) || 0;
             const archivedDeposit = Number(m.deposit) || 0;
             
-            batch.update(doc(db, 'users', m.id), {
-              total_meals: currentTotalMeals + archivedMeals,
-              total_deposit: currentTotalDeposit + archivedDeposit,
-              lifetime_meals: Math.max(0, currentLifetimeMeals - archivedMeals)
+            operations.push({ 
+              ref: doc(db, 'users', String(m.id)), 
+              data: {
+                total_meals: currentTotalMeals + archivedMeals,
+                total_deposit: currentTotalDeposit + archivedDeposit,
+                lifetime_meals: Math.max(0, currentLifetimeMeals - archivedMeals)
+              }, 
+              type: 'update' 
             });
           }
         }
       }
       
       // 6. Delete from histories
-      batch.delete(doc(db, 'histories', historyData.id));
-      
-      // 7. Commit batch
-      await batch.commit();
+      operations.push({ ref: doc(db, 'histories', String(historyData.id)), type: 'delete' });
+
+      // Execute batches in chunks of 400
+      const chunkSize = 400;
+      for (let i = 0; i < operations.length; i += chunkSize) {
+        const chunk = operations.slice(i, i + chunkSize);
+        const batch = writeBatch(db);
+        chunk.forEach(op => {
+          if (op.type === 'set') batch.set(op.ref, op.data);
+          else if (op.type === 'update') batch.update(op.ref, op.data);
+          else if (op.type === 'delete') batch.delete(op.ref);
+        });
+        await batch.commit();
+      }
       
       alert("সেশন সফলভাবে রিস্টোর করা হয়েছে!");
       

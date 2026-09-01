@@ -48,18 +48,21 @@ const MealManagement = () => {
       clearTimeout(safetyTimeout);
     });
 
-    // Lifetime Meal Aggregation (Unified from daily_meals)
-    const unsubLifetime = onSnapshot(collection(db, 'daily_meals'), (snap) => {
-      const totals = snap.docs.reduce((acc, d) => {
-        const data = d.data();
-        if (data.memberId) {
-          const count = Number(data.count || 0);
-          acc[data.memberId] = (acc[data.memberId] || 0) + count;
-        }
-        return acc;
-      }, {});
-      setLifetimeMeals(totals);
-    });
+    // 2. Active Session Meals Listener (Unified from daily_meals)
+    const unsubLifetime = onSnapshot(
+      collection(db, 'daily_meals'),
+      (snap) => {
+        const totals = snap.docs.reduce((acc, d) => {
+          const data = d.data();
+          if (data.memberId) {
+            const count = Number(data.count || 0);
+            acc[data.memberId] = (acc[data.memberId] || 0) + count;
+          }
+          return acc;
+        }, {});
+        setLifetimeMeals(totals);
+      }
+    );
 
     return () => {
       unsubMembers();

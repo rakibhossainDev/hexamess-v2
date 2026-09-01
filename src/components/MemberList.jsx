@@ -6,7 +6,6 @@ import { ToastContainer } from './Toast';
 const MemberList = () => {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [lifetimeMeals, setLifetimeMeals] = useState({}); // Aggregated totals from daily_meals
   const [visiblePasswords, setVisiblePasswords] = useState({});
   const { toasts, showToast, removeToast } = useToast();
 
@@ -19,20 +18,7 @@ const MemberList = () => {
       setLoading(false);
     });
 
-    // 2. Lifetime Meal Aggregation Listener (Unified)
-    const unsubMeals = onSnapshot(collection(db, 'daily_meals'), (snap) => {
-      const totals = snap.docs.reduce((acc, d) => {
-        const data = d.data();
-        if (data.memberId) {
-          const count = Number(data.count || 0);
-          acc[data.memberId] = (acc[data.memberId] || 0) + count;
-        }
-        return acc;
-      }, {});
-      setLifetimeMeals(totals);
-    });
-
-    return () => { unsubscribe(); unsubMeals(); };
+    return () => { unsubscribe(); };
   }, []);
 
   const togglePassword = (id) => {
@@ -108,7 +94,7 @@ const MemberList = () => {
                   </td>
                   <td style={{ textAlign: 'center' }}>
                     <span className="badge badge-blue" style={{ fontWeight: '800' }}>
-                      {lifetimeMeals[member.id] || 0} টি
+                      {Number(member.lifetime_meals) || 0} টি
                     </span>
                   </td>
                   <td>
