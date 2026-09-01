@@ -115,7 +115,7 @@ const DepositManager = () => {
         <h3 style={{ color: 'var(--accent-green)', marginBottom: '1.25rem' }}>মোট জমা</h3>
         {Object.keys(depositSummary).length === 0 ? (
           <div className="text-center p-4 text-gray-500 bg-[var(--bg-color)] rounded-xl border border-[var(--border-color)]">
-            এই মাসে এখনও কোন জমা নেই।
+            চলমান সেশনে এখনও কোন জমা নেই।
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

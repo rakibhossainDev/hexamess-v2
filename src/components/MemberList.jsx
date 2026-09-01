@@ -55,7 +55,7 @@ const MemberList = () => {
                 <th>মেম্বার প্রোফাইল</th>
                 <th>ইউজারনেম</th>
                 <th>পাসওয়ার্ড</th>
-                <th style={{ textAlign: 'center' }}>মোট মিল (লাইফটাইম)</th>
+                <th style={{ textAlign: 'center' }}>মোট মিল (চলমান)</th>
                 <th>স্ট্যাটাস</th>
                 <th style={{ textAlign: 'right' }}>অ্যাকশন</th>
               </tr>
@@ -94,7 +94,7 @@ const MemberList = () => {
                   </td>
                   <td style={{ textAlign: 'center' }}>
                     <span className="badge badge-blue" style={{ fontWeight: '800' }}>
-                      {Number(member.lifetime_meals) || 0} টি
+                      {Number(member.total_meals) || 0} টি
                     </span>
                   </td>
                   <td>
