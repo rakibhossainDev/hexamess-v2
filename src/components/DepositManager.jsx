@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { db, collection, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp } from '../utils/firebase';
+import { db, collection, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, updateDoc, increment } from '../utils/firebase';
 import { ToastContainer } from './Toast';
 import { useToast } from '../hooks/useToast';
 import { getTodayDateString, formatDisplayDate, getCurrentMonthId, getMonthLabel } from '../utils/monthUtils';
@@ -67,6 +67,11 @@ const DepositManager = () => {
         timestamp: serverTimestamp()
       });
 
+      // Update the user's total deposit profile simultaneously
+      await updateDoc(doc(db, 'users', selectedMember), { 
+        total_deposit: increment(amt) 
+      });
+
       showToast('টাকা জমা সফলভাবে এন্ট্রি করা হয়েছে!', 'success');
       setSelectedMember('');
       setDepositAmount('');
@@ -82,7 +87,16 @@ const DepositManager = () => {
   const handleDeleteDeposit = async (id) => {
     if (!window.confirm("আপনি কি নিশ্চিত যে এই জমার রেকর্ডটি ডিলিট করতে চান?")) return;
     try {
+      const depositToDelete = deposits.find(d => d.id === id);
       await deleteDoc(doc(db, 'deposits', id));
+      
+      // Revert the amount from the user's profile
+      if (depositToDelete && depositToDelete.memberId) {
+        await updateDoc(doc(db, 'users', depositToDelete.memberId), {
+          total_deposit: increment(-Number(depositToDelete.amount))
+        });
+      }
+
       showToast('জমার রেকর্ড ডিলিট করা হয়েছে।', 'success');
     } catch (err) {
       console.error('Delete Deposit Error:', err);
