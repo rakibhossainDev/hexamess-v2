@@ -22,7 +22,6 @@ const MealManagement = () => {
   const [selectedDate, setSelectedDate] = useState(getTodayDateString());
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [lifetimeMeals, setLifetimeMeals] = useState({}); // Aggregated totals per member
   const { toasts, showToast, removeToast } = useToast();
 
   // 1. Uniform Date Handling (DD-MM-YYYY)
@@ -35,7 +34,7 @@ const MealManagement = () => {
     };
   }, [selectedDate]);
 
-  // 2. Real-time Listeners (Members, Config, Lifetime Totals)
+  // 2. Real-time Listeners (Members Sync)
   useEffect(() => {
     if (!db) return;
     
@@ -48,25 +47,8 @@ const MealManagement = () => {
       clearTimeout(safetyTimeout);
     });
 
-    // 2. Active Session Meals Listener (Unified from daily_meals)
-    const unsubLifetime = onSnapshot(
-      collection(db, 'daily_meals'),
-      (snap) => {
-        const totals = snap.docs.reduce((acc, d) => {
-          const data = d.data();
-          if (data.memberId) {
-            const count = Number(data.count || 0);
-            acc[data.memberId] = (acc[data.memberId] || 0) + count;
-          }
-          return acc;
-        }, {});
-        setLifetimeMeals(totals);
-      }
-    );
-
     return () => {
       unsubMembers();
-      unsubLifetime();
       clearTimeout(safetyTimeout);
     };
   }, []);
@@ -75,17 +57,23 @@ const MealManagement = () => {
   useEffect(() => {
     if (!db || !docIdDate) return;
 
-    const unsubSelectedDate = onSnapshot(
-      query(collection(db, 'daily_meals'), where('date', '==', docIdDate)),
-      (snap) => {
-        const mealsMap = {};
-        snap.docs.forEach(d => {
-          const data = d.data();
-          if (data.memberId) mealsMap[data.memberId] = Number(data.count || 0);
-        });
-        setInputMeals(mealsMap);
+    const q = query(collection(db, 'daily_meals'), where('date', '==', docIdDate));
+    
+    const unsubSelectedDate = onSnapshot(q, (snap) => {
+      if (snap.empty) {
+        setInputMeals({});
+        return;
       }
-    );
+      
+      const mealsMap = {};
+      snap.docs.forEach(d => {
+        const data = d.data();
+        if (data.memberId) {
+          mealsMap[data.memberId] = Number(data.count || 0);
+        }
+      });
+      setInputMeals(mealsMap);
+    });
 
     return () => unsubSelectedDate();
   }, [docIdDate]);
@@ -179,7 +167,7 @@ const MealManagement = () => {
                   <div className="font-semibold text-[var(--text-primary)]">{member.name}</div>
                   <div className="text-xs text-[var(--text-secondary)]">@{member.username}</div>
                 </div>
-                <span className="badge badge-blue whitespace-nowrap text-xs">মোট: {lifetimeMeals[member.id] || 0}</span>
+                <span className="badge badge-blue whitespace-nowrap text-xs">মোট: {Number(member.total_meals) || 0}</span>
               </div>
               <div className="flex justify-between items-center border-t border-[var(--border-color)] pt-3 mt-1">
                 <span className="text-sm font-medium">আজকের মিল:</span>
@@ -210,7 +198,7 @@ const MealManagement = () => {
             <thead>
               <tr>
                 <th>মেম্বার প্রোফাইল</th>
-                <th style={{ textAlign: 'center' }}>মোট মিল (লাইফটাইম)</th>
+                <th style={{ textAlign: 'center' }}>মোট মিল (চলমান)</th>
                 <th style={{ textAlign: 'right', width: '150px' }}>মিল ইনপুট</th>
               </tr>
             </thead>
@@ -239,7 +227,7 @@ const MealManagement = () => {
                     </div>
                   </td>
                   <td style={{ textAlign: 'center' }}>
-                    <span className="badge badge-blue">মোট: {lifetimeMeals[member.id] || 0}</span>
+                    <span className="badge badge-blue">মোট: {Number(member.total_meals) || 0}</span>
                   </td>
                   <td style={{ textAlign: 'right' }}>
                     {isManagerUser ? (

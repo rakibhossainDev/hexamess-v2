@@ -23,8 +23,8 @@ const HistoryArchive = () => {
       } else {
         setHistoryData(null);
       }
-    } catch (err) { 
-      console.error(err); 
+    } catch (err) {
+      console.error(err);
       setHistoryData(null);
     }
     setLoading(false);
@@ -48,14 +48,14 @@ const HistoryArchive = () => {
   const generatePDF = () => {
     if (!historyData) return;
     const element = document.getElementById('history-pdf-content');
-    
+
     // Config for html2pdf
     const opt = {
-      margin:       0.4,
-      filename:     `Hexamess_Session_Report_${historyData.month_id}.pdf`,
-      image:        { type: 'jpeg', quality: 1 },
-      html2canvas:  { scale: 2, useCORS: true },
-      jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+      margin: 0.4,
+      filename: `Hexamess_Session_Report_${historyData.month_id}.pdf`,
+      image: { type: 'jpeg', quality: 1 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
     };
 
     html2pdf().set(opt).from(element).save();
@@ -63,12 +63,12 @@ const HistoryArchive = () => {
 
   const handleRestoreSession = async () => {
     if (!historyData) return;
-    
+
     const confirmUndo = window.confirm(
       "আপনি কি নিশ্চিত? এই সেশনটি রিস্টোর করলে এটি আর্কাইভ থেকে মুছে যাবে এবং এর সকল ডাটা (বাজার, মিল, খরচ, ইত্যাদি) মূল ড্যাশবোর্ডে ফিরে যাবে।"
     );
     if (!confirmUndo) return;
-    
+
     setLoading(true);
     try {
       // Firebase batch limit is 500. We will chunk operations into groups of 400.
@@ -82,7 +82,7 @@ const HistoryArchive = () => {
           }
         });
       }
-      
+
       // 2. Restore fixed costs (fixed_expenses)
       if (historyData.fixed_costs && Array.isArray(historyData.fixed_costs)) {
         historyData.fixed_costs.forEach(f => {
@@ -91,7 +91,7 @@ const HistoryArchive = () => {
           }
         });
       }
-      
+
       // 3. Restore meals (daily_meals)
       if (historyData.meals && Array.isArray(historyData.meals)) {
         historyData.meals.forEach(m => {
@@ -100,7 +100,7 @@ const HistoryArchive = () => {
           }
         });
       }
-      
+
       // 4. Restore deposits (deposits)
       if (historyData.deposits && Array.isArray(historyData.deposits)) {
         historyData.deposits.forEach(d => {
@@ -109,7 +109,7 @@ const HistoryArchive = () => {
           }
         });
       }
-      
+
       // 5. Restore member balances in users collection
       if (historyData.members && Array.isArray(historyData.members)) {
         for (const m of historyData.members) {
@@ -119,23 +119,23 @@ const HistoryArchive = () => {
             const currentTotalMeals = Number(userData.total_meals) || 0;
             const currentTotalDeposit = Number(userData.total_deposit) || 0;
             const currentLifetimeMeals = Number(userData.lifetime_meals) || 0;
-            
+
             const archivedMeals = Number(m.meals) || 0;
             const archivedDeposit = Number(m.deposit) || 0;
-            
-            operations.push({ 
-              ref: doc(db, 'users', String(m.id)), 
+
+            operations.push({
+              ref: doc(db, 'users', String(m.id)),
               data: {
                 total_meals: currentTotalMeals + archivedMeals,
                 total_deposit: currentTotalDeposit + archivedDeposit,
                 lifetime_meals: Math.max(0, currentLifetimeMeals - archivedMeals)
-              }, 
-              type: 'update' 
+              },
+              type: 'update'
             });
           }
         }
       }
-      
+
       // 6. Delete from histories
       operations.push({ ref: doc(db, 'histories', String(historyData.id)), type: 'delete' });
 
@@ -151,9 +151,9 @@ const HistoryArchive = () => {
         });
         await batch.commit();
       }
-      
+
       alert("সেশন সফলভাবে রিস্টোর করা হয়েছে!");
-      
+
       // Refresh
       const snap = await getDocs(collection(db, 'histories'));
       const uniqueMonths = snap.docs.map(d => d.id).sort().reverse();
@@ -165,7 +165,7 @@ const HistoryArchive = () => {
         setSelectedMonth('');
         setHistoryData(null);
       }
-      
+
     } catch (error) {
       console.error("Error restoring session:", error);
       alert("Error: " + error.message);
@@ -178,14 +178,14 @@ const HistoryArchive = () => {
     <div className={isAdminPath ? "" : "app-layout"}>
       <main className="main-content" style={{ padding: isAdminPath ? 0 : '0 0 80px 0' }}>
         {!isAdminPath && <Navbar userName={localStorage.getItem('hexamess-user-name')} userRole={userRole === 'manager' ? 'ম্যানেজার' : 'সদস্য'} />}
-        
+
         <div className="w-full overflow-x-hidden p-4 md:p-6 box-border">
           <div className="flex flex-row justify-between items-center w-full mb-6">
             <h2 className="text-2xl font-bold m-0">📅 হিস্টরি আর্কাইভ</h2>
             <div className="flex justify-end items-center gap-3">
               <label className="text-sm text-[var(--text-secondary)]">মাস:</label>
-              <select 
-                className="form-control w-auto min-w-[150px]" 
+              <select
+                className="form-control w-auto min-w-[150px]"
                 value={selectedMonth}
                 onChange={(e) => { setSelectedMonth(e.target.value); loadMonthData(e.target.value); }}
               >
@@ -199,12 +199,12 @@ const HistoryArchive = () => {
             <div style={{ textAlign: 'center', padding: '3rem' }}>লোড হচ্ছে...</div>
           ) : historyData ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              
+
               {/* The PDF Download Button has been moved into the Official Document Header */}
 
               {/* PDF Content Wrapper */}
               <div id="history-pdf-content" className="font-solaiman" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1.5rem', background: 'var(--bg-primary)' }}>
-                
+
                 {/* Official Document Header */}
                 <div className="w-full flex flex-col md:flex-row items-center justify-center gap-3 md:gap-4 my-6 pb-4 border-b-2 border-[var(--border-color)]">
                   <h1 className="text-xl md:text-2xl font-extrabold text-[var(--accent-blue)] m-0 leading-none">Hexamess</h1>
@@ -212,19 +212,19 @@ const HistoryArchive = () => {
                   <h2 className="text-lg md:text-xl font-bold text-white m-0 leading-none">Monthly Session Report</h2>
                   <span className="text-slate-500 font-bold leading-none hidden md:inline">|</span>
                   <p className="text-sm md:text-base text-slate-400 m-0 leading-none">সেশন: {historyData.month_name}</p>
-                  
+
                   {/* PDF Download Button and Restore Button */}
                   <div data-html2canvas-ignore="true" className="flex gap-2 mt-2 md:mt-0">
-                    <button 
-                      className="btn btn-primary text-sm md:text-base px-4 py-2" 
+                    <button
+                      className="btn btn-primary text-sm md:text-base px-4 py-2"
                       onClick={generatePDF}
                       style={{ background: 'var(--accent-blue)', color: '#000', fontWeight: '600' }}
                     >
                       📥 Download PDF
                     </button>
                     {userRole === 'manager' && (
-                      <button 
-                        className="btn btn-secondary text-sm md:text-base px-4 py-2" 
+                      <button
+                        className="btn btn-secondary text-sm md:text-base px-4 py-2"
                         onClick={handleRestoreSession}
                         style={{ background: 'var(--accent-orange)', color: '#fff', fontWeight: '600', border: 'none' }}
                       >
@@ -237,25 +237,25 @@ const HistoryArchive = () => {
                 {/* Summary Cards */}
                 <div className="w-full grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                   {/* Total Deposit */}
-                  <div className="card glass-card shadow-sm hover:shadow-md transition-shadow" style={{ 
+                  <div className="card glass-card shadow-sm hover:shadow-md transition-shadow" style={{
                     background: 'linear-gradient(135deg, rgba(34,197,94,0.1), rgba(34,197,94,0.02))',
-                    borderTop:'4px solid #22c55e' 
+                    borderTop: '4px solid #22c55e'
                   }}>
                     <p className="text-xs md:text-sm text-[var(--text-secondary)] mb-1 md:mb-2">💵 মোট জমা</p>
                     <p className="text-lg md:text-xl font-extrabold text-[#22c55e]">৳{((historyData.members || []).reduce((sum, member) => sum + (Number(member.deposit) || 0), 0)).toLocaleString()}</p>
                   </div>
                   {/* Market Cost */}
-                  <div className="card glass-card shadow-sm hover:shadow-md transition-shadow" style={{ 
+                  <div className="card glass-card shadow-sm hover:shadow-md transition-shadow" style={{
                     background: 'linear-gradient(135deg, rgba(245,158,11,0.1), rgba(245,158,11,0.02))',
-                    borderTop:'4px solid var(--accent-orange)' 
+                    borderTop: '4px solid var(--accent-orange)'
                   }}>
                     <p className="text-xs md:text-sm text-[var(--text-secondary)] mb-1 md:mb-2">💰 মোট বাজার খরচ</p>
                     <p className="text-lg md:text-xl font-extrabold text-[var(--accent-orange)]">৳{Number(historyData.total_market).toLocaleString()}</p>
                   </div>
                   {/* Cash Balance */}
-                  <div className="card glass-card shadow-sm hover:shadow-md transition-shadow" style={{ 
+                  <div className="card glass-card shadow-sm hover:shadow-md transition-shadow" style={{
                     background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(99,102,241,0.02))',
-                    borderTop:'4px solid #6366f1' 
+                    borderTop: '4px solid #6366f1'
                   }}>
                     <p className="text-xs md:text-sm text-[var(--text-secondary)] mb-1 md:mb-2">🏦 ক্যাশ ব্যালেন্স</p>
                     <p className="text-lg md:text-xl font-extrabold text-[#6366f1]">
@@ -263,17 +263,17 @@ const HistoryArchive = () => {
                     </p>
                   </div>
                   {/* Total Meals */}
-                  <div className="card glass-card shadow-sm hover:shadow-md transition-shadow" style={{ 
+                  <div className="card glass-card shadow-sm hover:shadow-md transition-shadow" style={{
                     background: 'linear-gradient(135deg, rgba(0,209,255,0.1), rgba(0,209,255,0.02))',
-                    borderTop:'4px solid var(--accent-blue)' 
+                    borderTop: '4px solid var(--accent-blue)'
                   }}>
                     <p className="text-xs md:text-sm text-[var(--text-secondary)] mb-1 md:mb-2">🍽️ মোট মিল</p>
                     <p className="text-lg md:text-xl font-extrabold text-[var(--accent-blue)]">{historyData.total_meals}</p>
                   </div>
                   {/* Meal Rate */}
-                  <div className="card glass-card shadow-sm hover:shadow-md transition-shadow" style={{ 
+                  <div className="card glass-card shadow-sm hover:shadow-md transition-shadow" style={{
                     background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(16,185,129,0.02))',
-                    borderTop:'4px solid var(--accent-green)' 
+                    borderTop: '4px solid var(--accent-green)'
                   }}>
                     <p className="text-xs md:text-sm text-[var(--text-secondary)] mb-1 md:mb-2">📉 ফাইনাল মিল রেট</p>
                     <p className="text-lg md:text-xl font-extrabold text-[var(--accent-green)]">৳{historyData.meal_rate}</p>
@@ -282,7 +282,7 @@ const HistoryArchive = () => {
 
                 {/* Member Report */}
                 <div className="card">
-                  <h3 style={{ marginBottom: '1.25rem', display:'flex', alignItems:'center', gap:'0.5rem' }}>📊 মেম্বার ক্লোজিং ব্যালেন্স</h3>
+                  <h3 style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>📊 মেম্বার ক্লোজিং ব্যালেন্স</h3>
                   <div className="w-full overflow-x-auto">
                     <table className="w-full border-collapse text-left text-sm md:text-base">
                       <thead className="bg-slate-50 text-slate-600 uppercase tracking-wider text-xs font-semibold">
@@ -292,13 +292,14 @@ const HistoryArchive = () => {
                           <th className="border-b border-gray-100 px-4 py-3 text-right">Total Meals</th>
                           <th className="border-b border-gray-100 px-4 py-3 text-right">Meal Rate</th>
                           <th className="border-b border-gray-100 px-4 py-3 text-right">Meal Cost</th>
+                          <th className="border-b border-gray-100 px-4 py-3 text-right">Fixed Cost</th>
                           <th className="border-b border-gray-100 px-4 py-3 text-right">Total Cost</th>
                           <th className="border-b border-gray-100 px-4 py-3 text-right">Final Status (Refund/Due)</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white text-slate-700">
                         {historyData.members.map(user => {
-                          const totalCost = user.meal_cost || 0;
+                          const totalCost = (user.meal_cost || 0) + (user.fixed_cost || 0);
                           const isRefund = (user.deposit || 0) >= totalCost;
                           const statusAmount = Math.abs((user.deposit || 0) - totalCost).toFixed(2);
                           const statusText = isRefund ? `+৳${statusAmount} পাবে` : `-৳${statusAmount} দিবে`;
@@ -310,6 +311,7 @@ const HistoryArchive = () => {
                               <td className="px-4 py-3 text-right">{user.meals || 0}</td>
                               <td className="px-4 py-3 text-right">৳{historyData.meal_rate || 0}</td>
                               <td className="px-4 py-3 text-right">৳{user.meal_cost || 0}</td>
+                              <td className="px-4 py-3 text-right font-bold text-[var(--accent-green)]">৳{user.fixed_cost || 0}</td>
                               <td className="px-4 py-3 text-right font-bold text-[var(--accent-orange)]">৳{totalCost.toFixed(2)}</td>
                               <td className="px-4 py-3 text-right">
                                 {isRefund ? (
@@ -359,8 +361,8 @@ const HistoryArchive = () => {
             </div>
           ) : (
             <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-              <p style={{ color:'var(--text-secondary)', marginBottom:'1rem' }}>কোনো আর্কাইভ ডাটা পাওয়া জ্ঞায়নি।</p>
-              <p style={{ fontSize:'0.875rem' }}>ম্যানেজার যখন নতুন মাস শুরু করবেন, তখন চলতি মাসের ডাটা এখানে সংরক্ষিত হবে।</p>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>কোনো আর্কাইভ ডাটা পাওয়া জ্ঞায়নি।</p>
+              <p style={{ fontSize: '0.875rem' }}>ম্যানেজার যখন নতুন মাস শুরু করবেন, তখন চলতি মাসের ডাটা এখানে সংরক্ষিত হবে।</p>
             </div>
           )}
         </div>
