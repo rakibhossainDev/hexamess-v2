@@ -80,22 +80,11 @@ const Settings = () => {
 
       const endDateTime = new Date(endDate).getTime();
 
-      // 2. Filter them in JavaScript using standard Date object comparisons
-      const meals = mealSnap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter(m => getSafeDate(m.date).getTime() <= endDateTime);
-
-      const expenses = expSnap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter(e => getSafeDate(e.date || e.createdAt).getTime() <= endDateTime);
-
-      const fixedCosts = fixedSnap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter(f => getSafeDate(f.date || endDate).getTime() <= endDateTime);
-
-      const deposits = depSnap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter(d => getSafeDate(d.date || endDate).getTime() <= endDateTime);
+      // 2. Fetch all raw arrays completely (No date filtering - full wipe requested)
+      const meals = mealSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const expenses = expSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const fixedCosts = fixedSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const deposits = depSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
       // Aggregation helpers for correct reporting (defaulting to 0)
       const calcMemberMeals = (mId, uName) => meals.filter(m => m.memberId === mId || m.user_id === mId || m.memberId === uName || m.username === uName).reduce((s, m) => s + Number(m.count || 0), 0);
@@ -176,7 +165,7 @@ const Settings = () => {
         });
       });
 
-      // Delete ONLY the documents we archived
+      // Delete ALL the active documents we just archived
       const deleteDocs = (docsList, colName) => {
         docsList.forEach(d => {
           batch.delete(doc(db, colName, d.id));
