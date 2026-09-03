@@ -123,7 +123,7 @@ const MealManagement = () => {
     <div className="fade-in">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       
-      <div className="card glass-card" style={{ marginBottom: '2rem' }}>
+      <div className="card glass-card bg-white border border-slate-100 shadow-sm rounded-xl p-5" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <h2 style={{ color: 'var(--accent-blue)', marginBottom: '0.25rem' }}>
@@ -168,16 +168,16 @@ const MealManagement = () => {
                   <div className="font-semibold text-[var(--text-primary)]">{member.name}</div>
                   <div className="text-xs text-[var(--text-secondary)]">@{member.username}</div>
                 </div>
-                <span className="badge badge-blue whitespace-nowrap text-xs">মোট: {Number(member.total_meals) || 0}</span>
+                <span className="px-3 py-1 text-sm font-semibold bg-blue-100 text-blue-700 rounded-full">{Number(member.total_meals) || 0}</span>
               </div>
               <div className="flex justify-between items-center border-t border-[var(--border-color)] pt-3 mt-1">
                 <span className="text-sm font-medium">আজকের মিল:</span>
                 {isManagerUser ? (
                   <select 
-                    className="form-control" 
+                    className="form-control bg-white border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 block px-4 py-2 shadow-sm cursor-pointer hover:border-emerald-400 transition-all" 
                     value={inputMeals[member.id] || 0}
                     onChange={(e) => handleMealChange(member.id, e.target.value)}
-                    style={{ width: '80px', minHeight: '36px', padding: '0.25rem 0.5rem' }}
+                    style={{ width: '80px' }}
                   >
                     {[0, 1, 2, 3, 4, 5].map(v => (
                       <option key={v} value={v}>{v}</option>
@@ -197,16 +197,16 @@ const MealManagement = () => {
         <div className="hidden md:block table-container">
           <table className="meal-table">
             <thead>
-              <tr>
-                <th>মেম্বার প্রোফাইল</th>
-                <th style={{ textAlign: 'center' }}>মোট মিল (চলমান)</th>
-                <th style={{ textAlign: 'right', width: '150px' }}>মিল ইনপুট</th>
+              <tr className="uppercase tracking-wider text-xs font-semibold text-slate-500 pb-4 border-b border-slate-200">
+                <th className="pb-4">মেম্বার প্রোফাইল</th>
+                <th className="pb-4 text-center">মোট মিল (চলমান)</th>
+                <th className="pb-4 text-right w-[150px]">মিল ইনপুট</th>
               </tr>
             </thead>
             <tbody>
               {activeMembers.map(member => (
-                <tr key={member.id}>
-                  <td>
+                <tr key={member.id} className="py-4 border-b border-slate-100 hover:bg-slate-50 transition-colors duration-150 px-2 rounded-lg">
+                  <td className="py-3">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                       <div className="relative w-12 h-12 md:w-14 md:h-14 min-w-[48px] min-h-[48px] flex-shrink-0">
                         <div className="absolute inset-0 w-12 h-12 md:w-14 md:h-14 min-w-[48px] min-h-[48px] flex-shrink-0 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-300 flex items-center justify-center font-bold">
@@ -227,13 +227,13 @@ const MealManagement = () => {
                       </div>
                     </div>
                   </td>
-                  <td style={{ textAlign: 'center' }}>
-                    <span className="badge badge-blue">মোট: {Number(member.total_meals) || 0}</span>
+                  <td className="py-3 text-center">
+                    <span className="px-3 py-1 text-sm font-semibold bg-blue-100 text-blue-700 rounded-full">{Number(member.total_meals) || 0}</span>
                   </td>
-                  <td style={{ textAlign: 'right' }}>
+                  <td className="py-3 text-right">
                     {isManagerUser ? (
                       <select 
-                        className="form-control" 
+                        className="form-control bg-white border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 block px-4 py-2 shadow-sm cursor-pointer hover:border-emerald-400 transition-all" 
                         value={inputMeals[member.id] || 0}
                         onChange={(e) => handleMealChange(member.id, e.target.value)}
                         style={{ width: '100px', marginLeft: 'auto' }}
