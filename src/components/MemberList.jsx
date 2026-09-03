@@ -8,6 +8,8 @@ const MemberList = () => {
   const [loading, setLoading] = useState(true);
   const [totalBazarAmount, setTotalBazarAmount] = useState(0);
   const [visiblePasswords, setVisiblePasswords] = useState({});
+  const [editingMealUser, setEditingMealUser] = useState(null);
+  const [newTotalMeals, setNewTotalMeals] = useState(0);
   const { toasts, showToast, removeToast } = useToast();
 
   useEffect(() => {
@@ -37,6 +39,19 @@ const MemberList = () => {
       const userRef = doc(db, 'users', id);
       await updateDoc(userRef, { status: currentStatus === 'active' ? 'inactive' : 'active' });
       showToast("ইউজার স্ট্যাটাস আপডেট হয়েছে।", "success");
+    } catch (err) {
+      console.error(err);
+      showToast("আপডেট ব্যর্থ হয়েছে।", "error");
+    }
+  };
+
+  const handleUpdateTotalMeals = async () => {
+    if (!editingMealUser) return;
+    try {
+      const userRef = doc(db, 'users', editingMealUser.id);
+      await updateDoc(userRef, { total_meals: Number(newTotalMeals) });
+      showToast("মোট মিল সফলভাবে আপডেট হয়েছে।", "success");
+      setEditingMealUser(null);
     } catch (err) {
       console.error(err);
       showToast("আপডেট ব্যর্থ হয়েছে।", "error");
@@ -104,9 +119,22 @@ const MemberList = () => {
                     </div>
                   </td>
                   <td style={{ textAlign: 'center' }}>
-                    <span className="badge badge-blue" style={{ fontWeight: '800' }}>
-                      {Number(member.total_meals) || 0} টি
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                      <span className="badge badge-blue" style={{ fontWeight: '800' }}>
+                        {Number(member.total_meals) || 0} টি
+                      </span>
+                      <button 
+                        className="text-blue-500 hover:text-blue-600 transition-colors" 
+                        title="এডিট মিল"
+                        onClick={() => {
+                          setEditingMealUser(member);
+                          setNewTotalMeals(Number(member.total_meals) || 0);
+                        }}
+                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.25rem' }}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                      </button>
+                    </div>
                   </td>
                   <td style={{ textAlign: 'center', fontWeight: 'bold', color: 'var(--accent-green)' }}>
                     ৳{Number(member.total_deposit) || 0}
@@ -151,6 +179,33 @@ const MemberList = () => {
           </table>
         </div>
       </div>
+
+      {editingMealUser && (
+        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
+          <div className="card glass-card w-full max-w-sm fade-in">
+            <h3 className="text-lg font-bold text-[var(--accent-blue)] mb-2">ম্যানুয়াল মিল আপডেট</h3>
+            <p className="text-sm text-[var(--text-secondary)] mb-4">
+              মেম্বার: <span className="font-semibold text-[var(--text-primary)]">{editingMealUser.name}</span>
+            </p>
+            <div className="form-group mb-6">
+              <label className="text-sm font-medium mb-2 block text-left">সর্বমোট মিল (চলমান):</label>
+              <input
+                type="number"
+                className="form-control"
+                value={newTotalMeals}
+                onChange={(e) => setNewTotalMeals(e.target.value)}
+                min="0"
+                step="0.5"
+                style={{ width: '100%', boxSizing: 'border-box' }}
+              />
+            </div>
+            <div className="flex gap-3">
+              <button className="btn btn-secondary flex-1" onClick={() => setEditingMealUser(null)}>বাতিল</button>
+              <button className="btn btn-primary flex-1" onClick={handleUpdateTotalMeals}>সেভ করুন</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
