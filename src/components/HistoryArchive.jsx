@@ -118,16 +118,19 @@ const HistoryArchive = () => {
             const userData = userSnap.data();
             const currentTotalMeals = Number(userData.total_meals) || 0;
             const currentTotalDeposit = Number(userData.total_deposit) || 0;
+            const currentTotalFixed = Number(userData.total_fixed_cost) || 0;
             const currentLifetimeMeals = Number(userData.lifetime_meals) || 0;
 
             const archivedMeals = Number(m.meals) || 0;
             const archivedDeposit = Number(m.deposit) || 0;
+            const archivedFixedCost = Number(m.fixed_cost) || 0;
 
             operations.push({
               ref: doc(db, 'users', String(m.id)),
               data: {
                 total_meals: currentTotalMeals + archivedMeals,
                 total_deposit: currentTotalDeposit + archivedDeposit,
+                total_fixed_cost: currentTotalFixed + archivedFixedCost,
                 lifetime_meals: Math.max(0, currentLifetimeMeals - archivedMeals)
               },
               type: 'update'

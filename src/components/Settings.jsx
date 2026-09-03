@@ -100,6 +100,7 @@ const Settings = () => {
       // Aggregation helpers for correct reporting (defaulting to 0)
       const calcMemberMeals = (mId, uName) => meals.filter(m => m.memberId === mId || m.user_id === mId || m.memberId === uName || m.username === uName).reduce((s, m) => s + Number(m.count || 0), 0);
       const calcMemberDeposit = (mId, uName) => deposits.filter(d => d.memberId === mId || d.user_id === mId || d.memberId === uName || d.username === uName).reduce((s, d) => s + Number(d.amount || 0), 0);
+      const calcMemberFixed = (mId, uName, fullName) => fixedCosts.filter(f => f.memberId === mId || f.user_id === mId || f.memberId === uName || f.username === uName || f.memberName === fullName).reduce((s, f) => s + Number(f.amount || 0), 0);
 
       // 3. Calculate Summaries safely defaulting to 0
       const totalMealsCount = meals.reduce((s, m) => s + Number(m.count || 0), 0);
@@ -113,7 +114,7 @@ const Settings = () => {
       const memberBreakdown = activeMembers.map(m => {
         const mMeals = calcMemberMeals(m.id, m.username);
         const mDeposit = calcMemberDeposit(m.id, m.username);
-        const mFixedCost = Number(m.total_fixed_cost) || 0;
+        const mFixedCost = calcMemberFixed(m.id, m.username, m.name);
         const mealCost = mMeals * Number(mealRate);
         const finalBalance = mDeposit - (mealCost + mFixedCost);
 
@@ -156,12 +157,13 @@ const Settings = () => {
       members.forEach(m => {
         const archivedMeals = calcMemberMeals(m.id, m.username);
         const archivedDeposit = calcMemberDeposit(m.id, m.username);
+        const archivedFixed = calcMemberFixed(m.id, m.username, m.name);
         const lifetime = (Number(m.lifetime_meals) || 0) + archivedMeals;
 
         batch.update(doc(db, 'users', m.id), {
           total_meals: Math.max(0, (Number(m.total_meals) || 0) - archivedMeals),
           total_deposit: Math.max(0, (Number(m.total_deposit) || 0) - archivedDeposit),
-          total_fixed_cost: 0,
+          total_fixed_cost: Math.max(0, (Number(m.total_fixed_cost) || 0) - archivedFixed),
           lifetime_meals: lifetime
         });
       });
