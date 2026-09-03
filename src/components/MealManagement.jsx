@@ -55,9 +55,10 @@ const MealManagement = () => {
 
   // 3. Real-time Date-specific Sync (Pre-fill dropdowns)
   useEffect(() => {
-    if (!db || !docIdDate) return;
+    if (!db || !selectedDate) return;
 
-    const q = query(collection(db, 'daily_meals'), where('date', '==', docIdDate));
+    // Use selectedDate (YYYY-MM-DD) for the date query as it's the standard format for sorting
+    const q = query(collection(db, 'daily_meals'), where('date', '==', selectedDate));
     
     const unsubSelectedDate = onSnapshot(q, (snap) => {
       if (snap.empty) {
@@ -76,7 +77,7 @@ const MealManagement = () => {
     });
 
     return () => unsubSelectedDate();
-  }, [docIdDate]);
+  }, [selectedDate]);
 
   const activeMembers = useMemo(() => members.filter(m => m.status === 'active'), [members]);
   const currentTotal = useMemo(() => Object.values(inputMeals).reduce((s, v) => s + v, 0), [inputMeals]);
@@ -101,7 +102,7 @@ const MealManagement = () => {
 
         batch.set(mealRef, {
           memberId: member.id,
-          date: docIdDate,      // DD-MM-YYYY
+          date: selectedDate,      // YYYY-MM-DD for correct sorting in MemberDashboard
           monthYear: monthYear, // MM-YYYY
           count: count,
           updatedAt: serverTimestamp()
