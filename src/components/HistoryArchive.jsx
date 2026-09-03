@@ -36,10 +36,7 @@ const HistoryArchive = () => {
         const snap = await getDocs(collection(db, 'histories'));
         const uniqueMonths = snap.docs.map(d => d.id).sort().reverse();
         setMonths(uniqueMonths);
-        if (uniqueMonths.length > 0) {
-          setSelectedMonth(uniqueMonths[0]);
-          loadMonthData(uniqueMonths[0]);
-        }
+        // Do not auto-load the first month. Wait for user selection.
       } catch (err) { console.error(err); }
     };
     fetchAvailableMonths();
@@ -161,13 +158,8 @@ const HistoryArchive = () => {
       const snap = await getDocs(collection(db, 'histories'));
       const uniqueMonths = snap.docs.map(d => d.id).sort().reverse();
       setMonths(uniqueMonths);
-      if (uniqueMonths.length > 0) {
-        setSelectedMonth(uniqueMonths[0]);
-        loadMonthData(uniqueMonths[0]);
-      } else {
-        setSelectedMonth('');
-        setHistoryData(null);
-      }
+      setSelectedMonth('');
+      setHistoryData(null);
 
     } catch (error) {
       console.error("Error restoring session:", error);
@@ -192,13 +184,18 @@ const HistoryArchive = () => {
                 value={selectedMonth}
                 onChange={(e) => { setSelectedMonth(e.target.value); loadMonthData(e.target.value); }}
               >
-                {months.length === 0 && <option value="">কোনো রেকর্ড নেই</option>}
+                <option value="" disabled>মাস নির্বাচন করুন...</option>
+                {months.length === 0 && <option value="" disabled>কোনো রেকর্ড নেই</option>}
                 {months.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
             </div>
           </div>
 
-          {loading ? (
+          {!selectedMonth ? (
+            <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: '1.1rem' }}>দয়া করে উপরের মেনু থেকে একটি মাস নির্বাচন করুন।</p>
+            </div>
+          ) : loading ? (
             <div style={{ textAlign: 'center', padding: '3rem' }}>লোড হচ্ছে...</div>
           ) : historyData ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
