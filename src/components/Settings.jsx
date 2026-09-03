@@ -36,7 +36,12 @@ const Settings = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [sessionNameToArchive, setSessionNameToArchive] = useState('');
+  const [visiblePasswords, setVisiblePasswords] = useState({});
   const { toasts, showToast, removeToast } = useToast();
+
+  const togglePassword = (id) => {
+    setVisiblePasswords(prev => ({ ...prev, [id]: !prev[id] }));
+  };
 
   useEffect(() => {
     if (!db) return;
@@ -233,6 +238,63 @@ const Settings = () => {
           >
             {isProcessing ? 'প্রসেসিং হচ্ছে...' : 'নতুন সেশন শুরু করুন'}
           </button>
+        </div>
+      </div>
+
+      {/* Users Login Credentials Section */}
+      <div className="card glass-card">
+        <h2 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1.5rem' }}>🔐 ইউজার লগইন ক্রেডেনশিয়ালস</h2>
+        <div className="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>মেম্বার নাম</th>
+                <th>ইউজারনেম</th>
+                <th>পাসওয়ার্ড</th>
+              </tr>
+            </thead>
+            <tbody>
+              {members.length === 0 ? (
+                <tr>
+                  <td colSpan="3" style={{ textAlign: 'center', padding: '2rem' }}>লোড হচ্ছে...</td>
+                </tr>
+              ) : (
+                members.map(member => (
+                  <tr key={member.id}>
+                    <td style={{ fontWeight: '600' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div className="relative w-10 h-10 min-w-[40px] min-h-[40px] flex-shrink-0">
+                          <div className="absolute inset-0 w-10 h-10 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-300 flex items-center justify-center font-bold">
+                            {member.name.charAt(0)}
+                          </div>
+                          {member.photoURL && (
+                            <img 
+                              src={member.photoURL} 
+                              alt={member.name} 
+                              className="absolute inset-0 w-10 h-10 rounded-full object-cover border border-cyan-500 z-10 bg-[var(--surface-color)]" 
+                              onError={(e) => e.target.style.display = 'none'}
+                            />
+                          )}
+                        </div>
+                        {member.name}
+                      </div>
+                    </td>
+                    <td>@{member.username}</td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '0.875rem' }}>
+                          {visiblePasswords[member.id] ? member.password : '••••••••'}
+                        </span>
+                        <button className="icon-btn" onClick={() => togglePassword(member.id)} style={{ fontSize: '0.75rem', cursor: 'pointer', background: 'transparent', border: 'none' }}>
+                          {visiblePasswords[member.id] ? '🔒' : '👁️'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
