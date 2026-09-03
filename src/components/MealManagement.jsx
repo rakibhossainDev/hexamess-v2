@@ -92,46 +92,50 @@ const MealManagement = () => {
     setSaving(true);
     
     try {
-      // 1. Fetch the exact previous state for this date first
-      const prevQuery = query(collection(db, 'daily_meals'), where('date', '==', selectedDate));
-      const prevSnap = await getDocs(prevQuery);
-      const previousData = {};
-      prevSnap.docs.forEach(d => {
-        const data = d.data();
-        if (data.memberId) {
-          previousData[data.memberId] = Number(data.count || 0);
-        }
-      });
-
-      const batch = writeBatch(db);
+      // 1. Save the new meal inputs to daily_meals first
+      const mealBatch = writeBatch(db);
       
       activeMembers.forEach(member => {
         const newMeal = Number(inputMeals[member.id] || 0);
-        const oldMeal = Number(previousData[member.id] || 0);
-        const diff = newMeal - oldMeal;
         
         // UNIFIED ID PATTERN: ${memberId}_${DD-MM-YYYY}
         const mealDocId = `${member.id}_${docIdDate}`;
         const mealRef = doc(db, 'daily_meals', mealDocId);
 
-        // Update the daily document
-        batch.set(mealRef, {
+        mealBatch.set(mealRef, {
           memberId: member.id,
           date: selectedDate,      // YYYY-MM-DD for correct sorting in MemberDashboard
           monthYear: monthYear, // MM-YYYY
           count: newMeal,
           updatedAt: serverTimestamp()
         }, { merge: true });
+      });
 
-        // Safely increment the user's running total if it changed
-        if (diff !== 0) {
-          batch.update(doc(db, 'users', member.id), {
-            total_meals: increment(diff)
-          });
+      await mealBatch.commit();
+
+      // 2. Fetch ALL daily meals to recalculate absolute truth
+      const allMealsSnap = await getDocs(collection(db, 'daily_meals'));
+      const calculatedTotals = {};
+      
+      allMealsSnap.docs.forEach(d => {
+        const data = d.data();
+        if (data.memberId) {
+          calculatedTotals[data.memberId] = (calculatedTotals[data.memberId] || 0) + Number(data.count || 0);
         }
       });
 
-      await batch.commit();
+      // 3. Update Users Collection with Absolute Totals
+      const userBatch = writeBatch(db);
+      
+      activeMembers.forEach(member => {
+        const absoluteTotal = calculatedTotals[member.id] || 0;
+        userBatch.update(doc(db, 'users', member.id), {
+          total_meals: absoluteTotal
+        });
+      });
+
+      await userBatch.commit();
+
       showToast("তথ্য সেভ হয়েছে, বস!", "success");
     } catch (error) {
       console.error("Save Error:", error);
