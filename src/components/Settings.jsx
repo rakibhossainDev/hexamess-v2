@@ -70,40 +70,32 @@ const Settings = () => {
       setIsProcessing(true);
       const newMonthName = sessionNameToArchive;
 
-      // 1. Fetch ALL current data FIRST without complex where() queries
-      const [mealSnap, expSnap, fixedSnap, depSnap] = await Promise.all([
+      // STAGE 1: FETCH EVERYTHING FIRST (Do not modify anything yet)
+      const [usersSnap, mealSnap, expSnap, fixedSnap, depSnap] = await Promise.all([
+        getDocs(collection(db, 'users')),
         getDocs(collection(db, 'daily_meals')),
         getDocs(collection(db, 'bazar_records')),
         getDocs(collection(db, 'fixed_expenses')),
         getDocs(collection(db, 'deposits'))
       ]);
 
-      const endDateTime = new Date(endDate).getTime();
-
-      // 2. Fetch all raw arrays completely (No date filtering - full wipe requested)
+      const archivedUsers = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       const meals = mealSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       const expenses = expSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       const fixedCosts = fixedSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       const deposits = depSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-      // Aggregation helpers for correct reporting (defaulting to 0)
-      const calcMemberMeals = (mId, uName) => meals.filter(m => m.memberId === mId || m.user_id === mId || m.memberId === uName || m.username === uName).reduce((s, m) => s + Number(m.count || 0), 0);
-      const calcMemberDeposit = (mId, uName) => deposits.filter(d => d.memberId === mId || d.user_id === mId || d.memberId === uName || d.username === uName).reduce((s, d) => s + Number(d.amount || 0), 0);
-      const calcMemberFixed = (mId, uName, fullName) => fixedCosts.filter(f => f.memberId === mId || f.user_id === mId || f.memberId === uName || f.username === uName || f.memberName === fullName).reduce((s, f) => s + Number(f.amount || 0), 0);
-
-      // 3. Calculate Summaries safely defaulting to 0
+      // Calculate Summaries for the History Report
       const totalMealsCount = meals.reduce((s, m) => s + Number(m.count || 0), 0);
       const totalMarket = expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
       const totalFixed = fixedCosts.reduce((s, f) => s + Number(f.amount || 0), 0);
       const mealRate = totalMealsCount === 0 ? 0 : (totalMarket / totalMealsCount).toFixed(2);
 
-      const activeMembers = members.filter(m => m.status === 'active' || calcMemberMeals(m.id, m.username) > 0);
-
-      // Calculate Per Member Breakdown
-      const memberBreakdown = activeMembers.map(m => {
-        const mMeals = calcMemberMeals(m.id, m.username);
-        const mDeposit = calcMemberDeposit(m.id, m.username);
-        const mFixedCost = calcMemberFixed(m.id, m.username, m.name);
+      // Create member breakdown using the EXACT values from the active users collection snapshot
+      const memberBreakdown = archivedUsers.map(m => {
+        const mMeals = Number(m.total_meals) || 0;
+        const mDeposit = Number(m.total_deposit) || 0;
+        const mFixedCost = Number(m.total_fixed_cost) || 0;
         const mealCost = mMeals * Number(mealRate);
         const finalBalance = mDeposit - (mealCost + mFixedCost);
 
@@ -118,20 +110,11 @@ const Settings = () => {
         };
       });
 
-      // Create exact snapshot of active user balances for strict restore
-      const usersSnapshot = members.map(m => ({
-        id: m.id,
-        name: m.name,
-        total_meals: Number(m.total_meals) || 0,
-        total_deposit: Number(m.total_deposit) || 0,
-        total_fixed_cost: Number(m.total_fixed_cost) || 0
-      }));
-
-      // 4. Save to `histories` collection
+      // STAGE 2: SAVE TO HISTORY (Wait for completion)
       const { setDoc } = await import('../utils/firebase');
       const sessionDocId = newMonthName.trim();
 
-      await setDoc(doc(db, 'histories', sessionDocId), {
+      const historyData = {
         month_id: sessionDocId,
         session_name: sessionDocId,
         month_name: sessionDocId,
@@ -142,22 +125,25 @@ const Settings = () => {
         meal_rate: Number(mealRate),
         archived_at: new Date().toISOString(),
         members: memberBreakdown,
-        users_snapshot: usersSnapshot,
+        users_snapshot: archivedUsers, // Crucial for perfect restoration
         expenses: expenses,
         fixed_costs: fixedCosts,
         meals: meals,
         deposits: deposits
-      });
+      };
 
-      // 5. Database Cleanup & Member Reset
+      // Wait securely until all data is safely archived in the history collection
+      await setDoc(doc(db, 'histories', sessionDocId), historyData);
+
+      // STAGE 3: RESET ACTIVE STATE (Only after safe archive)
       const batch = writeBatch(db);
 
-      // Reset members intelligently (Strict Reset to 0 as requested)
-      members.forEach(m => {
-        const archivedMeals = calcMemberMeals(m.id, m.username);
-        const lifetime = (Number(m.lifetime_meals) || 0) + archivedMeals;
+      // 1. Loop through all active users and reset their fields to exactly 0
+      usersSnap.docs.forEach(userDoc => {
+        const userData = userDoc.data();
+        const lifetime = (Number(userData.lifetime_meals) || 0) + (Number(userData.total_meals) || 0);
 
-        batch.update(doc(db, 'users', m.id), {
+        batch.update(userDoc.ref, {
           total_meals: 0,
           total_deposit: 0,
           total_fixed_cost: 0,
@@ -165,17 +151,17 @@ const Settings = () => {
         });
       });
 
-      // Delete ALL the active documents we just archived
-      const deleteDocs = (docsList, colName) => {
-        docsList.forEach(d => {
-          batch.delete(doc(db, colName, d.id));
+      // 2. Loop through all fetched documents from the active transactional collections and delete them
+      const deleteDocs = (snap) => {
+        snap.docs.forEach(d => {
+          batch.delete(d.ref);
         });
       };
 
-      deleteDocs(meals, 'daily_meals');
-      deleteDocs(expenses, 'bazar_records');
-      deleteDocs(fixedCosts, 'fixed_expenses');
-      deleteDocs(deposits, 'deposits');
+      deleteDocs(mealSnap);
+      deleteDocs(expSnap);
+      deleteDocs(fixedSnap);
+      deleteDocs(depSnap);
 
       // 6. Update config (using setDoc with merge to prevent crashes if config doesn't exist)
       const newMonthId = newMonthName.toLowerCase().replace(/ /g, '_');
