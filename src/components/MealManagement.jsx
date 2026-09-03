@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
-  db, collection, doc, onSnapshot, query, where, writeBatch, serverTimestamp
+  db, collection, doc, onSnapshot, query, where, writeBatch, serverTimestamp, increment, getDocs
 } from '../utils/firebase';
 import { getTodayDateString, formatDisplayDate } from '../utils/monthUtils';
 import { useToast } from '../hooks/useToast';
@@ -86,27 +86,49 @@ const MealManagement = () => {
     setInputMeals(prev => ({ ...prev, [memberId]: Number(value) }));
   };
 
-  // 4. Unified Save Operation
+  // 4. Unified Save Operation with Global Total Sync
   const handleSaveAll = async () => {
     if (!db || saving) return;
     setSaving(true);
-    const batch = writeBatch(db);
     
     try {
+      // 1. Fetch the exact previous state for this date first
+      const prevQuery = query(collection(db, 'daily_meals'), where('date', '==', selectedDate));
+      const prevSnap = await getDocs(prevQuery);
+      const previousData = {};
+      prevSnap.docs.forEach(d => {
+        const data = d.data();
+        if (data.memberId) {
+          previousData[data.memberId] = Number(data.count || 0);
+        }
+      });
+
+      const batch = writeBatch(db);
+      
       activeMembers.forEach(member => {
-        const count = Number(inputMeals[member.id] || 0);
+        const newMeal = Number(inputMeals[member.id] || 0);
+        const oldMeal = Number(previousData[member.id] || 0);
+        const diff = newMeal - oldMeal;
         
         // UNIFIED ID PATTERN: ${memberId}_${DD-MM-YYYY}
         const mealDocId = `${member.id}_${docIdDate}`;
         const mealRef = doc(db, 'daily_meals', mealDocId);
 
+        // Update the daily document
         batch.set(mealRef, {
           memberId: member.id,
           date: selectedDate,      // YYYY-MM-DD for correct sorting in MemberDashboard
           monthYear: monthYear, // MM-YYYY
-          count: count,
+          count: newMeal,
           updatedAt: serverTimestamp()
         }, { merge: true });
+
+        // Safely increment the user's running total if it changed
+        if (diff !== 0) {
+          batch.update(doc(db, 'users', member.id), {
+            total_meals: increment(diff)
+          });
+        }
       });
 
       await batch.commit();
