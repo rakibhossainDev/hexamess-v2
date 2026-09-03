@@ -129,6 +129,15 @@ const Settings = () => {
         };
       });
 
+      // Create exact snapshot of active user balances for strict restore
+      const usersSnapshot = members.map(m => ({
+        id: m.id,
+        name: m.name,
+        total_meals: Number(m.total_meals) || 0,
+        total_deposit: Number(m.total_deposit) || 0,
+        total_fixed_cost: Number(m.total_fixed_cost) || 0
+      }));
+
       // 4. Save to `histories` collection
       const { setDoc } = await import('../utils/firebase');
       const sessionDocId = newMonthName.trim();
@@ -144,6 +153,7 @@ const Settings = () => {
         meal_rate: Number(mealRate),
         archived_at: new Date().toISOString(),
         members: memberBreakdown,
+        users_snapshot: usersSnapshot,
         expenses: expenses,
         fixed_costs: fixedCosts,
         meals: meals,
@@ -153,17 +163,15 @@ const Settings = () => {
       // 5. Database Cleanup & Member Reset
       const batch = writeBatch(db);
 
-      // Reset members intelligently
+      // Reset members intelligently (Strict Reset to 0 as requested)
       members.forEach(m => {
         const archivedMeals = calcMemberMeals(m.id, m.username);
-        const archivedDeposit = calcMemberDeposit(m.id, m.username);
-        const archivedFixed = calcMemberFixed(m.id, m.username, m.name);
         const lifetime = (Number(m.lifetime_meals) || 0) + archivedMeals;
 
         batch.update(doc(db, 'users', m.id), {
-          total_meals: Math.max(0, (Number(m.total_meals) || 0) - archivedMeals),
-          total_deposit: Math.max(0, (Number(m.total_deposit) || 0) - archivedDeposit),
-          total_fixed_cost: Math.max(0, (Number(m.total_fixed_cost) || 0) - archivedFixed),
+          total_meals: 0,
+          total_deposit: 0,
+          total_fixed_cost: 0,
           lifetime_meals: lifetime
         });
       });

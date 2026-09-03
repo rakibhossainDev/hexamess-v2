@@ -107,27 +107,21 @@ const HistoryArchive = () => {
         });
       }
 
-      // 5. Restore member balances in users collection
-      if (historyData.members && Array.isArray(historyData.members)) {
-        for (const m of historyData.members) {
-          const userSnap = await getDoc(doc(db, 'users', String(m.id)));
-          if (userSnap.exists()) {
-            const userData = userSnap.data();
-            const currentTotalMeals = Number(userData.total_meals) || 0;
-            const currentTotalDeposit = Number(userData.total_deposit) || 0;
-            const currentTotalFixed = Number(userData.total_fixed_cost) || 0;
+      // 5. Restore member balances exactly as they were captured in the snapshot
+      if (historyData.users_snapshot && Array.isArray(historyData.users_snapshot)) {
+        for (const snap of historyData.users_snapshot) {
+          const userDoc = await getDoc(doc(db, 'users', String(snap.id)));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
             const currentLifetimeMeals = Number(userData.lifetime_meals) || 0;
-
-            const archivedMeals = Number(m.meals) || 0;
-            const archivedDeposit = Number(m.deposit) || 0;
-            const archivedFixedCost = Number(m.fixed_cost) || 0;
+            const archivedMeals = Number(snap.total_meals) || 0;
 
             operations.push({
-              ref: doc(db, 'users', String(m.id)),
+              ref: doc(db, 'users', String(snap.id)),
               data: {
-                total_meals: currentTotalMeals + archivedMeals,
-                total_deposit: currentTotalDeposit + archivedDeposit,
-                total_fixed_cost: currentTotalFixed + archivedFixedCost,
+                total_meals: Number(snap.total_meals) || 0,
+                total_deposit: Number(snap.total_deposit) || 0,
+                total_fixed_cost: Number(snap.total_fixed_cost) || 0,
                 lifetime_meals: Math.max(0, currentLifetimeMeals - archivedMeals)
               },
               type: 'update'
