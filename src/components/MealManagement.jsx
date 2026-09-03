@@ -193,65 +193,71 @@ const MealManagement = () => {
           ))}
         </div>
 
-        {/* Desktop View (Table) */}
-        <div className="hidden md:block table-container">
-          <table className="meal-table">
-            <thead>
-              <tr className="uppercase tracking-wider text-xs font-semibold text-slate-500 pb-4 border-b border-slate-200">
-                <th className="pb-4">মেম্বার প্রোফাইল</th>
-                <th className="pb-4 text-center">মোট মিল (চলমান)</th>
-                <th className="pb-4 text-right w-[150px]">মিল ইনপুট</th>
-              </tr>
-            </thead>
-            <tbody>
-              {activeMembers.map(member => (
-                <tr key={member.id} className="py-4 border-b border-slate-100 hover:bg-slate-50 transition-colors duration-150 px-2 rounded-lg">
-                  <td className="py-3">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <div className="relative w-12 h-12 md:w-14 md:h-14 min-w-[48px] min-h-[48px] flex-shrink-0">
-                        <div className="absolute inset-0 w-12 h-12 md:w-14 md:h-14 min-w-[48px] min-h-[48px] flex-shrink-0 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-300 flex items-center justify-center font-bold">
-                          {member.name.charAt(0)}
-                        </div>
-                        {member.photoURL && (
-                          <img 
-                            src={member.photoURL} 
-                            alt={member.name} 
-                            className="absolute inset-0 w-12 h-12 md:w-14 md:h-14 min-w-[48px] min-h-[48px] flex-shrink-0 rounded-full object-cover border border-cyan-500 z-10 bg-[var(--surface-color)]" 
-                            onError={(e) => e.target.style.display = 'none'}
-                          />
-                        )}
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: '600' }}>{member.name}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>@{member.username}</div>
-                      </div>
+        {/* Desktop View (Grid Layout) */}
+        <div className="hidden md:block w-full max-w-5xl mx-auto">
+          {/* Header Row */}
+          <div className="grid grid-cols-12 gap-4 items-center w-full uppercase tracking-wider text-xs font-semibold text-slate-500 pb-4 border-b border-slate-200 px-2">
+            <div className="col-span-6">মেম্বার প্রোফাইল</div>
+            <div className="col-span-3 text-center">মোট মিল (চলমান)</div>
+            <div className="col-span-3 flex justify-end">মিল ইনপুট</div>
+          </div>
+
+          {/* Member Rows */}
+          <div className="flex flex-col mt-2">
+            {activeMembers.map(member => (
+              <div key={member.id} className="grid grid-cols-12 gap-4 items-center w-full py-4 border-b border-slate-100 hover:bg-slate-50 transition-colors duration-150 px-2 rounded-lg">
+                
+                {/* Profile Section */}
+                <div className="col-span-6 flex items-center gap-3">
+                  <div className="relative w-12 h-12 md:w-14 md:h-14 min-w-[48px] min-h-[48px] flex-shrink-0">
+                    <div className="absolute inset-0 w-12 h-12 md:w-14 md:h-14 min-w-[48px] min-h-[48px] flex-shrink-0 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-300 flex items-center justify-center font-bold">
+                      {member.name.charAt(0)}
                     </div>
-                  </td>
-                  <td className="py-3 text-center">
-                    <span className="px-3 py-1 text-sm font-semibold bg-blue-100 text-blue-700 rounded-full">{Number(member.total_meals) || 0}</span>
-                  </td>
-                  <td className="py-3 text-right">
-                    {isManagerUser ? (
-                      <select 
-                        className="form-control bg-white border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 block px-4 py-2 shadow-sm cursor-pointer hover:border-emerald-400 transition-all" 
-                        value={inputMeals[member.id] || 0}
-                        onChange={(e) => handleMealChange(member.id, e.target.value)}
-                        style={{ width: '100px', marginLeft: 'auto' }}
-                      >
-                        {[0, 1, 2, 3, 4, 5].map(v => (
-                          <option key={v} value={v}>{v}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="badge badge-orange" style={{ fontSize: '0.9rem', padding: '0.25rem 0.75rem', fontWeight: 'bold' }}>
-                        {inputMeals[member.id] || 0} টি
-                      </span>
+                    {member.photoURL && (
+                      <img 
+                        src={member.photoURL} 
+                        alt={member.name} 
+                        className="absolute inset-0 w-12 h-12 md:w-14 md:h-14 min-w-[48px] min-h-[48px] flex-shrink-0 rounded-full object-cover border border-cyan-500 z-10 bg-[var(--surface-color)]" 
+                        onError={(e) => e.target.style.display = 'none'}
+                      />
                     )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+                  <div>
+                    <div className="font-semibold">{member.name}</div>
+                    <div className="text-xs text-[var(--text-secondary)]">@{member.username}</div>
+                  </div>
+                </div>
+
+                {/* Total Meals Section */}
+                <div className="col-span-3 flex justify-center">
+                  <span className="px-3 py-1 text-sm font-semibold bg-blue-100 text-blue-700 rounded-full">
+                    {Number(member.total_meals) || 0}
+                  </span>
+                </div>
+
+                {/* Meal Input Section */}
+                <div className="col-span-3 flex justify-end">
+                  {isManagerUser ? (
+                    <select 
+                      className="form-control bg-white border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 block px-4 py-2 shadow-sm cursor-pointer hover:border-emerald-400 transition-all" 
+                      value={inputMeals[member.id] || 0}
+                      onChange={(e) => handleMealChange(member.id, e.target.value)}
+                      style={{ width: '100px' }}
+                    >
+                      {[0, 1, 2, 3, 4, 5].map(v => (
+                        <option key={v} value={v}>{v}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="badge badge-orange" style={{ fontSize: '0.9rem', padding: '0.25rem 0.75rem', fontWeight: 'bold' }}>
+                      {inputMeals[member.id] || 0} টি
+                    </span>
+                  )}
+                </div>
+
+              </div>
+            ))}
+          </div>
         </div>
 
         <div style={{ 
