@@ -85,18 +85,19 @@ const Settings = () => {
       const fixedCosts = fixedSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       const deposits = depSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-      // Calculate Summaries for the History Report
-      const totalMealsCount = meals.reduce((s, m) => s + Number(m.count || 0), 0);
-      const totalMarket = expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
-      const totalFixed = fixedCosts.reduce((s, f) => s + Number(f.amount || 0), 0);
-      const mealRate = totalMealsCount === 0 ? 0 : (totalMarket / totalMealsCount).toFixed(2);
+      // Explicit Aggregation for Global Metrics (Calculated from User Snapshots to respect manual overrides)
+      const calcTotalMeals = archivedUsers.reduce((sum, u) => sum + Number(u.total_meals || 0), 0);
+      const calcTotalDeposit = archivedUsers.reduce((sum, u) => sum + Number(u.total_deposit || 0), 0);
+      const calcTotalFixed = archivedUsers.reduce((sum, u) => sum + Number(u.total_fixed_cost || 0), 0);
+      const calcTotalExpense = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+      const calcMealRate = calcTotalMeals > 0 ? (calcTotalExpense / calcTotalMeals) : 0;
 
       // Create member breakdown using the EXACT values from the active users collection snapshot
       const memberBreakdown = archivedUsers.map(m => {
         const mMeals = Number(m.total_meals) || 0;
         const mDeposit = Number(m.total_deposit) || 0;
         const mFixedCost = Number(m.total_fixed_cost) || 0;
-        const mealCost = mMeals * Number(mealRate);
+        const mealCost = mMeals * calcMealRate;
         const finalBalance = mDeposit - (mealCost + mFixedCost);
 
         return {
@@ -119,10 +120,12 @@ const Settings = () => {
         session_name: sessionDocId,
         month_name: sessionDocId,
         end_date: endDate,
-        total_market: totalMarket,
-        total_fixed: totalFixed,
-        total_meals: totalMealsCount,
-        meal_rate: Number(mealRate),
+        total_market: calcTotalExpense,
+        total_expense: calcTotalExpense, // explicitly requested by user
+        total_fixed: calcTotalFixed,
+        total_meals: calcTotalMeals,
+        total_deposit: calcTotalDeposit, // explicitly requested by user
+        meal_rate: Number(calcMealRate.toFixed(2)),
         archived_at: new Date().toISOString(),
         members: memberBreakdown,
         users_snapshot: archivedUsers, // Crucial for perfect restoration
